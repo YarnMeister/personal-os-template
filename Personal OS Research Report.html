@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal OS for Product Operations — Research Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --color-bg:#f7f6f2;
+  --color-surface:#f9f8f5;
+  --color-surface-2:#fbfbf9;
+  --color-surface-offset:#f0ede8;
+  --color-divider:#dcd9d5;
+  --color-border:#d4d1ca;
+  --color-text:#28251d;
+  --color-text-muted:#6b6960;
+  --color-text-faint:#b0aea9;
+  --color-primary:#01696f;
+  --color-primary-hover:#0c4e54;
+  --color-primary-highlight:#d4e6e4;
+  --color-accent:#8b4513;
+  --color-accent-light:#f5e8de;
+  --color-warning-bg:#fdf3e3;
+  --color-tag-blue:#1a4a7a;
+  --color-tag-blue-bg:#ddeaf7;
+  --color-tag-green:#1a5a3a;
+  --color-tag-green-bg:#d4edd8;
+  --color-tag-orange:#8b4513;
+  --color-tag-orange-bg:#f5e8de;
+  --color-tag-purple:#5a2d8c;
+  --color-tag-purple-bg:#ede0f5;
+  --shadow-sm:0 1px 3px rgba(40,37,29,0.06);
+  --shadow-md:0 4px 16px rgba(40,37,29,0.08);
+  --shadow-lg:0 12px 40px rgba(40,37,29,0.12);
+  --radius-sm:0.375rem;
+  --radius-md:0.5rem;
+  --radius-lg:0.75rem;
+  --radius-xl:1rem;
+  --font-display:"DM Serif Display",Georgia,serif;
+  --font-body:"DM Sans","Helvetica Neue",sans-serif;
+  --text-xs:clamp(0.75rem,0.7rem + 0.25vw,0.875rem);
+  --text-sm:clamp(0.875rem,0.8rem + 0.35vw,1rem);
+  --text-base:clamp(1rem,0.95rem + 0.25vw,1.125rem);
+  --text-lg:clamp(1.125rem,1rem + 0.75vw,1.5rem);
+  --text-xl:clamp(1.5rem,1.2rem + 1.25vw,2.25rem);
+  --text-2xl:clamp(2rem,1.2rem + 2.5vw,3.5rem);
+  --space-1:0.25rem;--space-2:0.5rem;--space-3:0.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;--space-20:5rem;
+}
+[data-theme="dark"]{
+  --color-bg:#171614;--color-surface:#1c1b19;--color-surface-2:#201f1d;
+  --color-surface-offset:#1d1c1a;--color-divider:#262523;--color-border:#393836;
+  --color-text:#cdccca;--color-text-muted:#7a7876;--color-text-faint:#5a5957;
+  --color-primary:#4f98a3;--color-primary-hover:#227f8b;--color-primary-highlight:#1e3b3d;
+  --color-accent:#c8844a;--color-accent-light:#3a2a1a;
+  --color-warning-bg:#2a2010;
+  --color-tag-blue:#5588cc;--color-tag-blue-bg:#1a2a3d;
+  --color-tag-green:#55aa77;--color-tag-green-bg:#1a2d22;
+  --color-tag-orange:#c8844a;--color-tag-orange-bg:#2d1e0e;
+  --color-tag-purple:#9966cc;--color-tag-purple-bg:#251535;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.3);
+  --shadow-lg:0 12px 40px rgba(0,0,0,0.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth;scroll-padding-top:5rem}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);color:var(--color-text);background:var(--color-bg);line-height:1.65}
+img{display:block;max-width:100%;height:auto}
+ul[role="list"],ol[role="list"]{list-style:none}
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;line-height:1.15}
+p,li{text-wrap:pretty;max-width:72ch}
+a{color:var(--color-primary);text-decoration:none}
+a:hover{color:var(--color-primary-hover);text-decoration:underline}
+:focus-visible{outline:2px solid var(--color-primary);outline-offset:3px;border-radius:var(--radius-sm)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+
+/* LAYOUT */
+.site-header{position:sticky;top:0;z-index:100;background:var(--color-surface);border-bottom:1px solid var(--color-divider);box-shadow:var(--shadow-sm)}
+.header-inner{max-width:1200px;margin-inline:auto;padding:var(--space-3) var(--space-6);display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.logo-wrap{display:flex;align-items:center;gap:var(--space-3);text-decoration:none;color:var(--color-text)}
+.logo-icon{width:36px;height:36px;flex-shrink:0}
+.logo-text{font-family:var(--font-display);font-size:var(--text-sm);font-weight:400;letter-spacing:0.01em;max-width:240px;line-height:1.3;color:var(--color-text)}
+.header-controls{display:flex;align-items:center;gap:var(--space-3)}
+.theme-toggle{width:36px;height:36px;border-radius:var(--radius-full,9999px);border:1px solid var(--color-border);background:var(--color-surface-2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--color-text-muted);transition:background 180ms ease,color 180ms ease}
+.theme-toggle:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.radius-full{border-radius:9999px}
+.nav-pills{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.nav-pill{font-size:var(--text-xs);padding:var(--space-1) var(--space-3);border-radius:9999px;background:var(--color-surface-offset);color:var(--color-text-muted);border:1px solid transparent;cursor:pointer;transition:all 180ms ease;white-space:nowrap}
+.nav-pill:hover,.nav-pill.active{background:var(--color-primary-highlight);color:var(--color-primary);border-color:var(--color-primary-highlight)}
+
+.hero{background:var(--color-surface);border-bottom:1px solid var(--color-divider);padding:var(--space-16) var(--space-6) var(--space-12)}
+.hero-inner{max-width:960px;margin-inline:auto}
+.hero-eyebrow{font-size:var(--text-xs);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--color-primary);margin-bottom:var(--space-4)}
+.hero-title{font-family:var(--font-display);font-size:var(--text-2xl);line-height:1.1;color:var(--color-text);margin-bottom:var(--space-5)}
+.hero-title em{font-style:italic;color:var(--color-primary)}
+.hero-meta{display:flex;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-8)}
+.meta-item{font-size:var(--text-xs);color:var(--color-text-muted);display:flex;align-items:center;gap:var(--space-2)}
+.meta-dot{width:4px;height:4px;border-radius:50%;background:var(--color-divider)}
+
+/* EXEC SUMMARY BOX */
+.exec-summary{background:var(--color-primary);color:#fff;border-radius:var(--radius-xl);padding:var(--space-8);margin-bottom:var(--space-12);box-shadow:var(--shadow-lg)}
+.exec-summary h2{font-family:var(--font-display);font-size:var(--text-lg);color:#fff;margin-bottom:var(--space-4);font-weight:400}
+.exec-summary p{color:rgba(255,255,255,0.9);max-width:none;margin-bottom:var(--space-3)}
+.exec-summary p:last-child{margin-bottom:0}
+.rec-badge{display:inline-flex;align-items:center;gap:var(--space-2);background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:var(--radius-md);padding:var(--space-2) var(--space-4);font-size:var(--text-sm);font-weight:600;color:#fff;margin-top:var(--space-4)}
+
+/* MAIN CONTENT */
+.main-content{max-width:960px;margin-inline:auto;padding:var(--space-12) var(--space-6) var(--space-20)}
+
+/* SECTION */
+.section{margin-bottom:var(--space-16)}
+.section-label{font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-faint);margin-bottom:var(--space-3)}
+.section-title{font-family:var(--font-display);font-size:var(--text-xl);color:var(--color-text);margin-bottom:var(--space-6);line-height:1.2}
+.section-intro{font-size:var(--text-base);color:var(--color-text-muted);margin-bottom:var(--space-8);max-width:68ch;line-height:1.7}
+
+/* DIVIDER */
+.section-divider{border:none;border-top:1px solid var(--color-divider);margin:var(--space-16) 0}
+
+/* CARDS */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:var(--space-5)}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-6);box-shadow:var(--shadow-sm);transition:box-shadow 180ms ease,transform 180ms ease}
+.card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.card-header{display:flex;align-items:flex-start;gap:var(--space-3);margin-bottom:var(--space-4)}
+.card-icon{width:40px;height:40px;border-radius:var(--radius-md);background:var(--color-primary-highlight);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem}
+.card-title{font-family:var(--font-display);font-size:var(--text-base);color:var(--color-text);line-height:1.3;font-weight:400}
+.card-subtitle{font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px}
+.card-body{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.65;margin-bottom:var(--space-4)}
+.card-body p{max-width:none}
+.card-tags{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.tag{font-size:var(--text-xs);padding:2px var(--space-3);border-radius:9999px;font-weight:500;letter-spacing:.01em}
+.tag-green{color:var(--color-tag-green);background:var(--color-tag-green-bg)}
+.tag-orange{color:var(--color-tag-orange);background:var(--color-tag-orange-bg)}
+.tag-blue{color:var(--color-tag-blue);background:var(--color-tag-blue-bg)}
+.tag-purple{color:var(--color-tag-purple);background:var(--color-tag-purple-bg)}
+.tag-neutral{color:var(--color-text-muted);background:var(--color-surface-offset)}
+
+/* PROS/CONS */
+.pro-con{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-3)}
+.pro-list,.con-list{padding:var(--space-3);border-radius:var(--radius-md);font-size:var(--text-xs)}
+.pro-list{background:var(--color-tag-green-bg)}
+.con-list{background:var(--color-tag-orange-bg)}
+.pro-list-title{font-weight:600;color:var(--color-tag-green);margin-bottom:var(--space-2);display:flex;align-items:center;gap:4px}
+.con-list-title{font-weight:600;color:var(--color-tag-orange);margin-bottom:var(--space-2);display:flex;align-items:center;gap:4px}
+.pro-list ul,.con-list ul{list-style:disc;padding-left:var(--space-4)}
+.pro-list li,.con-list li{color:var(--color-text);line-height:1.5;margin-bottom:2px;max-width:none}
+
+/* SCORECARD TABLE */
+.scorecard-wrap{overflow-x:auto;margin-bottom:var(--space-8)}
+.scorecard{width:100%;border-collapse:collapse;font-size:var(--text-xs)}
+.scorecard thead tr{background:var(--color-surface-offset);border-bottom:2px solid var(--color-border)}
+.scorecard th{padding:var(--space-3) var(--space-4);text-align:left;font-size:var(--text-xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-muted);white-space:nowrap}
+.scorecard td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-divider);color:var(--color-text);vertical-align:middle;line-height:1.4}
+.scorecard tbody tr:hover{background:var(--color-surface-offset)}
+.scorecard tbody tr.rec-row{background:var(--color-primary-highlight)}
+.scorecard tbody tr.rec-row td{font-weight:500}
+.score-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;flex-shrink:0}
+.score-cell{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.score-5{color:#1a5a3a}.score-4{color:#2d7a4a}.score-3{color:#8b6914}.score-2{color:#8b4513}.score-1{color:#8b1a1a}
+.score-5 .score-dot{background:#2ecc71}.score-4 .score-dot{background:#82c341}.score-3 .score-dot{background:#e6b800}.score-2 .score-dot{background:#e07020}.score-1 .score-dot{background:#e04040}
+
+/* RECOMMENDATION SPOTLIGHT */
+.rec-spotlight{background:var(--color-surface);border:2px solid var(--color-primary);border-radius:var(--radius-xl);padding:var(--space-8);margin:var(--space-8) 0;box-shadow:var(--shadow-md)}
+.rec-spotlight-label{font-size:var(--text-xs);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--color-primary);margin-bottom:var(--space-3)}
+.rec-spotlight h3{font-family:var(--font-display);font-size:var(--text-lg);color:var(--color-text);margin-bottom:var(--space-4);line-height:1.2}
+
+/* STEP LIST */
+.step-list{counter-reset:steps;display:flex;flex-direction:column;gap:var(--space-4)}
+.step-item{display:grid;grid-template-columns:40px 1fr;gap:var(--space-4);align-items:start}
+.step-num{counter-increment:steps;width:40px;height:40px;border-radius:50%;background:var(--color-primary);color:#fff;font-family:var(--font-display);font-size:var(--text-base);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-content h4{font-family:var(--font-display);font-size:var(--text-base);color:var(--color-text);margin-bottom:var(--space-2);font-weight:400}
+.step-content p{font-size:var(--text-sm);color:var(--color-text-muted);max-width:none;line-height:1.65}
+.step-content code{font-family:monospace;font-size:0.85em;background:var(--color-surface-offset);padding:1px 6px;border-radius:4px;color:var(--color-text)}
+
+/* CALLOUT */
+.callout{border-left:3px solid var(--color-primary);background:var(--color-primary-highlight);padding:var(--space-4) var(--space-5);border-radius:0 var(--radius-md) var(--radius-md) 0;margin:var(--space-5) 0}
+.callout-warn{border-left-color:var(--color-accent);background:var(--color-accent-light)}
+.callout p{font-size:var(--text-sm);color:var(--color-text);max-width:none;line-height:1.65}
+.callout strong{color:var(--color-primary)}
+.callout-warn strong{color:var(--color-accent)}
+
+/* CODE BLOCK */
+.code-block{background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);margin:var(--space-4) 0;overflow-x:auto}
+.code-block pre{font-family:"SF Mono","Fira Code",monospace;font-size:0.8em;line-height:1.6;color:var(--color-text);white-space:pre}
+.code-block .code-label{font-size:var(--text-xs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)}
+
+/* FILE TREE */
+.file-tree{background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);font-family:"SF Mono","Fira Code",monospace;font-size:0.85em;line-height:1.8;color:var(--color-text)}
+.file-tree .dir{color:var(--color-primary);font-weight:600}
+.file-tree .file{color:var(--color-text)}
+.file-tree .comment{color:var(--color-text-muted);font-style:italic}
+
+/* INNOVATION TABLE */
+.innovation-grid{display:flex;flex-direction:column;gap:var(--space-3)}
+.innovation-row{display:grid;grid-template-columns:140px 1fr;gap:var(--space-4);align-items:start;padding:var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md)}
+.innovation-tier{display:flex;flex-direction:column;gap:var(--space-2)}
+.tier-label{font-size:var(--text-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tier-standard .tier-label{color:var(--color-tag-green)}
+.tier-emerging .tier-label{color:var(--color-tag-blue)}
+.tier-frontier .tier-label{color:var(--color-tag-purple)}
+.tier-brand{font-size:var(--text-xs);color:var(--color-text-muted);padding:2px var(--space-2);background:var(--color-surface-offset);border-radius:var(--radius-sm)}
+.innovation-content h4{font-size:var(--text-sm);font-weight:600;color:var(--color-text);margin-bottom:var(--space-2)}
+.innovation-content p{font-size:var(--text-sm);color:var(--color-text-muted);max-width:none;line-height:1.6}
+
+/* RISK TABLE */
+.risk-grid{display:flex;flex-direction:column;gap:var(--space-3)}
+.risk-item{padding:var(--space-4) var(--space-5);background:var(--color-surface);border-left:3px solid transparent;border-radius:0 var(--radius-md) var(--radius-md) 0;border-right:1px solid var(--color-border);border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}
+.risk-high{border-left-color:#e04040}
+.risk-med{border-left-color:#e07020}
+.risk-low{border-left-color:#82c341}
+.risk-header{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2)}
+.risk-label{font-size:var(--text-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px var(--space-2);border-radius:var(--radius-sm)}
+.risk-label-high{color:#e04040;background:rgba(224,64,64,.1)}
+.risk-label-med{color:#e07020;background:rgba(224,112,32,.1)}
+.risk-label-low{color:#82c341;background:rgba(130,195,65,.1)}
+.risk-title{font-size:var(--text-sm);font-weight:600;color:var(--color-text)}
+.risk-body{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.65;max-width:none}
+.risk-mitigation{font-size:var(--text-xs);margin-top:var(--space-2);color:var(--color-primary);font-style:italic}
+
+/* TWO COLUMN */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5)}
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)}
+
+/* INLINE LIST */
+.inline-checklist{list-style:none;display:flex;flex-direction:column;gap:var(--space-2);margin:var(--space-4) 0}
+.inline-checklist li{display:flex;align-items:flex-start;gap:var(--space-3);font-size:var(--text-sm);color:var(--color-text)}
+.check-icon{width:18px;height:18px;border-radius:50%;background:var(--color-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.check-icon svg{width:10px;height:10px;stroke:#fff;stroke-width:2.5;fill:none}
+
+/* PILL GRID */
+.pill-grid{display:flex;flex-wrap:wrap;gap:var(--space-2);margin:var(--space-4) 0}
+.pill{font-size:var(--text-xs);padding:var(--space-2) var(--space-3);border-radius:9999px;background:var(--color-surface-offset);border:1px solid var(--color-border);color:var(--color-text-muted);font-weight:500}
+
+/* FOOTER */
+.site-footer{background:var(--color-surface);border-top:1px solid var(--color-divider);padding:var(--space-8) var(--space-6);text-align:center}
+.site-footer p{font-size:var(--text-xs);color:var(--color-text-muted)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .header-inner{padding:var(--space-3) var(--space-4)}
+  .nav-pills{display:none}
+  .hero{padding:var(--space-10) var(--space-4) var(--space-8)}
+  .main-content{padding:var(--space-8) var(--space-4) var(--space-16)}
+  .two-col,.three-col,.card-grid{grid-template-columns:1fr}
+  .pro-con{grid-template-columns:1fr}
+  .innovation-row{grid-template-columns:1fr}
+  .scorecard{font-size:0.7rem}
+  .scorecard th,.scorecard td{padding:var(--space-2) var(--space-3)}
+  .exec-summary{padding:var(--space-5)}
+  .hero-title{font-size:clamp(1.8rem,6vw,3rem)}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#top" class="logo-wrap">
+      <svg class="logo-icon" viewBox="0 0 36 36" fill="none" aria-label="Personal OS logo">
+        <rect width="36" height="36" rx="8" fill="#01696f"/>
+        <rect x="8" y="8" width="8" height="8" rx="2" fill="rgba(255,255,255,0.9)"/>
+        <rect x="20" y="8" width="8" height="8" rx="2" fill="rgba(255,255,255,0.55)"/>
+        <rect x="8" y="20" width="8" height="8" rx="2" fill="rgba(255,255,255,0.55)"/>
+        <rect x="20" y="20" width="8" height="8" rx="2" fill="rgba(255,255,255,0.9)"/>
+      </svg>
+      <span class="logo-text">Personal OS for Product Operations</span>
+    </a>
+    <div class="header-controls">
+      <nav class="nav-pills" aria-label="Sections">
+        <button class="nav-pill" onclick="scrollTo('landscape')">Landscape</button>
+        <button class="nav-pill" onclick="scrollTo('approaches')">Approaches</button>
+        <button class="nav-pill" onclick="scrollTo('recommended')">Recommended</button>
+        <button class="nav-pill" onclick="scrollTo('innovation')">Innovation</button>
+        <button class="nav-pill" onclick="scrollTo('ux')">UX</button>
+        <button class="nav-pill" onclick="scrollTo('technical')">Technical</button>
+        <button class="nav-pill" onclick="scrollTo('replication')">Replication</button>
+        <button class="nav-pill" onclick="scrollTo('risks')">Risks</button>
+        <button class="nav-pill" onclick="scrollTo('addendum')">Addendum</button>
+      </nav>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">Deep Research Brief</div>
+    <h1 class="hero-title">Personal OS for<br><em>Product Operations</em></h1>
+    <div class="hero-meta">
+      <span class="meta-item">Agentic Knowledge Management in VS Code</span>
+      <span class="meta-dot"></span>
+      <span class="meta-item">Non-technical first · MCP-native · Replication-ready</span>
+      <span class="meta-dot"></span>
+      <span class="meta-item">June 2026</span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+
+<!-- EXECUTIVE SUMMARY -->
+<div class="exec-summary" id="exec">
+  <h2>Executive Summary</h2>
+  <p>The core problem — scattered markdown, repeated context lookups, no structured memory — is real and solvable. The good news: you don't need to invent anything. A small cluster of open-source projects and emerging community patterns has already converged on a workable architecture. The bad news: most documented examples are built for developers using the Claude Code CLI, which is explicitly out of scope here. The adaptation work is genuine but tractable.</p>
+  <p><strong>The recommendation</strong> is a <strong>Layered Context Engineering approach</strong> — a three-tier markdown file hierarchy (Constitution → Living Memory → Project Brains) combined with SKILL.md-based workflows, stored in a GitHub-backed repository, surfaced through VS Code's native AI chat. This pattern works with any AI assistant embedded in VS Code (Copilot, Codeium, Continue.dev, etc.), requires zero custom code, and is already partially documented in the community.</p>
+  <p>The central design tension — capability vs. simplicity for non-technical users — resolves in favour of simplicity at every decision point. A system that gets used by 8 out of 10 team members at 60% depth beats a sophisticated system used by 2 out of 10 at full depth. Build the floor before the ceiling.</p>
+  <div class="rec-badge">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    Recommended: Layered Context Engineering — 3-tier markdown + SKILL.md + GitHub versioning
+  </div>
+</div>
+
+<!-- ─── SECTION 1: LANDSCAPE ─── -->
+<section class="section" id="landscape">
+  <div class="section-label">Section 01</div>
+  <h2 class="section-title">Landscape Scan</h2>
+  <p class="section-intro">Eight comparable systems — profiled for what they do well, where they fall short, and what can be borrowed for a non-technical enterprise context. The four starting-point references are anchors; the broader scan covers the open-source and practitioner landscape as of mid-2026.</p>
+
+  <div class="card-grid">
+
+    <!-- Card 1: PersonalOS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🏠</div>
+        <div>
+          <div class="card-title">PersonalOS (Aman Khan)</div>
+          <div class="card-subtitle">github.com/amanaiproduct/personal-os · ⭐ 452</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>The closest open-source analogue to what this brief describes. A folder-based task and knowledge system using <code>AGENTS.md</code>, <code>GOALS.md</code>, <code>BACKLOG.md</code>, and a <code>Knowledge/</code> directory. Works with any AI assistant that reads instruction files. The <a href="https://github.com/amanaiproduct/personal-os" target="_blank" rel="noopener">setup.sh</a> script runs in 2 minutes and scaffolds the folder structure interactively — the closest thing to a "non-technical install wizard" currently available.</p>
+        <p><strong>What's borrowed:</strong> BACKLOG.md brain-dump inbox pattern; GOALS.md-driven prioritisation; modular Knowledge/ folder; the concept of session evals to improve AI interactions over time.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Zero code to maintain</li><li>Accessible setup (2 min)</li><li>Works with any AI</li><li>AGENTS.md native</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>No SKILL.md workflows</li><li>Individual not team-oriented</li><li>No MCP integration docs</li><li>Task-focused; limited KM depth</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-green">Non-technical friendly</span>
+        <span class="tag tag-blue">VS Code native</span>
+      </div>
+    </div>
+
+    <!-- Card 2: Lenny Skills -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🎯</div>
+        <div>
+          <div class="card-title">Lenny's Product Skills (RefoundAI)</div>
+          <div class="card-subtitle">github.com/RefoundAI/lenny-skills · ⭐ 943 · 125k installs</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>86 product management skills — including <code>product-operations</code>, <code>stakeholder-alignment</code>, <code>prioritizing-roadmap</code>, and <code>cross-functional-collaboration</code> — distilled from 100+ Lenny's Podcast episodes. Each skill is a <code>SKILL.md</code> file with expert-backed frameworks and prompts. Installation via <code>npx skills add RefoundAI/lenny-skills</code>. As of April 2026, VS Code's GitHub Copilot agent mode reads SKILL.md files natively, making this directly applicable without CLI dependency.</p>
+        <p><strong>What's borrowed:</strong> The SKILL.md file format and "progressive disclosure" structure (frontmatter description → body → referenced sub-files); the idea of pre-packaging domain expertise as an agent skill rather than a prompt.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Product-domain specific</li><li>High install base (signal of quality)</li><li>Works in VS Code Copilot</li><li>MIT licensed, forkable</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Designed for Claude Code CLI</li><li>No memory/context layer</li><li>Skills are atomic; no orchestration</li><li>No enterprise/team sharing model</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-blue">Primary reference</span>
+        <span class="tag tag-green">Directly reusable</span>
+      </div>
+    </div>
+
+    <!-- Card 3: Peter Yang AI Advisor Skill -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🧠</div>
+        <div>
+          <div class="card-title">Peter Yang — AI Advisor Skill System</div>
+          <div class="card-subtitle">YouTube: "Build AI Advisor" (Jun 2026) · creatoreconomy.so</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>The most instructive practitioner example of the SKILL.md + context file pattern applied to knowledge work (vs. code). Five files: <code>SKILL.md</code> (advisor behaviour), <code>plan.md</code> (goals, principles, energy), <code>learnings.md</code> (accumulates insights across sessions), <code>eval.md</code> (quality checklist AI runs before advising). The "learnings.md as changelog of AI knowledge" is the closest analogue to automatic memory persistence without infrastructure.</p>
+        <p><strong>What's borrowed:</strong> The learnings.md accumulation pattern; eval.md quality gates; plan.md as a structured context anchor; the principle that SKILL.md defines behaviour and other files hold context — they are deliberately separate.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Self-improving memory loop</li><li>Quality eval checklist built in</li><li>No infrastructure needed</li><li>Works in any AI assistant</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Personal use framing</li><li>No team sharing model</li><li>Manual curation required</li><li>Learnings.md can bloat over time</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-blue">Primary reference</span>
+        <span class="tag tag-orange">Adapt for enterprise</span>
+      </div>
+    </div>
+
+    <!-- Card 4: Moritz Kremb ClaudeOS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">⚙️</div>
+        <div>
+          <div class="card-title">Moritz Kremb — ClaudeOS / Claudia</div>
+          <div class="card-subtitle">YouTube: "Automate Your Life" (May 2026) · joinagentos.com</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>The most architecturally complete practitioner example. Core files: <code>CLAUDE.md</code> (master instructions, imports all other files), <code>user.md</code> (personal context), <code>tools.md</code> (every MCP/CLI tool catalogued), <code>memory.md</code> + daily memory folder (compressed nightly via routine), identity/soul file (tone/personality). Introduces <strong>tools.md</strong> as a deliberate registry — every time a new tool is added, the instruction "add this to tools.md" keeps the AI aware of its full capability surface.</p>
+        <p><strong>What's borrowed:</strong> tools.md as a capability registry; the nightly memory compression routine; separating identity/soul from context; the CLAUDE.md as a hub that imports other files rather than holding everything.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Most architecturally mature</li><li>tools.md pattern is unique</li><li>Modular file imports</li><li>Memory loop battle-tested</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Built for Claude Code CLI</li><li>Technical user assumed</li><li>No team/sharing model</li><li>Routine features are CLI-specific</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-blue">Primary reference</span>
+        <span class="tag tag-orange">Adapt architecture</span>
+      </div>
+    </div>
+
+    <!-- Card 5: BMAD Method -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🔄</div>
+        <div>
+          <div class="card-title">BMAD Method</div>
+          <div class="card-subtitle">docs.bmad-method.org · bmad-code-org/BMAD-METHOD</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>The agentic workflow system you're already using for software development. BMAD structures work into 4 phases (Discover → Design → Develop → Deploy), with each phase producing markdown artifacts that inform the next. Agents are defined as YAML source files compiling to markdown. The workflow-map.md is the master orchestrator. <strong>For knowledge work adaptation:</strong> the phase-to-artifact chain works well; the YAML-compiled-to-markdown agent definition is unnecessarily technical for non-engineers.</p>
+        <p><strong>Verdict on fit:</strong> BMAD is the right pattern for <em>structured project work</em> (writing a strategy doc, running a discovery process), but is over-engineered for day-to-day knowledge management. Use BMAD-style workflow files for specific repeatable processes; use a lighter system for ambient context and daily work.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Phase-to-artifact chain is proven</li><li>Already in your workflow</li><li>Excellent for structured projects</li><li>Multi-IDE support</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>YAML compilation step is technical</li><li>No ambient/daily KM layer</li><li>Over-engineered for lightweight work</li><li>Software dev framing throughout</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-purple">Partially applicable</span>
+        <span class="tag tag-neutral">Adapt selectively</span>
+      </div>
+    </div>
+
+    <!-- Card 6: Foam -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🗺️</div>
+        <div>
+          <div class="card-title">Foam — VS Code Knowledge Graph</div>
+          <div class="card-subtitle">foamnotes.com · VS Code extension</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>A VS Code-native PKM extension adding wikilinks (<code>[[double brackets]]</code>), backlinks, graph visualisation, daily notes, and note templates. As of 2026, Foam exposes the knowledge graph via MCP — agents traverse wikilinks rather than doing flat file search. This is the structural linking layer missing from pure-markdown approaches. Foam is free, GitHub-backed, and non-proprietary.</p>
+        <p><strong>What's borrowed:</strong> Wikilink syntax for cross-referencing (trivially adopted in any markdown setup without the extension); the idea of a graph-queryable knowledge base as an MCP tool; daily notes as a capture ritual.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>VS Code native, no new app</li><li>MCP-enabled graph traversal</li><li>Plain markdown files (portable)</li><li>Non-technical UX (wikilinks)</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Extension install required</li><li>Graph queries add complexity</li><li>No agent skill / memory layer</li><li>Less mature MCP tooling</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-green">Complementary layer</span>
+        <span class="tag tag-blue">Optional add-on</span>
+      </div>
+    </div>
+
+    <!-- Card 7: Tom Solid myPKA / ICOR -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📐</div>
+        <div>
+          <div class="card-title">Tom Solid — myPKA / ICOR Methodology</div>
+          <div class="card-subtitle">myicor.com · TomSolid/myPKA · YouTube: "Claude + VS Code"</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>The fourth anchor reference. Tom's myPKA is a "folder with a 4-person AI team baked in" — plain markdown on disk, implementing the ICOR (Input → Control → Output → Refine) methodology. Covers PKM, task management, project management, and business knowledge management across 4 quadrants. The VS Code + Claude video demonstrates daily use: opening the PKA folder, running parallel sessions, mobile access via the Claude app. No vendor lock-in, no database.</p>
+        <p><strong>ICOR vs. PARA:</strong> PARA is a filing system; ICOR is a full productivity operating system including task management, team coordination, and AI automation. For enterprise product ops, ICOR's BKM (Business Knowledge Management) quadrant is the right lens.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>End-to-end methodology</li><li>BKM quadrant fits enterprise</li><li>Vendor agnostic by design</li><li>Strong daily workflow model</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Some setup uses Claude Code CLI</li><li>4-agent team is complex for beginners</li><li>Course/community is paid</li><li>Limited published templates</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-blue">Primary reference</span>
+        <span class="tag tag-green">Methodology fit: high</span>
+      </div>
+    </div>
+
+    <!-- Card 8: Roo/Cline Memory Bank Pattern -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">💾</div>
+        <div>
+          <div class="card-title">Roo Code / Memory Bank Pattern</div>
+          <div class="card-subtitle">Community pattern · enescingoz/roo-advanced-memory-bank</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>An open-source pattern for structured persistent memory — originally for coding assistants, but the file architecture is directly applicable to knowledge work. Five files: <code>projectbrief.md</code> (stable vision), <code>productContext.md</code> (user/work context), <code>activeContext.md</code> (current focus, updated every session), <code>systemPatterns.md</code> (conventions and standards), <code>progress.md</code> (current status and open questions). This "seven-file memory bank" is the most documented file-based memory architecture in the community.</p>
+        <p><strong>What's borrowed:</strong> The separation of stable (rarely updated) vs. volatile (updated every session) context files; <code>activeContext.md</code> as a "where were we?" file that massively reduces session-start overhead.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list">
+          <div class="pro-list-title">✓ Strengths</div>
+          <ul><li>Well-documented file architecture</li><li>Separates stable vs. volatile context</li><li>Works with any AI assistant</li><li>Solves "where were we?" problem</li></ul>
+        </div>
+        <div class="con-list">
+          <div class="con-list-title">✗ Gaps</div>
+          <ul><li>Code-project framing</li><li>No skill/workflow layer</li><li>Manual maintenance required</li><li>No sharing/versioning model</li></ul>
+        </div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)">
+        <span class="tag tag-green">Directly adaptable</span>
+        <span class="tag tag-neutral">Architecture reference</span>
+      </div>
+    </div>
+
+  </div><!-- end card-grid -->
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 2: APPROACHES & TRADEOFFS ─── -->
+<section class="section" id="approaches">
+  <div class="section-label">Section 02</div>
+  <h2 class="section-title">Approaches &amp; Tradeoffs</h2>
+  <p class="section-intro">Five distinct approaches to building a VS Code–native Personal OS for a non-technical user. Evaluated on cost, complexity, non-technical fit, memory persistence, and team replicability.</p>
+
+  <!-- SCORECARD -->
+  <div class="scorecard-wrap">
+    <table class="scorecard">
+      <thead>
+        <tr>
+          <th>Approach</th>
+          <th>Non-Tech Fit</th>
+          <th>Memory Persistence</th>
+          <th>Team Replicability</th>
+          <th>MCP Integration</th>
+          <th>Cost</th>
+          <th>Maintenance Load</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>A. Single flat CLAUDE.md / copilot-instructions.md</strong></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td><span class="score-cell score-2"><span class="score-dot"></span>Low</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td>Free</td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very Low</span></td>
+        </tr>
+        <tr class="rec-row">
+          <td><strong>B. Layered Context Engineering (3-tier)</strong> ✦ Recommended</td>
+          <td><span class="score-cell score-4"><span class="score-dot"></span>High</span></td>
+          <td><span class="score-cell score-4"><span class="score-dot"></span>High</span></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td>Free</td>
+          <td><span class="score-cell score-4"><span class="score-dot"></span>Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>C. BMAD-style workflow agent system</strong></td>
+          <td><span class="score-cell score-2"><span class="score-dot"></span>Low</span></td>
+          <td><span class="score-cell score-4"><span class="score-dot"></span>High</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-4"><span class="score-dot"></span>High</span></td>
+          <td>Free</td>
+          <td><span class="score-cell score-2"><span class="score-dot"></span>High</span></td>
+        </tr>
+        <tr>
+          <td><strong>D. Foam + MCP graph layer</strong></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td>Free</td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+        </tr>
+        <tr>
+          <td><strong>E. External tool-backed (Notion/Obsidian + AI bridge)</strong></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td><span class="score-cell score-5"><span class="score-dot"></span>Very High</span></td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+          <td><span class="score-cell score-2"><span class="score-dot"></span>Low</span></td>
+          <td>$8–16/mo</td>
+          <td><span class="score-cell score-3"><span class="score-dot"></span>Medium</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- APPROACH DETAILS -->
+  <div class="card-grid">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--color-surface-offset)">A</div>
+        <div>
+          <div class="card-title">Single Flat Instruction File</div>
+          <div class="card-subtitle">One file: CLAUDE.md or copilot-instructions.md</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>One instruction file at the workspace root. Everything the AI needs to know — persona, context, rules, project background — in a single markdown document. VS Code reads <code>CLAUDE.md</code>, <code>AGENTS.md</code>, and <code>.github/copilot-instructions.md</code> as always-on instruction files. <code>AGENTS.md</code> is the cross-tool standard (Codex, Aider, most OSS agents support it); Copilot reads it when <code>chat.useAgentsMdFile</code> is enabled. The recommended pattern: keep <code>AGENTS.md</code> as the canonical file, with <code>CLAUDE.md</code> containing a single <code>@AGENTS.md</code> import — one source of truth that all tools read. Zero setup beyond creating the file.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list"><div class="pro-list-title">✓ Pros</div><ul><li>Zero learning curve</li><li>Works instantly</li><li>100% portable</li></ul></div>
+        <div class="con-list"><div class="con-list-title">✗ Cons</div><ul><li>Context window bloat over time</li><li>No memory persistence</li><li>Becomes unmanageable at scale</li></ul></div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)"><span class="tag tag-green">V0 starting point</span></div>
+    </div>
+
+    <div class="card" style="border:2px solid var(--color-primary)">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--color-primary);color:#fff">B</div>
+        <div>
+          <div class="card-title">Layered Context Engineering ✦</div>
+          <div class="card-subtitle">3-tier markdown hierarchy + SKILL.md + GitHub</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p><strong>Tier 1: Constitution</strong> (~200 lines, always loaded) — who you are, how you work, routing rules pointing to everything else. <strong>Tier 2: Living Memory</strong> (~50 lines) — corrections, learnings, gotchas accumulated across sessions. <strong>Tier 3: Project Brains</strong> — one deep-context file per active project/area. Skills layer on top: one SKILL.md per repeatable workflow (stakeholder-alignment, writing-prds, etc.). All stored in GitHub; shared across team as a git submodule.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list"><div class="pro-list-title">✓ Pros</div><ul><li>Scales without bloat</li><li>Works with any VS Code AI</li><li>Team-shareable via GitHub</li><li>No code/infra required</li></ul></div>
+        <div class="con-list"><div class="con-list-title">✗ Cons</div><ul><li>Requires initial setup (~1 hour)</li><li>Memory curation is manual</li><li>Discipline required for updates</li></ul></div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)"><span class="tag tag-blue">Recommended</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--color-surface-offset)">C</div>
+        <div>
+          <div class="card-title">BMAD-Style Workflow Agents</div>
+          <div class="card-subtitle">YAML agent definitions → markdown workflows</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>Adapts BMAD's phase-artifact chain for knowledge work — e.g. Discover → Draft → Review → Archive. Each phase produces a structured markdown artifact. Works well for processes that repeat and have clear inputs/outputs. The YAML compilation step is a barrier for non-technical users; substitute plain markdown agent definitions instead.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list"><div class="pro-list-title">✓ Pros</div><ul><li>Structured for complex work</li><li>Builds on existing BMAD knowledge</li><li>Phase artifacts create history</li></ul></div>
+        <div class="con-list"><div class="con-list-title">✗ Cons</div><ul><li>Technical maintenance burden</li><li>Over-engineered for daily KM</li><li>YAML is non-technical barrier</li></ul></div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)"><span class="tag tag-orange">Use selectively</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--color-surface-offset)">D</div>
+        <div>
+          <div class="card-title">Foam + MCP Graph Layer</div>
+          <div class="card-subtitle">VS Code extension + MCP-exposed knowledge graph</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>Adds the Foam VS Code extension to the base markdown system. Foam exposes the wikilink graph via MCP, allowing AI agents to traverse related notes rather than doing flat search. Graph visualisation provides cognitive map of the knowledge base. The extension installs in 2 clicks and works with plain markdown — it's purely additive.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list"><div class="pro-list-title">✓ Pros</div><ul><li>Genuinely useful graph queries</li><li>Additive — doesn't replace anything</li><li>Wikilinks are intuitive for non-tech</li></ul></div>
+        <div class="con-list"><div class="con-list-title">✗ Cons</div><ul><li>Extension dependency</li><li>Graph traversal can be slow on large vaults</li><li>MCP graph tools still maturing</li></ul></div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)"><span class="tag tag-green">Optional add-on</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--color-surface-offset)">E</div>
+        <div>
+          <div class="card-title">External Tool-Backed</div>
+          <div class="card-subtitle">Notion / Obsidian + AI bridge (out of scope for this brief)</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p>Using Notion, Obsidian, or another dedicated KM tool as the primary store, with VS Code AI reading exported context. Eliminates the "unruly markdown files" problem by design but introduces platform dependency, potential data privacy concerns in enterprise, and breaks the VS Code-native MCP-first constraint. <strong>Out of scope but worth noting:</strong> Obsidian + local AI via MCP is the current Obsidian community approach for those who want a richer graph UI.</p>
+      </div>
+      <div class="pro-con">
+        <div class="pro-list"><div class="pro-list-title">✓ Pros</div><ul><li>Best non-technical UX</li><li>Rich formatting/views</li><li>Strong mobile access</li></ul></div>
+        <div class="con-list"><div class="con-list-title">✗ Cons</div><ul><li>Platform dependency/cost</li><li>Enterprise data policy risk</li><li>Breaks VS Code-native constraint</li></ul></div>
+      </div>
+      <div class="card-tags" style="margin-top:var(--space-3)"><span class="tag tag-neutral">Out of scope</span></div>
+    </div>
+
+  </div><!-- end card-grid -->
+
+  <div class="callout" style="margin-top:var(--space-8)">
+    <p><strong>Why Approach B wins:</strong> It's the only approach that satisfies all four hard constraints simultaneously — works with any VS Code AI assistant (not Claude Code CLI), no custom code, non-technical maintainable, and shareable via GitHub. It also has the best documented precedent in the community (the "layered CLAUDE.md" pattern described by dev.to/runaway_ideas and the memory architecture documented at contextpatterns.com). The key insight: keep Tier 1 under 200 lines — anything longer signals that content belongs in a lower tier.</p>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 3: RECOMMENDED APPROACH ─── -->
+<section class="section" id="recommended">
+  <div class="section-label">Section 03</div>
+  <h2 class="section-title">Recommended Approach<br>In-Depth</h2>
+  <p class="section-intro">Layered Context Engineering — a three-tier markdown hierarchy + SKILL.md workflows + GitHub versioning. Here's how to build it, what goes where, and how to maintain it.</p>
+
+  <div class="rec-spotlight">
+    <div class="rec-spotlight-label">Architecture Overview</div>
+    <h3>The Three-Tier Model</h3>
+    <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-5)">Each tier answers a different question. Tier 1 is always loaded. Tiers 2 and 3 are loaded on demand or via explicit reference. Skills are loaded by the AI when a matching task is detected.</p>
+    <div class="file-tree">
+<span class="dir">personal-os/</span>
+├── <span class="file">CLAUDE.md</span>               <span class="comment">← Tier 1: Constitution (auto-loaded by VS Code)</span>
+├── <span class="file">AGENTS.md</span>               <span class="comment">← Alias / same content (Copilot reads AGENTS.md)</span>
+├── <span class="dir">memory/</span>
+│   ├── <span class="file">learnings.md</span>         <span class="comment">← Tier 2: Living Memory (AI appends each session)</span>
+│   ├── <span class="file">decisions.md</span>         <span class="comment">← Key decisions log (auto-updated)</span>
+│   └── <span class="file">tools.md</span>             <span class="comment">← MCP/tool capability registry</span>
+├── <span class="dir">context/</span>
+│   ├── <span class="file">me.md</span>                <span class="comment">← Who I am, how I work, org context</span>
+│   ├── <span class="file">org.md</span>               <span class="comment">← Team structure, key stakeholders, priorities</span>
+│   └── <span class="file">active.md</span>            <span class="comment">← Tier 2: Active sprint / current focus</span>
+├── <span class="dir">projects/</span>               <span class="comment">← Tier 3: One file per active project</span>
+│   ├── <span class="file">q3-roadmap-review.md</span>
+│   └── <span class="file">team-tooling-audit.md</span>
+├── <span class="dir">areas/</span>                  <span class="comment">← Tier 3: Ongoing responsibilities</span>
+│   ├── <span class="file">product-community.md</span>
+│   └── <span class="file">okr-tracking.md</span>
+├── <span class="dir">knowledge/</span>              <span class="comment">← Reference: meeting notes, decisions, research</span>
+├── <span class="dir">.github/skills/</span>          <span class="comment">← SKILL.md files (project-level, per agentskills.io spec)</span>
+│   ├── <span class="dir">writing-prds/</span>
+│   │   └── <span class="file">SKILL.md</span>
+│   ├── <span class="dir">stakeholder-alignment/</span>
+│   │   └── <span class="file">SKILL.md</span>
+│   └── <span class="dir">product-operations/</span>  <span class="comment">← From Lenny Skills repo (MIT licensed)</span>
+│       └── <span class="file">SKILL.md</span>
+├── <span class="dir">templates/</span>              <span class="comment">← Meeting notes, project brief, decision log</span>
+├── <span class="file">BACKLOG.md</span>              <span class="comment">← Brain-dump inbox (from PersonalOS)</span>
+└── <span class="file">.vscode/mcp.json</span>        <span class="comment">← Shared MCP config (committed to repo)</span>
+    </div>
+  </div>
+
+  <!-- WHAT GOES WHERE -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">What Goes Where</h3>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header"><div class="card-icon">1️⃣</div><div><div class="card-title">Tier 1 — Constitution</div><div class="card-subtitle">CLAUDE.md · Always loaded · ~200 lines max</div></div></div>
+      <div class="card-body">
+        <p>Your standing orders. Never put content here that can go somewhere else.</p>
+        <ul style="list-style:disc;padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>Who you are and what this workspace is for</li>
+          <li>Hard rules (tone, confidentiality, what to never do)</li>
+          <li>A routing table: "For active project context read <code>projects/&lt;name&gt;.md</code>"</li>
+          <li>Reference to <code>memory/tools.md</code> for available tools</li>
+          <li>Reference to <code>context/active.md</code> for current sprint focus</li>
+        </ul>
+        <p style="margin-top:var(--space-3);font-size:var(--text-sm);color:var(--color-text-muted)"><strong>Key discipline:</strong> If this file exceeds 200 lines, something is in the wrong tier. The file is a hub, not a dump.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon">2️⃣</div><div><div class="card-title">Tier 2 — Living Memory</div><div class="card-subtitle">memory/ + context/active.md · AI updates after each session</div></div></div>
+      <div class="card-body">
+        <p>What accumulates over time. Instruct the AI (in Tier 1) to append to <code>memory/learnings.md</code> at the end of every meaningful conversation — one line per new pattern or correction discovered.</p>
+        <ul style="list-style:disc;padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li><strong>learnings.md</strong> — patterns the AI has learned about how you work</li>
+          <li><strong>decisions.md</strong> — key decisions with context (date, alternatives rejected)</li>
+          <li><strong>tools.md</strong> — every MCP source, what it's good for, rate limit notes</li>
+          <li><strong>context/active.md</strong> — current sprint, top 3 priorities, open questions</li>
+        </ul>
+        <p style="margin-top:var(--space-3);font-size:var(--text-sm);color:var(--color-text-muted)"><strong>Key discipline:</strong> learnings.md and active.md are the two files you review weekly. The others are append-only logs.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon">3️⃣</div><div><div class="card-title">Tier 3 — Project Brains</div><div class="card-subtitle">projects/ + areas/ · Loaded per project</div></div></div>
+      <div class="card-body">
+        <p>Deep context that only loads when you're working on a specific project. One file per project or area. Include everything the AI needs to not ask twice: background, constraints, decisions made, key stakeholders, current status.</p>
+        <ul style="list-style:disc;padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>Project brief (what, why, who)</li>
+          <li>Current status and next actions</li>
+          <li>Key decisions and their rationale</li>
+          <li>Relevant stakeholders and their positions</li>
+          <li>Links/references to Confluence, Glean, or Miro artefacts</li>
+        </ul>
+        <p style="margin-top:var(--space-3);font-size:var(--text-sm);color:var(--color-text-muted)"><strong>Trigger phrase:</strong> "Read <code>projects/q3-roadmap-review.md</code> then help me with..." — reduces Glean/Confluence round-trips to one per project setup.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SKILLS LAYER -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">The Skills Layer</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">Skills are repeatable workflows stored as SKILL.md files. The AI loads the relevant skill automatically when it detects a matching task — or you invoke it directly. As of April 2026, VS Code's GitHub Copilot agent mode reads SKILL.md files natively.</p>
+
+  <div class="callout">
+    <p><strong>Starter skill set for Product Operations:</strong> Fork the <a href="https://github.com/RefoundAI/lenny-skills" target="_blank" rel="noopener">RefoundAI/lenny-skills</a> repo and copy the following skills into your <code>skills/</code> directory: <code>product-operations</code>, <code>writing-prds</code>, <code>stakeholder-alignment</code>, <code>prioritizing-roadmap</code>, <code>setting-okrs-goals</code>, <code>running-effective-meetings</code>, <code>cross-functional-collaboration</code>. These 7 skills cover the core Product Ops workflow and require no modification to use immediately.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">Sample SKILL.md frontmatter — Product Ops flavour</div>
+    <pre>---
+name: stakeholder-update
+description: >
+  Use when drafting stakeholder updates, status reports, 
+  or executive briefings. Applies structured communication 
+  frameworks from the org context.
+version: 1.0
+---
+
+## Role
+You are a Product Operations specialist helping draft 
+clear, concise stakeholder communications.
+
+## Before You Start
+Read context/org.md for stakeholder map.
+Read context/active.md for current sprint status.
+
+## Output Format
+- Executive summary (3 bullets max)
+- Status: On Track / At Risk / Blocked
+- Key decisions needed from stakeholders
+- Next steps with owners and dates</pre>
+  </div>
+
+  <!-- MCP INTEGRATION -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Reducing MCP Round-Trips</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">The cost of live Glean/Confluence/Miro lookups compounds fast. The recommended pattern: <em>consolidate once, reference often</em>.</p>
+
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Periodic consolidation sessions (weekly)</h4>
+        <p>Once a week: "Read the last 5 Confluence pages I've worked on and summarise the key decisions and open questions into <code>knowledge/this-week.md</code>." This turns expensive live lookups into cheap local reads for the rest of the week.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Project Brain as Glean/Confluence proxy</h4>
+        <p>When starting a new project, do one thorough Glean/Confluence sweep and write the findings into a Project Brain file (<code>projects/&lt;name&gt;.md</code>). That file becomes the local reference for the project lifetime — MCP tools are only needed for real-time changes.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>tools.md as query router</h4>
+        <p>Document in <code>memory/tools.md</code> which MCP source is authoritative for what: "Glean = enterprise search for documents; Confluence = team wiki for decisions and specs; Miro = visual artefacts and workshop outputs." The AI routes queries to the right source instead of querying all sources redundantly.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>Glean MCP — context-aware query routing</h4>
+        <p>Glean's Enterprise Graph maps relationships across your apps, documents, people, and conversations, and its MCP server was benchmarked at 2.5× preferred over off-the-shelf MCP tools using 30% fewer tokens. Configure the Glean MCP for VS Code using the built-in MCP Configurator under Settings → Install tab — it generates the config snippet and handles OAuth. Document in <code>memory/tools.md</code>: "Glean = enterprise search for documents and people; route discovery queries here first before Confluence." This query routing discipline is what prevents unnecessary Confluence and Miro round-trips.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVAL PATTERN -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">The Self-Improving Loop</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);max-width:68ch">Borrowed from Peter Yang's AI advisor system. Include an <code>eval.md</code> file that the AI checks before responding to substantive requests:</p>
+  <div class="code-block">
+    <div class="code-label">eval.md — Quality checklist (include in SKILL.md or root)</div>
+    <pre>## Pre-Response Checklist
+Before responding, verify:
+- [ ] Did you read context/active.md for current priorities?
+- [ ] Did you check memory/learnings.md for known patterns?
+- [ ] Is your response grounded in context/org.md stakeholder map?
+- [ ] Are recommendations specific to this role, not generic?
+- [ ] Are next steps actionable with named owners and dates?
+Only respond when all checks pass.</pre>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 4: INNOVATION GRADING ─── -->
+<section class="section" id="innovation">
+  <div class="section-label">Section 04</div>
+  <h2 class="section-title">Innovation Grading</h2>
+  <p class="section-intro">Each major concept rated against the three-tier scale. Named brands or projects that have publicly shipped the pattern are cited alongside each rating.</p>
+
+  <div class="innovation-grid">
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-standard">
+        <div class="tier-label">Standard Practice</div>
+        <div class="tier-brand">GitHub</div>
+        <div class="tier-brand">Notion</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Markdown-based knowledge management with folder hierarchy (PARA / ICOR)</h4>
+        <p>Folders-as-system with Projects/Areas/Resources/Archive is a decade-old pattern now ubiquitous across productivity communities. The twist AI adds: folder structure now serves as context engineering for the AI, not just human findability. <strong>Elevation opportunity:</strong> Have the AI propose folder structure improvements based on observed working patterns rather than asking the user to maintain it manually.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-standard">
+        <div class="tier-label">Standard Practice</div>
+        <div class="tier-brand">VS Code / GitHub Copilot</div>
+        <div class="tier-brand">Anthropic</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Instruction files (CLAUDE.md / AGENTS.md / copilot-instructions.md)</h4>
+        <p>VS Code officially supports CLAUDE.md as always-on instructions (GA Feb 2026). GitHub Copilot reads AGENTS.md natively. These are now stable, documented features — not experimental. <strong>Elevation opportunity:</strong> Use the six-layer Claude Code memory hierarchy model for inspiration: gitignored personal overrides (CLAUDE.local.md) for user-specific preferences + shared team rules in the committed file.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-standard">
+        <div class="tier-label">Standard Practice</div>
+        <div class="tier-brand">RefoundAI / lenny-skills</div>
+        <div class="tier-brand">Anthropic Agent Skills</div>
+      </div>
+      <div class="innovation-content">
+        <h4>SKILL.md agent skills with progressive disclosure</h4>
+        <p>Anthropic published the Agent Skills specification in Oct 2025; VS Code's Copilot agent added SKILL.md support in April 2026. With 943 stars and 125k installs on the Lenny Skills repo, the format has meaningful adoption. <strong>Elevation opportunity:</strong> Add <code>eval.md</code> quality gates inside each skill — borrowing from Peter Yang's advisor system — to force the AI to ground advice in actual context before responding.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Emerging</div>
+        <div class="tier-brand">Contextpatterns.com</div>
+        <div class="tier-brand">dev.to community</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Tiered memory architecture (Constitution → Living Memory → Project Brains)</h4>
+        <p>The "small, layered knowledge files" pattern is documented and advocated by a cluster of practitioners (dev.to/runaway_ideas, contextpatterns.com, centminmod/my-claude-code-setup) but is not yet codified in any major platform's official documentation. It's convergent behaviour from experienced users, not a shipped product feature. <strong>Elevation opportunity:</strong> Add a weekly AI-assisted "memory audit" — the AI reviews learnings.md and active.md, flags stale entries, and suggests what to archive vs. keep active.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Emerging</div>
+        <div class="tier-brand">Glean (June 2026)</div>
+        <div class="tier-brand">VS Code MCP</div>
+      </div>
+      <div class="innovation-content">
+        <h4>MCP as enterprise context layer with round-trip reduction</h4>
+        <p>Glean's precomputed knowledge graph via MCP (benchmarked at 2.5x preferred over off-the-shelf MCP tools, 30% fewer tokens) represents a meaningful advance over naive file-read MCP. The June 2026 bi-directional memory write-back is new and not yet widely documented. <strong>Elevation opportunity:</strong> Configure <code>tools.md</code> as a smart router that tracks which MCP source answered which query type — allowing the AI to build an empirical routing policy over time rather than always querying all sources.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Emerging</div>
+        <div class="tier-brand">GitHub + VS Code Enterprise</div>
+        <div class="tier-brand">Glean MDM deployment</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Git-versioned Personal OS with enterprise MCP allowlist governance</h4>
+        <p>VS Code's Nov 2025 enterprise MCP registry and allowlist controls enable IT-governed MCP deployment. GitHub's MCP registry integration means a team's <code>.vscode/mcp.json</code> can be pre-populated from an org-approved registry. For a 10-person product community, this means central IT can bless a set of MCP servers and the team inherits them via git. <strong>Elevation opportunity:</strong> Combine git-versioned skills repo (GitHub submodule) + org MCP registry + CLAUDE.md managed policy layer — a fully governed, centrally maintained Personal OS that individuals customise via CLAUDE.local.md personal overrides.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-frontier">
+        <div class="tier-label">New Frontier</div>
+        <div class="tier-brand">Foam (2026 MCP)</div>
+        <div class="tier-brand">SocratiCode</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Graph-traversal MCP over markdown knowledge base</h4>
+        <p>Foam's MCP layer exposes wikilinks as a queryable graph — agents follow links like a researcher, not like a search engine. SocratiCode benchmarked 61% fewer context tokens and 84% fewer tool calls vs. grep-based search on a 2.45M-line codebase. Applied to a knowledge base instead of a codebase, this could significantly improve quality of context retrieved for complex multi-topic queries. Limited public examples in enterprise knowledge work settings. <strong>Elevation opportunity:</strong> Combine Foam's MCP graph with Glean's enterprise index — local graph for personal context, enterprise graph for organisational context — with a unified routing layer in tools.md.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-frontier">
+        <div class="tier-label">New Frontier</div>
+        <div class="tier-brand">Glean (June 2026)</div>
+        <div class="tier-brand">Dev.to community</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Bi-directional AI memory write-back to enterprise systems</h4>
+        <p>Glean's June 2026 MCP release adds the ability for AI assistants to write memories back to Glean from VS Code. Context built during a working session becomes available in Glean's cross-tool search. This closes the "I did the context work in VS Code but it didn't go anywhere" loop. Very few organisations have this configured; the documentation is recent and sparse. <strong>Elevation opportunity:</strong> Design a "context harvest" routine — at the end of each working session, the AI writes a structured summary to both <code>memory/learnings.md</code> (local) and Glean (enterprise) — creating two persistent stores with different access patterns.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 5: UX / DESIGN ─── -->
+<section class="section" id="ux">
+  <div class="section-label">Section 05</div>
+  <h2 class="section-title">UX &amp; Design Considerations</h2>
+  <p class="section-intro">What makes these systems actually get used vs. abandoned — with specific attention to non-technical adopters in an enterprise setting.</p>
+
+  <div class="card-grid">
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">🚦</div><div><div class="card-title">The Adoption Paradox</div></div></div>
+      <div class="card-body">
+        <p>Knowledge management systems fail not because they lack content, but because people don't use what's already there. The three failure modes, in order of frequency: (1) unclear whether content is current, (2) too slow to find anything, (3) easier to just ask someone. A Personal OS has a unique advantage here — the AI does the finding, so (2) and (3) are neutralised. The critical remaining risk is (1): staleness.</p>
+        <p><strong>Design principle:</strong> Every file needs a clear "owner + last updated" convention — even one line at the top: <code># Active Context · Updated: [date]</code>. The AI can enforce this as a check in the eval.md checklist.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">🎯</div><div><div class="card-title">One Inbox to Rule Them All</div></div></div>
+      <div class="card-body">
+        <p>The PersonalOS BACKLOG.md brain-dump pattern is the highest-value UX decision in the system. Non-technical users need a zero-friction capture point — somewhere to dump thoughts without caring about structure. The AI processes and routes the dump; the user never files anything.</p>
+        <p><strong>Key instruction in CLAUDE.md:</strong> "When asked to 'process my backlog', read BACKLOG.md and route items to the appropriate project file, knowledge file, or action item. Then clear BACKLOG.md." This single workflow replaces most of the manual filing overhead.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">⚡</div><div><div class="card-title">The 5-Minute Daily Ritual</div></div></div>
+      <div class="card-body">
+        <p>The single highest-leverage habit is a 5-minute morning session: "Read <code>context/active.md</code> and tell me my top 3 priorities for today." This session also updates active.md for the day. Systems that require more than 5 minutes of daily maintenance are abandoned within 3 weeks by non-technical users (consistent finding across KM adoption research). Design the daily ritual to fit within that window.</p>
+        <p><strong>Morning prompt template:</strong> Include this as a SKILL.md — "morning-standup" — so it's invocable with a single phrase.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">🔗</div><div><div class="card-title">Language Consistency = Context Quality</div></div></div>
+      <div class="card-body">
+        <p>When users describe the same concept using different terms across files, the AI has to resolve ambiguity — which it does poorly. Establish a shared vocabulary in <code>context/org.md</code>: "When I say 'the community', I mean the Product Community of ~12 people." This eliminates a major source of poor AI responses in knowledge work contexts.</p>
+        <p><strong>Practical pattern:</strong> Add a "Glossary" section to context/org.md. Have the AI flag whenever it encounters ambiguous terminology and suggest a canonical term to add to the glossary.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">📊</div><div><div class="card-title">Information Architecture for Non-Technical Users</div></div></div>
+      <div class="card-body">
+        <p>Non-technical users navigate by meaning, not by file path. Name files descriptively, not technically: <code>q3-roadmap-review.md</code> not <code>project-003.md</code>. Use emoji prefixes for visual scanning in the VS Code file tree: <code>📋 active.md</code>, <code>🧠 learnings.md</code>. Create a <code>README.md</code> at the root that explains the system in plain language — this also doubles as the AI's "map" of the workspace.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">⚠️</div><div><div class="card-title">Common Pitfalls</div></div></div>
+      <div class="card-body">
+        <ul style="list-style:disc;padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li><strong>Over-structuring at setup:</strong> Design the folder structure after a week of real use, not before. Let the AI suggest structure from the BACKLOG.</li>
+          <li><strong>Instruction file bloat:</strong> CLAUDE.md over 200 lines is the most common failure mode — it signals that the tiered model isn't being respected.</li>
+          <li><strong>Treating memory as a database:</strong> Memory files are curation surfaces, not logs. Append and prune; never let them grow unbounded.</li>
+          <li><strong>Skipping the eval checklist:</strong> Without eval.md quality gates, AI responses drift to generic over time as context accumulates.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 6: TECHNICAL ─── -->
+<section class="section" id="technical">
+  <div class="section-label">Section 06</div>
+  <h2 class="section-title">Technical &amp; Implementation</h2>
+  <p class="section-intro">MCP configuration, memory file architecture, VS Code extension choices, and GitHub integration — with specific attention to the non-engineer constraint.</p>
+
+  <!-- MCP CONFIG -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin-bottom:var(--space-4);color:var(--color-text)">MCP Configuration for VS Code</h3>
+
+  <div class="callout">
+    <p><strong>The key config file:</strong> <code>.vscode/mcp.json</code> at the workspace root. This file is committed to the GitHub repo and shared with all team members. Each user provides their own API credentials via VS Code "inputs" (prompted securely — never hardcoded in the file). The root key is <code>servers</code>, not <code>mcpServers</code> — different from Claude Desktop.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">.vscode/mcp.json — Starter config for this system</div>
+    <pre>{
+  "servers": {
+    "glean": {
+      "url": "https://your-org.glean.com/mcp",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer ${input:glean_token}"
+      }
+    },
+    "confluence": {
+      "command": "npx",
+      "args": ["-y", "@confluence/mcp-server"],
+      "env": {
+        "CONFLUENCE_URL": "${input:confluence_url}",
+        "CONFLUENCE_TOKEN": "${input:confluence_token}"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_pat}" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  },
+  "inputs": [
+    { "type": "promptString", "id": "glean_token", 
+      "description": "Glean API token", "password": true },
+    { "type": "promptString", "id": "confluence_url", 
+      "description": "Confluence base URL" },
+    { "type": "promptString", "id": "confluence_token", 
+      "description": "Confluence API token", "password": true },
+    { "type": "promptString", "id": "github_pat", 
+      "description": "GitHub Personal Access Token", "password": true }
+  ]
+}</pre>
+  </div>
+
+  <div class="callout callout-warn" style="margin-top:var(--space-4)">
+    <p><strong>128-tool threshold:</strong> VS Code introduced a 128-tool threshold per request (July 2025, v1.103). When exceeded, VS Code now automatically groups tools into "virtual tool directories" that activate on demand — so the hard ceiling is effectively removed in practice. With Glean, Confluence, GitHub, and filesystem each exposing dozens of tools, you may see this grouping kick in. The "virtual tools" behaviour is on by default; no configuration needed. Document the recommended active-tools set in <code>memory/tools.md</code> for each workflow type.</p>
+  </div>
+
+  <!-- VS CODE EXTENSIONS -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">VS Code Extension Stack</h3>
+
+  <div class="three-col">
+    <div class="card">
+      <div class="card-body">
+        <strong style="font-size:var(--text-sm)">Core AI</strong>
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);line-height:1.8">
+          <li>GitHub Copilot (reads CLAUDE.md, AGENTS.md, SKILL.md natively)</li>
+          <li>Continue.dev (open-source, any LLM)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <strong style="font-size:var(--text-sm)">Knowledge</strong>
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);line-height:1.8">
+          <li>Foam (wikilinks + graph viz + MCP)</li>
+          <li>AS Notes (kanban + daily notes)</li>
+          <li>Markdown All in One (preview/navigation)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <strong style="font-size:var(--text-sm)">Optional</strong>
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);line-height:1.8">
+          <li>GitLens (history context)</li>
+          <li>Context7 MCP (live docs lookup)</li>
+          <li>Error Lens (for template validation)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- GITHUB INTEGRATION -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">GitHub Integration Pattern</h3>
+
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Team repository structure</h4>
+        <p>Create a <strong>shared skills repo</strong> (e.g. <code>product-community/personal-os-shared</code>) containing the team-level files: shared SKILL.md files, CLAUDE.md baseline, mcp.json, and templates. Each team member clones this as a base and adds their personal files on top. The shared repo is maintained by the Head of Product Ops.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Personal workspace on top</h4>
+        <p>Each team member's workspace adds personal context files (<code>context/me.md</code>, <code>context/active.md</code>, personal project files). These are gitignored in the shared repo. A <code>CLAUDE.local.md</code> file handles personal overrides without conflicting with the shared baseline.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Skill versioning via git tags</h4>
+        <p>Use git tags on the shared skills repo (<code>v1.0</code>, <code>v1.1</code>) for skill versions. Team members can stay on a known-good version or opt into the latest. This mirrors how software dependencies work — familiarity for the technical setup person; invisibility for end users.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>Confluence as publishing target</h4>
+        <p>Configure a MCP-triggered workflow: "When I complete a project brief or decision log, use the Confluence MCP to publish it to the [Product Ops > Decisions] space." This creates a bidirectional flow — Confluence as source of truth for shared knowledge, VS Code workspace as AI-enhanced working surface.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY PERSISTENCE PATTERNS -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Memory Persistence: Architecture Decision</h3>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-body">
+        <strong>File-based (recommended)</strong>
+        <p style="margin-top:var(--space-2)">Plain markdown files in the workspace. Zero infrastructure, zero cost, fully portable. The AI reads and writes files directly. Works with every VS Code AI assistant. The only persistence model that satisfies the "no custom code" constraint.</p>
+        <div class="tag tag-green" style="margin-top:var(--space-2);display:inline-block">Use this</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <strong>In-context only</strong>
+        <p style="margin-top:var(--space-2)">Everything in the active session context window. Fast and zero-maintenance, but completely volatile. Suitable for V0 exploration; not a production pattern for a knowledge system.</p>
+        <div class="tag tag-neutral" style="margin-top:var(--space-2);display:inline-block">V0 only</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <strong>External store (vector DB, SQLite)</strong>
+        <p style="margin-top:var(--space-2)">Better semantic search at scale; MCP-queryable. Requires custom code to set up and maintain. Violates the non-engineer constraint. Consider only if the file-based system proves inadequate at &gt;500 files.</p>
+        <div class="tag tag-orange" style="margin-top:var(--space-2);display:inline-block">Out of scope</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 7: REPLICATION ─── -->
+<section class="section" id="replication">
+  <div class="section-label">Section 07</div>
+  <h2 class="section-title">Replication &amp; Onboarding</h2>
+  <p class="section-intro">How to take a Personal OS built for one person and roll it out to a non-technical team of ~10. The answer is a three-stage model: prove → package → propagate.</p>
+
+  <!-- STAGE MODEL -->
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Stage 1: Prove (Weeks 1–4, solo)</h4>
+        <p>Build and use the system yourself. Document what works, what gets abandoned, and what you wish existed. This is the "alpha" — you're the only user and the validation test. Track: which files do you actually read? Which prompts do you use daily? Which MCP tools provide real value vs. noise? The output of this stage is a pruned, honest system — not an aspirational architecture.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Stage 2: Package (Week 5–6)</h4>
+        <p>Extract the proven elements into a team-shareable repo. Write a single-page README that answers: what is this, why does it exist, how do I get started in 30 minutes? Create a setup checklist covering: clone repo, add context/me.md, configure mcp.json credentials, run one test prompt. Remove anything that requires more than copy-paste to install. The goal is a "30-minute onboarding" experience — no training session needed.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Stage 3: Propagate (Week 7+, pilot with 2–3 people)</h4>
+        <p>Onboard 2–3 willing early adopters from the Product Community. Run them through the 30-minute setup guide and observe where they get stuck. Fix the friction before expanding to the full team. Key principle from KM adoption research: pilot users who had a good onboarding experience become internal advocates — the most effective distribution channel for the full rollout.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:var(--space-6)">
+    <p><strong>The 30-minute onboarding flow (non-technical user):</strong></p>
+    <ol style="padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text);line-height:2;margin-top:var(--space-2)">
+      <li>Clone the shared team repo into a local folder</li>
+      <li>Open the folder in VS Code</li>
+      <li>Fill in <code>context/me.md</code> using the provided template (5 bullet points: role, priorities, working style, team, key tools)</li>
+      <li>Enter MCP credentials when VS Code prompts (Glean, Confluence)</li>
+      <li>Run the test prompt: "Read my context files and tell me what you know about me and my work"</li>
+      <li>Send first real request: "What should I focus on this week based on my active.md?"</li>
+    </ol>
+  </div>
+
+  <!-- VERSIONING MODEL -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Versioning and Governance</h3>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-body">
+        <strong style="font-size:var(--text-sm)">What lives in the shared team repo</strong>
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-2);line-height:1.8">
+          <li>CLAUDE.md (team baseline)</li>
+          <li>All SKILL.md files</li>
+          <li>.vscode/mcp.json (no credentials)</li>
+          <li>templates/ directory</li>
+          <li>context/org.md (shared org context)</li>
+          <li>README.md and setup guide</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <strong style="font-size:var(--text-sm)">What stays personal (.gitignore)</strong>
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-2);line-height:1.8">
+          <li>context/me.md</li>
+          <li>context/active.md</li>
+          <li>memory/learnings.md</li>
+          <li>memory/decisions.md</li>
+          <li>projects/ and areas/ content</li>
+          <li>CLAUDE.local.md (personal overrides)</li>
+          <li>.env / credentials</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ─── SECTION 8: RISKS ─── -->
+<section class="section" id="risks">
+  <div class="section-label">Section 08</div>
+  <h2 class="section-title">Risks &amp; Open Questions</h2>
+  <p class="section-intro">The most likely failure modes for this kind of system — especially for non-technical adopters — and what to validate before committing to a full team rollout.</p>
+
+  <div class="risk-grid">
+
+    <div class="risk-item risk-high">
+      <div class="risk-header">
+        <span class="risk-label risk-label-high">HIGH</span>
+        <span class="risk-title">Adoption Stall — System Gets Built But Not Used</span>
+      </div>
+      <p class="risk-body">The #1 failure mode for PKM systems at every level of sophistication. A system built over a weekend that no one uses in month two is a worse outcome than no system. The Personal OS needs daily value within the first week or it will be abandoned. If the first daily interaction doesn't feel faster than the current approach, adoption won't happen.</p>
+      <p class="risk-mitigation">✦ Validate: Does the morning standup prompt (5 min) feel valuable by Day 3? If not, fix context/active.md before anything else.</p>
+    </div>
+
+    <div class="risk-item risk-high">
+      <div class="risk-header">
+        <span class="risk-label risk-label-high">HIGH</span>
+        <span class="risk-title">Context Staleness — Memory Files Drift From Reality</span>
+      </div>
+      <p class="risk-body">As projects evolve and priorities shift, memory files that aren't maintained give the AI wrong context — which is worse than no context. Non-technical users are especially unlikely to proactively update files they don't regularly read. The system needs mechanisms that surface stale content rather than relying on user discipline.</p>
+      <p class="risk-mitigation">✦ Validate: Add a "staleness check" to the weekly ritual — "Review active.md and learnings.md. Flag any entries older than 30 days that may be outdated." The AI does the work; the user just reviews.</p>
+    </div>
+
+    <div class="risk-item risk-med">
+      <div class="risk-header">
+        <span class="risk-label risk-label-med">MEDIUM</span>
+        <span class="risk-title">MCP Fragility — Tool Connectivity Breaks the Experience</span>
+      </div>
+      <p class="risk-body">MCP configuration is brittle. Tool updates, credential expiry, network restrictions, and VS Code version changes all break connections. Non-technical users have low tolerance for configuration debugging. A broken MCP connection mid-workflow destroys trust in the system.</p>
+      <p class="risk-mitigation">✦ Mitigate: Design the system to be valuable without MCP — local files provide 80% of the value. MCP tools are additive, not load-bearing. Document a "no MCP fallback" mode in the README.</p>
+    </div>
+
+    <div class="risk-item risk-med">
+      <div class="risk-header">
+        <span class="risk-label risk-label-med">MEDIUM</span>
+        <span class="risk-title">AI Assistant Switching — VS Code AI Landscape is Still Unstable</span>
+      </div>
+      <p class="risk-body">The brief correctly assumes agnosticism across AI chat assistants. But the SKILL.md ecosystem, CLAUDE.md support, and AGENTS.md support are all relatively new additions to VS Code's Copilot. Feature parity between Copilot, Continue.dev, and other embedded assistants is incomplete. What works in one may not work in another.</p>
+      <p class="risk-mitigation">✦ Mitigate: Test the system with GitHub Copilot first (best documented support). Keep CLAUDE.md instructions in plain English that any LLM can understand — avoid CLI-specific syntax.</p>
+    </div>
+
+    <div class="risk-item risk-med">
+      <div class="risk-header">
+        <span class="risk-label risk-label-med">MEDIUM</span>
+        <span class="risk-title">Enterprise Data Governance — What Can Live in Local Markdown?</span>
+      </div>
+      <p class="risk-body">If team members capture sensitive organisational information (personnel decisions, unreleased product roadmap, commercial terms) in local markdown files that sync to GitHub, there are data governance and security implications. This needs a clear policy before team rollout — not assumed away.</p>
+      <p class="risk-mitigation">✦ Validate: Establish a "what belongs in the Personal OS vs. Confluence/Glean" policy before onboarding others. Add a "sensitivity check" to CLAUDE.md: "Before writing anything to a file, confirm it doesn't contain information that should stay in [company system]."</p>
+    </div>
+
+    <div class="risk-item risk-low">
+      <div class="risk-header">
+        <span class="risk-label risk-label-low">LOW</span>
+        <span class="risk-title">Skill File Quality Drift — Team Skills Diverge</span>
+      </div>
+      <p class="risk-body">Once team members start customising SKILL.md files, the team's shared skill library can diverge. Without a review process, skill quality degrades and sharing value erodes. This is the open-source maintenance problem at small scale.</p>
+      <p class="risk-mitigation">✦ Mitigate: Monthly skill review as part of the Product Community rituals. Head of Product Ops as skill library owner. Pull request model for skill changes to the shared repo.</p>
+    </div>
+
+    <div class="risk-item risk-low">
+      <div class="risk-header">
+        <span class="risk-label risk-label-low">LOW</span>
+        <span class="risk-title">Context Window Limits — Large Workspaces Degrade Performance</span>
+      </div>
+      <p class="risk-body">As the knowledge base grows, loading all context files on every request becomes expensive and potentially exceeds context window limits. The tiered architecture mitigates this significantly — but requires discipline to maintain tier boundaries as the system matures.</p>
+      <p class="risk-mitigation">✦ Validate: Run a context window usage check after 3 months of use. If CLAUDE.md + auto-loaded files exceed 50k tokens, implement stricter routing and lazy-loading in Tier 1.</p>
+    </div>
+
+  </div>
+
+  <!-- OPEN QUESTIONS -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Open Questions to Validate</h3>
+
+  <div class="pill-grid">
+    <div class="pill">Which Lenny Skills resonate most with the Product Community — run a quick survey before building custom skills</div>
+    <div class="pill">Does Glean's enterprise MCP allowlist policy permit the specific tools you want to add?</div>
+    <div class="pill">What is the enterprise data classification policy for VS Code workspace content?</div>
+    <div class="pill">Which VS Code AI assistant is the canonical choice for the Product Community — Copilot, Continue, or another?</div>
+    <div class="pill">Are there existing Confluence templates that should be mirrored in the templates/ directory?</div>
+    <div class="pill">Does the team use Confluence-as-source-of-truth or as-a-graveyard? (Determines whether MCP Confluence integration adds value)</div>
+    <div class="pill">What does "success at 90 days" look like? Define a metric before launch (e.g. "8 of 10 team members report using the morning standup prompt at least 3x/week")</div>
+  </div>
+
+</section>
+
+
+<hr class="section-divider">
+
+<!-- ─── SECTION: ADDENDUM — STOLEN IDEAS ─── -->
+<section class="section" id="addendum">
+  <div class="section-label">Addendum — Post-Report Discoveries</div>
+  <h2 class="section-title">Three Stolen Ideas &amp;<br>The Production Engineering Layer</h2>
+  <p class="section-intro">Three concepts borrowed from the AIDB AgentOS program and Chorouk Malmoum's production AI architecture that upgrade the recommended approach without violating the non-technical constraint. Plus a synthesised 5-layer model adapted from the LinkedIn production stack.</p>
+
+  <div class="callout">
+    <p><strong>Source context:</strong> The AgentOS program (aidbagentos.ai) is a free, self-paced build curriculum from AIDB Training — 12 projects producing portable text files that work across any agentic tool. The production architecture (Chorouk Malmoum, LinkedIn) is a 9-layer RAG application stack whose evaluation, routing, and observability layers translate cleanly to markdown-only patterns. Together they contribute four meaningful upgrades to the core architecture.</p>
+  </div>
+
+  <!-- STOLEN IDEA 1: HELPER AGENT -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Steal 1 — The OS Thought Partner (Helper Agent)</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">AIDB AgentOS Project 00 introduces a dedicated companion whose only job is to help you build and maintain the OS itself — separate from the AI you use for actual work. This is a structurally important separation that the original architecture missed.</p>
+
+  <div class="rec-spotlight">
+    <div class="rec-spotlight-label">New file: <code>.github/skills/os-helper/SKILL.md</code></div>
+    <h3>The OS Maintenance Skill</h3>
+    <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-5)">This skill is never invoked for work tasks. It's invoked when you're working <em>on</em> the system — onboarding a new team member, auditing staleness, evolving the architecture. The separation keeps meta-work from contaminating your working context files.</p>
+    <div class="code-block">
+      <div class="code-label">.github/skills/os-helper/SKILL.md</div>
+      <pre>---
+name: os-helper
+description: >
+  Use ONLY for Personal OS maintenance tasks — never for regular work.
+  Invoke when: onboarding a new team member, auditing memory staleness,
+  improving skills, debugging MCP connections, or evolving the architecture.
+version: 1.0
+---
+
+## Role
+You are the OS architect. Your job is to help maintain, improve, and
+explain the Personal OS — not to do the work the OS supports.
+
+## Onboarding Mode
+When invoked with "onboard [name]", do the following:
+1. Read context/org.md for team structure
+2. Read CLAUDE.md for system overview
+3. Read memory/tools.md for MCP configuration
+4. Generate a personalised setup checklist for the new user
+5. Create a starter context/me.md template populated with their role
+
+## Staleness Audit Mode
+When invoked with "audit", do the following:
+1. List all files in context/, memory/, projects/, areas/
+2. Check last-modified dates
+3. Flag any file not updated in 30+ days
+4. For flagged files, suggest: archive / refresh / delete
+5. Output a prioritised maintenance list
+
+## Skill Review Mode
+When invoked with "review skills", do the following:
+1. List all SKILL.md files in .github/skills/
+2. For each, report: last used (from memory/usage-log.md), quality score
+3. Suggest skills to improve, retire, or create
+
+## Architecture Evolution Mode
+When invoked with "evolve", review the full system and suggest one
+high-value structural improvement based on observed usage patterns.</pre>
+    </div>
+    <div class="callout" style="margin-top:var(--space-4)">
+      <p><strong>Onboarding superpower:</strong> When a new Product Community member joins, invoke <code>os-helper</code> with "onboard [their name and role]" — it reads the org context and generates a personalised 30-minute setup guide. One command replaces a manual onboarding session.</p>
+    </div>
+  </div>
+
+  <!-- STOLEN IDEA 2: SPECIALIST AGENTS -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Steal 2 — Specialist Agent Team</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">AgentOS Projects 06–09 build toward multiple specialised agents, each inheriting the shared OS foundation. The insight: each SKILL.md is already a lightweight agent. The architecture supports this today — it just needed explicit framing. Each specialist "knows everything about you" via the shared constitution and adds a domain-specific capability layer on top.</p>
+
+  <div class="card-grid">
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">📋</div><div><div class="card-title">Chief of Staff Agent</div><div class="card-subtitle">.github/skills/chief-of-staff/SKILL.md</div></div></div>
+      <div class="card-body">
+        <p>Daily orchestration: morning standup, weekly priorities review, stakeholder update drafts, meeting prep. Reads <code>context/active.md</code> first on every invocation. The "always-on assistant" that most product ops leaders actually need — not a general-purpose AI, but one that knows your org, your priorities, and your communication style.</p>
+      </div>
+      <div class="card-tags"><span class="tag tag-green">Start here — highest daily value</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">🔬</div><div><div class="card-title">Research &amp; Discovery Agent</div><div class="card-subtitle">.github/skills/researcher/SKILL.md</div></div></div>
+      <div class="card-body">
+        <p>Routes discovery queries to the right MCP source (Glean → Confluence → Miro hierarchy from <code>memory/tools.md</code>), consolidates findings into Project Brain files, and flags information that should be archived to Confluence. Reduces expensive live lookups by doing consolidation-first as a deliberate workflow step.</p>
+      </div>
+      <div class="card-tags"><span class="tag tag-blue">Highest MCP round-trip savings</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">✍️</div><div><div class="card-title">Product Writer Agent</div><div class="card-subtitle">.github/skills/product-writer/SKILL.md</div></div></div>
+      <div class="card-body">
+        <p>Handles all structured writing: PRDs, strategy memos, decision docs, stakeholder updates, OKR write-ups. Inherits org tone from <code>context/me.md</code> and stakeholder context from <code>context/org.md</code>. References the appropriate Lenny Skill (writing-prds, stakeholder-alignment) internally — a skill that delegates to other skills.</p>
+      </div>
+      <div class="card-tags"><span class="tag tag-orange">High leverage for team rollout</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon">🏗️</div><div><div class="card-title">Process Builder Agent</div><div class="card-subtitle">.github/skills/process-builder/SKILL.md</div></div></div>
+      <div class="card-body">
+        <p>Designs and documents repeatable workflows. Given a process description, produces: a Confluence-ready process doc, a SKILL.md workflow file for AI automation, and a checklist template. Turns one-off processes into permanent team assets. The meta-skill that grows the skill library over time.</p>
+      </div>
+      <div class="card-tags"><span class="tag tag-purple">Compounds team capability over time</span></div>
+    </div>
+
+  </div>
+
+  <div class="callout" style="margin-top:var(--space-5)">
+    <p><strong>Updated file tree addition</strong> — each specialist agent is a folder in <code>.github/skills/</code>:</p>
+    <div class="file-tree" style="margin-top:var(--space-3)">
+<span class="dir">.github/skills/</span>
+├── <span class="dir">os-helper/</span>          <span class="comment">← NEW: OS maintenance + onboarding (Steal 1)</span>
+├── <span class="dir">chief-of-staff/</span>     <span class="comment">← NEW: Daily orchestration agent (Steal 2)</span>
+├── <span class="dir">researcher/</span>         <span class="comment">← NEW: Discovery + consolidation agent (Steal 2)</span>
+├── <span class="dir">product-writer/</span>     <span class="comment">← NEW: Structured writing agent (Steal 2)</span>
+├── <span class="dir">process-builder/</span>    <span class="comment">← NEW: Workflow design agent (Steal 2)</span>
+├── <span class="dir">writing-prds/</span>       <span class="comment">← Lenny Skills (unchanged)</span>
+├── <span class="dir">stakeholder-alignment/</span>
+├── <span class="dir">product-operations/</span>
+└── <span class="file">...</span>
+    </div>
+  </div>
+
+  <!-- STOLEN IDEA 3: GLEAN AS AUTOMATION ENGINE -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Steal 3 — Glean as Lightweight Automation Engine</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">The AgentOS Automations layer (Project 11) is out of scope for a no-custom-code system. But Glean's MCP capabilities create a passive automation layer without any background processes. The key insight: automation doesn't have to run on a schedule — it can run on demand as part of a deliberate workflow ritual.</p>
+
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Consolidation Ritual (Weekly, ~5 minutes)</h4>
+        <p>Invoke the <code>researcher</code> agent: "Consolidate this week's Glean activity into <code>knowledge/this-week.md</code>." Glean's MCP server queries your recent document interactions and people context, the AI synthesises key decisions and open questions, and writes them to a local file. One command replaces 30 minutes of manual note-taking. The local file then serves as a cheap reference point for the entire following week — no Glean queries needed until the next ritual.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Project Brain Refresh (Per Project Start)</h4>
+        <p>When opening a project after a gap: "Refresh <code>projects/[name].md</code> using Glean and Confluence." The researcher agent queries both MCP sources for recent changes, diffs them against the existing Project Brain file, and updates only what's changed. Stale context eliminated in 60 seconds. This is the semantic cache pattern from the production stack — "don't re-query what hasn't changed."</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Stakeholder Map Sync (Monthly)</h4>
+        <p>Invoke the os-helper: "Sync <code>context/org.md</code> with current Glean people data." Glean's people directory via MCP contains org structure, reporting lines, and role changes. The AI updates the stakeholder map in org.md — ensuring that every specialist agent's "who does what" context is accurate without manual maintenance. For a team with regular re-orgs, this alone is a significant time save.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>Memory Write-Back (Post-Session)</h4>
+        <p>After substantive working sessions, the chief-of-staff agent appends to <code>memory/learnings.md</code> and optionally publishes a structured summary to Confluence via MCP. This closes the loop: context built in VS Code becomes organisational knowledge in Confluence, not just personal memory. Team members searching Confluence later benefit from work done in the Personal OS — the system compounds rather than silos.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5-LAYER PRODUCTION MODEL -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">The 5-Layer Production Model (Adapted from LinkedIn)</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">Chorouk Malmoum's 9-layer production AI stack (services/, agents/, prompts/, security/, evaluation/, observability/, .claude/) contains 5 concepts that translate to markdown-only patterns for a non-technical Personal OS. The other 4 layers (infrastructure, containers, tests, frontend) are explicitly out of scope.</p>
+
+  <div class="innovation-grid">
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-standard">
+        <div class="tier-label">Layer 1</div>
+        <div class="tier-brand">Prompts/</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Versioned, typed skills — never hardcoded</h4>
+        <p>Production stacks keep prompts as versioned, registered files — not inline strings. In your system: each SKILL.md has a <code>version:</code> field in its frontmatter, and the shared GitHub repo uses git tags for version control. Skills are hot-swappable — update a SKILL.md file and every user on the repo benefits at their next pull. <strong>Already in the recommended architecture.</strong> The new add: a <code>skills/REGISTRY.md</code> that lists every skill, its version, purpose, and last-updated date — the typed registry that production systems use.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Layer 2</div>
+        <div class="tier-brand">Agents/</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Self-correcting routing — document grader + adaptive router</h4>
+        <p>Production agents include a document grader (is this source relevant?) and an adaptive router (route to the right source based on query type). In your system: the <code>memory/tools.md</code> routing table is the lightweight version of adaptive routing. The new add: teach the researcher agent to explicitly score retrieved content — "if Glean returns fewer than 3 relevant results, escalate to a Confluence deep search before synthesising." This is the document grader pattern in plain English, implemented as an instruction in the researcher SKILL.md.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Layer 3</div>
+        <div class="tier-brand">Evaluation/</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Golden dataset + quality monitoring — the most skipped layer</h4>
+        <p>Production stacks use a golden test dataset and offline eval pipeline to catch quality regression. Almost no Personal OS implementations include this. The markdown translation: <code>memory/golden-evals.md</code> — 5–10 test questions with known good answers. Run them monthly by pasting the file into a fresh chat session. If response quality has degraded (wrong context, outdated info, wrong tone), the eval pinpoints which memory file is stale. This is the highest-value steal from the production stack — it's the difference between a system that improves and one that quietly drifts.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-emerging">
+        <div class="tier-label">Layer 4</div>
+        <div class="tier-brand">Observability/</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Usage log — per-stage tracing, cost tracking, feedback capture</h4>
+        <p>Production systems trace every query: which stage ran, which source answered, what it cost, was it good? The markdown equivalent: <code>memory/usage-log.md</code> — a lightweight append-only log updated by the chief-of-staff agent after substantive sessions. Format: date, task type, MCP sources used, quality rating (1–5), notes. After 4 weeks of entries, patterns emerge: which MCP sources actually add value, which skills get used, which contexts go stale fastest. This is observability at zero infrastructure cost.</p>
+      </div>
+    </div>
+
+    <div class="innovation-row">
+      <div class="innovation-tier tier-standard">
+        <div class="tier-label">Layer 5</div>
+        <div class="tier-brand">.claude/</div>
+      </div>
+      <div class="innovation-content">
+        <h4>Agent context layer — the production stack's Personal OS equivalent</h4>
+        <p>The <code>.claude/rules/</code> folder in the production stack (code-style.md, testing.md) is exactly the same concept as your Tier 1 constitution — standing instructions that ensure the AI knows the codebase before touching a file. The production stack validates the architecture: every serious AI-assisted workflow ends up here. What the production stack adds: <strong>explicit rule files per domain</strong> — rather than one CLAUDE.md catching everything, separate rule files for different contexts (writing-rules.md, research-rules.md, communication-rules.md) kept inside a <code>rules/</code> subfolder. Modular, maintainable, diffable in git.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- UPDATED FILE TREE WITH ALL ADDITIONS -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Updated Complete File Architecture</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);max-width:68ch">The full system incorporating the original three-tier architecture plus all four stolen concepts. New additions are marked.</p>
+
+  <div class="file-tree">
+<span class="dir">personal-os/</span>
+│
+├── <span class="file">CLAUDE.md</span>               <span class="comment">← Tier 1: Constitution (hub file, imports others)</span>
+├── <span class="file">AGENTS.md</span>               <span class="comment">← Cross-tool canonical (CLAUDE.md imports this)</span>
+│
+├── <span class="dir">rules/</span>                   <span class="comment">← NEW (Layer 5): Modular rule files per domain</span>
+│   ├── <span class="file">writing-rules.md</span>
+│   ├── <span class="file">research-rules.md</span>
+│   └── <span class="file">communication-rules.md</span>
+│
+├── <span class="dir">memory/</span>
+│   ├── <span class="file">learnings.md</span>         <span class="comment">← AI-updated: patterns and corrections</span>
+│   ├── <span class="file">decisions.md</span>         <span class="comment">← Key decisions log</span>
+│   ├── <span class="file">tools.md</span>             <span class="comment">← MCP capability registry + routing table</span>
+│   ├── <span class="file">golden-evals.md</span>      <span class="comment">← NEW (Layer 3): 5–10 test Qs with known-good answers</span>
+│   └── <span class="file">usage-log.md</span>         <span class="comment">← NEW (Layer 4): Per-session quality + cost tracking</span>
+│
+├── <span class="dir">context/</span>
+│   ├── <span class="file">me.md</span>                <span class="comment">← Who I am, how I work</span>
+│   ├── <span class="file">org.md</span>               <span class="comment">← Team, stakeholders (Glean-synced monthly)</span>
+│   └── <span class="file">active.md</span>            <span class="comment">← Current sprint + top priorities</span>
+│
+├── <span class="dir">projects/</span>               <span class="comment">← Tier 3: Project Brains (Glean-refreshed on demand)</span>
+├── <span class="dir">areas/</span>                  <span class="comment">← Ongoing responsibilities</span>
+├── <span class="dir">knowledge/</span>              <span class="comment">← this-week.md (Glean consolidation output)</span>
+│
+├── <span class="dir">.github/skills/</span>
+│   ├── <span class="file">REGISTRY.md</span>          <span class="comment">← NEW (Layer 1): Skill catalogue, versions, owners</span>
+│   ├── <span class="dir">os-helper/</span>          <span class="comment">← NEW (Steal 1): Onboarding + maintenance agent</span>
+│   ├── <span class="dir">chief-of-staff/</span>     <span class="comment">← NEW (Steal 2): Daily orchestration</span>
+│   ├── <span class="dir">researcher/</span>         <span class="comment">← NEW (Steal 2 + Layer 2): Discovery + routing</span>
+│   ├── <span class="dir">product-writer/</span>     <span class="comment">← NEW (Steal 2): Structured writing</span>
+│   ├── <span class="dir">process-builder/</span>    <span class="comment">← NEW (Steal 2): Workflow design → team skills</span>
+│   ├── <span class="dir">writing-prds/</span>       <span class="comment">← Lenny Skills</span>
+│   ├── <span class="dir">stakeholder-alignment/</span>
+│   └── <span class="dir">product-operations/</span>
+│
+├── <span class="dir">templates/</span>
+├── <span class="file">BACKLOG.md</span>
+└── <span class="file">.vscode/mcp.json</span>
+  </div>
+
+  <!-- IMPLEMENTATION SEQUENCE -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Implementation Sequence</h3>
+  <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5);max-width:68ch">Add these elements in priority order — don't build them all at once. Each unlocks the next.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header"><div class="card-icon" style="background:var(--color-primary);color:#fff;font-size:1rem;font-weight:700">W1</div><div><div class="card-title">Week 1–2</div><div class="card-subtitle">Foundation + Chief of Staff</div></div></div>
+      <div class="card-body">
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>Baseline CLAUDE.md / AGENTS.md (3-tier constitution)</li>
+          <li>context/me.md + context/org.md + context/active.md</li>
+          <li>chief-of-staff SKILL.md — daily standup ritual first</li>
+          <li>BACKLOG.md brain dump + routing instruction</li>
+        </ul>
+      </div>
+      <div class="card-tags"><span class="tag tag-green">Daily value within 48 hours</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon" style="background:var(--color-primary);color:#fff;font-size:1rem;font-weight:700">W3</div><div><div class="card-title">Week 3–4</div><div class="card-subtitle">Memory + MCP Layer</div></div></div>
+      <div class="card-body">
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>memory/tools.md — routing table for Glean/Confluence/Miro</li>
+          <li>researcher SKILL.md + first consolidation ritual</li>
+          <li>2–3 Project Brain files from active projects</li>
+          <li>usage-log.md — start tracking what's useful</li>
+        </ul>
+      </div>
+      <div class="card-tags"><span class="tag tag-blue">MCP value unlocked</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon" style="background:var(--color-primary);color:#fff;font-size:1rem;font-weight:700">W5</div><div><div class="card-title">Week 5–6</div><div class="card-subtitle">Evaluation + Rules Layer</div></div></div>
+      <div class="card-body">
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>golden-evals.md — 5 test Qs from real work situations</li>
+          <li>rules/ subfolder — extract domain-specific rules from CLAUDE.md</li>
+          <li>product-writer SKILL.md</li>
+          <li>os-helper SKILL.md — ready for first team onboarding</li>
+        </ul>
+      </div>
+      <div class="card-tags"><span class="tag tag-orange">System starts improving itself</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon" style="background:var(--color-primary);color:#fff;font-size:1rem;font-weight:700">W7+</div><div><div class="card-title">Week 7+</div><div class="card-subtitle">Team Rollout</div></div></div>
+      <div class="card-body">
+        <ul style="list-style:disc;padding-left:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8">
+          <li>Package shared repo — commit shared files, gitignore personal</li>
+          <li>REGISTRY.md — catalogue all skills with versions</li>
+          <li>process-builder SKILL.md — grows team skill library over time</li>
+          <li>First 2–3 pilot onboardings using os-helper</li>
+        </ul>
+      </div>
+      <div class="card-tags"><span class="tag tag-purple">Replication-ready</span></div>
+    </div>
+  </div>
+
+  <!-- REVISED EVAL PATTERN -->
+  <h3 style="font-family:var(--font-display);font-size:var(--text-lg);margin:var(--space-8) 0 var(--space-4);color:var(--color-text)">Golden Evals — The Most Underrated Addition</h3>
+  <div class="code-block">
+    <div class="code-label">memory/golden-evals.md — starter template</div>
+    <pre>## Golden Evaluation Set
+Run monthly in a fresh chat session. Score each response 1–5. 
+Track scores in usage-log.md. Investigate any score below 3.
+
+### Eval 001 — Stakeholder Context
+Q: "Who are the key stakeholders I need to align on the quarterly roadmap review,
+    and what are their main concerns?"
+Expected: Names specific people from context/org.md. Cites their concerns accurately.
+                References active.md for current priority framing.
+Last score: — / Date: —
+
+### Eval 002 — Active Priorities
+Q: "What should I focus on this week and why?"
+Expected: References context/active.md accurately. Prioritises correctly.
+                Does not make up priorities not in the file.
+Last score: — / Date: —
+
+### Eval 003 — Project Status
+Q: "What is the current status of [your most active project]?"
+Expected: Reads correct project Brain file. Accurately reflects current status.
+                Flags any items marked as blockers.
+Last score: — / Date: —
+
+### Eval 004 — MCP Routing
+Q: "Find the last decision we made about the product community OKR framework."
+Expected: Routes to Confluence MCP (not Glean). Returns relevant content.
+                Does not hallucinate a decision.
+Last score: — / Date: —
+
+### Eval 005 — Tone + Communication
+Q: "Draft a brief stakeholder update on this week's progress."
+Expected: Matches tone in context/me.md. Uses correct org terminology.
+                Structure matches stakeholder-update SKILL.md output format.
+Last score: — / Date: —</pre>
+  </div>
+
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Personal OS for Product Operations — Deep Research Brief · June 2026 (updated 20 Jun) · Grounded in open-source projects, community practitioners, and official VS Code documentation · All sources cited inline throughout the report.</p>
+</footer>
+
+<script>
+function scrollTo(id){const el=document.getElementById(id);if(el){el.scrollIntoView({behavior:'smooth',block:'start'})}}
+(function(){
+  const t=document.querySelector('[data-theme-toggle]'),r=document.documentElement;
+  let d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  r.setAttribute('data-theme',d);
+  const sunIcon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+  const moonIcon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  if(t){
+    t.innerHTML=d==='dark'?sunIcon:moonIcon;
+    t.addEventListener('click',()=>{
+      d=d==='dark'?'light':'dark';
+      r.setAttribute('data-theme',d);
+      t.innerHTML=d==='dark'?sunIcon:moonIcon;
+      t.setAttribute('aria-label','Switch to '+(d==='dark'?'light':'dark')+' mode');
+    });
+  }
+  // Active nav pill on scroll
+  const sections=['landscape','approaches','recommended','innovation','ux','technical','replication','risks'];
+  const pills=document.querySelectorAll('.nav-pill');
+  const observer=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        pills.forEach(p=>p.classList.remove('active'));
+        const id=e.target.id;
+        const idx=sections.indexOf(id);
+        if(idx>=0&&pills[idx])pills[idx].classList.add('active');
+      }
+    });
+  },{threshold:0.3,rootMargin:'-60px 0px -60% 0px'});
+  sections.forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el);});
+})();
+</script>
+</body>
+</html>
