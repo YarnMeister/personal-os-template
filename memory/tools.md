@@ -2,6 +2,10 @@
 
 This file is the MCP capability registry and query-routing policy. Read it before making any MCP query. The routing hierarchy is: **Glean → Confluence → Miro**. Always try local files first before escalating to MCP.
 
+## MCP Configuration
+
+MCP servers are configured individually by each team member in their VS Code User settings (`~/Library/Application Support/Code/User/mcp.json`) — not in this workspace. The routing policy below applies regardless of how MCP is configured. When joining the team, configure your own Glean, Confluence, Miro, GitHub, and Filesystem servers in your global VS Code MCP settings.
+
 ## Routing Hierarchy
 
 ### 1. Glean — Discovery & People (query first)

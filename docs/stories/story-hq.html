@@ -627,9 +627,9 @@
           <td class="num">007</td>
           <td class="desc">.vscode/mcp.json credential-free config + .gitignore shared/personal boundary</td>
           <td class="owner">owner</td>
-          <td class="status"><span class="badge status-done">Done</span></td>
-          <td class="qa"><span class="badge qa-approved">Approved</span></td>
-          <td class="qanotes">Re-verified 2026-06-21: glean_url declared in inputs array AND referenced in servers.glean.url — fix confirmed PASS. All AC approved.</td>
+          <td class="status"><span class="badge status-draft">Descoped</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">Descoped 2026-06-21: MCP config is personal (VS Code User settings), not shared via workspace. Story removed from implementation.</td>
         </tr>
         <tr class="detail" data-detail="007"><td colspan="6"><div class="detail-inner">
           <h4>Milestone / Source</h4>
@@ -666,14 +666,7 @@
           </ul>
           <!-- STORY:007 IMPL START -->
           <h4>Files Touched / Implementation Notes / Verification Run</h4>
-          <p><strong>Status: Implemented 2026-06-21 (file recreation after git filter-repo scrub)</strong></p>
-          <ul>
-            <li>Files created: <code>.vscode/mcp.json</code> — credential-free, 5 servers (glean, confluence, miro, github, filesystem), all secrets as <code>${input:...}</code> references, <code>inputs</code> block with <code>password: true</code> for sensitive values, root key is <code>"servers"</code> not <code>"mcpServers"</code>. No prior plain-text file existed to migrate.</li>
-            <li>Files modified: <code>.gitignore</code> — fixed ordering: moved <code>!.vscode/mcp.json</code> force-include to AFTER the <code>.vscode/</code> exclusion line (was previously before; negations only work when they come after the pattern they override). <code>memory/tools.md</code> and <code>memory/eval.md</code> force-includes remain correct above.</li>
-            <li>Credential scan: <code>grep -E "[A-Za-z0-9]{40,}" .vscode/mcp.json</code> → no matches (PASS). All credential positions use <code>${input:...}</code> pattern.</li>
-            <li>Verification: <code>git ls-files .vscode/mcp.json</code> → <code>.vscode/mcp.json</code> (PASS — force-added with <code>git add -f</code> past .vscode/ exclusion). <code>grep -c "input:" .vscode/mcp.json</code> → 6 (PASS, &gt;0). <code>wc -l AGENTS.md</code> → 61 (PASS, under 200).</li>
-            <li>Note: AC6 (migration from plain-text) — no prior plain-text file existed; file recreated from scratch as credential-free template. AC7 (secret rotation gate) — no prior secrets to rotate; user must enter credentials via VS Code prompt on first use. Both ACs satisfied in spirit.</li>
-          </ul>
+          <p><strong>Descoped — 2026-06-21.</strong> The shared workspace <code>.vscode/mcp.json</code> approach was removed after implementation. Decision: MCP configuration is personal — each team member uses their VS Code User settings (<code>~/Library/Application Support/Code/User/mcp.json</code>). No workspace MCP config is committed to the repo. AD-7 in <code>architecture.md</code> updated to reflect this revised decision. The <code>!.vscode/mcp.json</code> force-include was removed from <code>.gitignore</code>. <code>memory/tools.md</code> updated with MCP configuration guidance pointing to User settings.</p>
           <!-- STORY:007 IMPL END -->
           <div class="qa-box">
           <!-- STORY:007 QA START -->

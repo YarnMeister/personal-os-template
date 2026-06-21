@@ -22,9 +22,6 @@ knowledge/
 .idea/
 *.swp
 
-# Force-include MCP config (must come AFTER the .vscode/ exclusion above)
-!.vscode/mcp.json
-
 # Node
 node_modules/
 package-lock.json
