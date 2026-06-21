@@ -66,12 +66,10 @@ After the user approves a draft, **offer to publish to Confluence as the default
 For specialised product domain tasks, reference these skills by name:
 - **`writing-prds`** — product requirements documents, problem statements, user stories
 - **`stakeholder-alignment`** — stakeholder mapping, influence planning, communication strategies
-- **`roadmap-prioritisation`** — prioritisation frameworks, trade-off analysis
+- **`prioritizing-roadmap`** — prioritisation frameworks, trade-off analysis
 - **`metrics-and-analytics`** — success metrics, KPI definitions, measurement plans
 
 To use a Lenny skill: say "Load .github/skills/[skill-name]/SKILL.md and apply it to this task."
-
-> Note: Lenny skills are added in M5. Until then, apply the skill's approach manually using the description above as a guide.
 
 ## Quality Check
 
