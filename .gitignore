@@ -1,3 +1,22 @@
+# Personal OS — personal/private files (never commit)
+CLAUDE.local.md
+context/me.md
+context/active.md
+memory/learnings.md
+memory/decisions.md
+memory/usage-log.md
+memory/golden-evals.md
+projects/
+areas/
+knowledge/
+
+# Force-include shared memory files
+!memory/tools.md
+!memory/eval.md
+
+# Force-include MCP config
+!.vscode/mcp.json
+
 # macOS
 .DS_Store
 
