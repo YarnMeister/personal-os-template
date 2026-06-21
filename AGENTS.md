@@ -38,11 +38,11 @@ Load files on demand as needed. Tier 2 files are loaded at the start of each rel
 
 ## Skills
 
-Invoke a skill when the user's request matches the skill's task area. Skills are plain-English instruction files — they extend, not replace, these standing orders.
+When a trigger phrase matches, **read the skill file at the listed path in full before responding** — do not generate from memory. Skills are plain-English instruction files that extend, not replace, these standing orders.
 
-| Skill | Location | When to invoke |
+| Skill | Location | Trigger phrases — read the file, then follow it |
 |---|---|---|
-| `chief-of-staff` | `.github/skills/chief-of-staff/SKILL.md` | Morning standup, backlog processing, priorities, end-of-session harvest |
+| `chief-of-staff` | `.github/skills/chief-of-staff/SKILL.md` | "morning standup", "standup", "process my backlog", "end session", "session harvest", "brief me" |
 | `researcher` | `.github/skills/researcher/SKILL.md` | Research queries, Glean/Confluence lookups, project brain population *(M3)* |
 | `product-writer` | `.github/skills/product-writer/SKILL.md` | Document drafting, stakeholder updates, Confluence publishing *(M4)* |
 | `os-helper` | `.github/skills/os-helper/SKILL.md` | Onboarding, system audit, skill review — never during work tasks *(M5)* |
