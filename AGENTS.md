@@ -44,7 +44,7 @@ When a trigger phrase matches, **read the skill file at the listed path in full 
 |---|---|---|
 | `chief-of-staff` | `.github/skills/chief-of-staff/SKILL.md` | "morning standup", "standup", "process my backlog", "end session", "session harvest", "brief me" |
 | `researcher` | `.github/skills/researcher/SKILL.md` | "research", "find out", "look up", "populate project brain", "weekly consolidation" |
-| `product-writer` | `.github/skills/product-writer/SKILL.md` | Document drafting, stakeholder updates, Confluence publishing *(M4)* |
+| `product-writer` | `.github/skills/product-writer/SKILL.md` | "draft", "write", "stakeholder update", "publish to Confluence" |
 | `os-helper` | `.github/skills/os-helper/SKILL.md` | Onboarding, system audit, skill review — never during work tasks *(M5)* |
 | `process-builder` | `.github/skills/process-builder/SKILL.md` | Turn a process description into a doc, SKILL.md, and checklist *(M5)* |
 
