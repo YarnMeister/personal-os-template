@@ -4,9 +4,9 @@ Catalogue of all skills in `.github/skills/`. Updated by OS-Helper "review skill
 
 | Skill | Version | Description | Last updated | Last used |
 |---|---|---|---|---|
-| `chief-of-staff` | 1.1 | Daily orchestration — morning standup, backlog routing, session harvest | 2026-06-21 | 2026-06-21 |
+| `chief-of-staff` | 1.1 | Daily orchestration — morning standup, backlog routing, session harvest | 2026-06-21 | — |
 | `researcher` | 1.0 | Route discovery queries, document-grader pattern, consolidate to project brains | 2026-06-21 | — |
-| `product-writer` | 1.0 | Produce structured documents in the user's voice; Confluence publish as default | 2026-06-21 | 2026-06-21 |
+| `product-writer` | 1.0 | Produce structured documents in the user's voice; Confluence publish as default | 2026-06-21 | — |
 | `os-helper` | 1.0 | System maintenance — onboard, audit, review skills, evolve | 2026-06-21 | — |
 | `process-builder` | 1.0 | Turn a process description into a Confluence doc, SKILL.md, and checklist | 2026-06-21 | — |
 | `product-operations` | 1.0 | Product operations domain expertise — ops rituals, team health, tooling | 2026-06-21 | — |

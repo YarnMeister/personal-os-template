@@ -14,7 +14,7 @@ MCP servers are configured individually by each team member in their VS Code Use
 - **When to query:** discovery queries, "who works on X", "what's happening with Y", recent documents
 - **Escalate when:** fewer than 3 relevant results → escalate to Confluence
 - **Rate limits:** check your org's Glean plan; default API tier allows ~100 queries/day — avoid fan-out queries, consolidate results locally
-- **Last tested:** 2026-06-21
+- **Last tested:** —
 
 ### 2. Confluence — Decisions & Specs (escalate from Glean)
 - **Authoritative for:** team decisions, specifications, process docs, the official source of truth for team knowledge
@@ -22,28 +22,28 @@ MCP servers are configured individually by each team member in their VS Code Use
 - **When to query:** after Glean returns <3 results; for any decision or spec lookup; to publish finished artefacts
 - **Publish default:** after a substantive session, offer to publish to Confluence (Chief-of-Staff harvest Step 3)
 - **Rate limits:** Atlassian REST API — 10 requests/second per user; batch reads where possible; no hard daily cap on standard plans
-- **Last tested:** 2026-06-21
+- **Last tested:** —
 
 ### 3. Miro — Visual Artefacts (after Confluence)
 - **Authoritative for:** boards, diagrams, workshop outputs, visual design artefacts
 - **Read/write:** Read-only for V1
 - **When to query:** after Confluence, when visual/whiteboard context is needed
 - **Rate limits:** Miro REST API — 300 requests/minute; read-only V1 usage well within limit
-- **Last tested:** 2026-06-21
+- **Last tested:** —
 
 ### 4. GitHub — Repo Operations (on demand)
 - **Authoritative for:** code repositories, pull requests, issues, skill versioning
 - **Read/write:** Bidirectional
 - **When to query:** when explicitly asked for repo operations or skill updates
 - **Rate limits:** GitHub API — 5,000 requests/hour for authenticated PAT; well within limit for skill-versioning use
-- **Last tested:** 2026-06-21
+- **Last tested:** —
 
 ### 5. Filesystem — Local File Access (fallback for non-native AI)
 - **Authoritative for:** local workspace files (used by AI assistants without native file access)
 - **Read/write:** Bidirectional, scoped to workspace root
 - **When to query:** only if the AI lacks native file access; Copilot agent mode does NOT need this
 - **Rate limits:** local disk — no rate limits; scoped to workspace root only
-- **Last tested:** 2026-06-21
+- **Last tested:** —
 
 ## Routing Rules
 

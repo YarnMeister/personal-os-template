@@ -85,7 +85,11 @@ personal-os/
 │   ├── researcher/SKILL.md       # Research and consolidation skill [shared]
 │   ├── product-writer/SKILL.md   # Document authoring skill [shared]
 │   ├── os-helper/SKILL.md        # OS maintenance skill [shared]
-│   └── process-builder/SKILL.md  # Process-to-skill builder [shared]
+│   ├── process-builder/SKILL.md  # Process-to-skill builder [shared]
+│   └── [8 Lenny domain skills]   # writing-prds, stakeholder-alignment, prioritizing-roadmap,
+│                                 # setting-okrs-goals, running-effective-meetings,
+│                                 # cross-functional-collaboration, metrics-and-analytics,
+│                                 # product-operations [shared]
 │
 └── .vscode/                      # gitignored — each team member configures MCP in VS Code User settings
 ```

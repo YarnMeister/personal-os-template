@@ -1,40 +1,44 @@
-# Org Context · Updated: 2026-06-21
+# Org Context · Updated: YYYY-MM-DD
+
+Shared org context — committed to the repo and visible to all team members. Keep personal stakeholder notes in `context/me.md` (gitignored). Refresh this file monthly or when the org structure changes.
 
 ## Team Structure
 
-The organisation is divided into three pillars:
+Replace the structure below with your organisation's actual divisions and departments.
 
-**People and Culture**
-- Learning and Development
+**[Division 1 — e.g. People and Culture]**
+- [Sub-team]
 
-**Technology**
-- Engineering · Global Technology · Architecture · Security
+**[Division 2 — e.g. Technology]**
+- [Sub-team] · [Sub-team] · [Sub-team]
 
-**Product**
-- Commercial and Data · New Homes and Media · Residential · Experiences and Platforms · **Product Operations**
+**[Division 3 — e.g. Product]**
+- [Stream 1] · [Stream 2] · **[Your team — e.g. Product Operations]**
 
-### Product Operations (our team)
+### [Your team] (our team)
 | Function | Description |
 |---|---|
-| Product Management Operations | PM process, tooling, rituals, and capability building |
-| Product Design Operations | Design process, standards, and team coordination |
-| Technical Program Management Operations | Cross-functional delivery coordination and risk management |
+| [Function 1] | [What this function does] |
+| [Function 2] | [What this function does] |
+| [Function 3] | [What this function does] |
 
 ## Key Stakeholders
 
+Replace with the actual stakeholders relevant to your team. Add rows as needed.
+
 | Role | Primary Concerns | Alignment Rhythm |
 |---|---|---|
-| CPO / Product Leadership | Strategic priorities, team output quality, OKR progress | Quarterly + bi-weekly syncs |
-| Engineering Lead / CTO | Cross-functional delivery health, dependency management | Weekly |
-| Design Lead | Design quality standards, process consistency | Fortnightly |
+| [Executive sponsor / CPO] | [What they care about] | [How often you sync] |
+| [Key cross-functional lead] | [What they care about] | [How often you sync] |
+| [Key cross-functional lead] | [What they care about] | [How often you sync] |
 
 ## Org Glossary
 
-Canonical term definitions to prevent ambiguity in AI responses:
+Define terms that the AI might misinterpret. These are loaded before every response that involves stakeholders or org context. Be precise — an imprecise glossary produces imprecise answers.
 
-- **"the community"** — When I say "the community" I mean the Product Community of ~12 people across PM Ops, Design Ops, and TPM Ops.
-- **"the team"** — When I say "the team" I mean the direct Product Operations team of 3 functions listed above, not the broader product organisation.
-- **"OKRs"** — Objectives and Key Results. Reviewed quarterly. Our OKRs ladder to the Product pillar OKRs which ladder to company OKRs.
-- **"the quarterly"** — Refers to the quarterly planning cycle: objectives set, mid-quarter check, end-of-quarter retrospective.
+- **"[ambiguous term]"** — When I say "[term]" I mean [exact definition, e.g. "the [team name] of ~N people across [functions]"].
+- **"[another term]"** — [Definition]
+- **"OKRs"** — Objectives and Key Results. Reviewed [quarterly/bi-annually]. Our OKRs ladder to [describe the hierarchy].
+- **"[planning cycle term]"** — [Definition of your planning rhythm]
 
-> Note: This file is committed to the shared repo. Personal stakeholder context belongs in `context/me.md` (gitignored). This file is refreshed monthly via Glean MCP sync (M3+ feature).
+> Note: This file is committed to the shared repo. Personal stakeholder context belongs in `context/me.md` (gitignored). For teams using Glean MCP, this file can be refreshed from the people directory on a monthly basis.

@@ -24,7 +24,7 @@ If the request is a work task, respond: "OS-Helper is for system maintenance onl
 **Trigger:** "onboard [name]" or "onboard new user"
 
 Steps:
-1. Read `context/org.md` and `org-structure.md` (repo root) to identify the new user's likely division and team.
+1. Read `context/org.md` to identify the new user's likely division, team, and role from the team structure.
 2. Generate a personalised setup checklist for [name]:
    - Step 1: Clone the repo: `git clone <repo-url>` (~3 min)
    - Step 2: Open in VS Code — enable `chat.useAgentsMdFile` in settings (~2 min)
@@ -33,16 +33,16 @@ Steps:
    - Step 5: Open a fresh chat, type "morning standup" — verify 3 sections appear from your context files (~5 min)
    - Step 6: Send your first real request — "process my backlog" or "draft a stakeholder update" (~5 min)
    - **Total target: under 30 minutes**
-3. Using the division and team identified from org-structure.md, produce a partially pre-filled `context/me.md` draft for [name] to copy and complete:
+3. Using the division and team identified from `context/org.md`, produce a partially pre-filled `context/me.md` draft for [name] to copy and complete:
    ```
    # Me · Updated: YYYY-MM-DD
    - **Role:** [identified division] — [identified team] — [inferred or ask for title]
    - **Current priorities:** [leave blank — fill in on first session]
    - **Working style:** [leave blank — fill in on first session]
-   - **Team:** [identified team from org-structure.md]
+   - **Team:** [identified team from context/org.md]
    - **Key tools:** VS Code with GitHub Copilot, Confluence, Glean — [confirm with user]
    ```
-   Pre-fill what is known from org-structure.md; mark the rest for the user to complete.
+   Pre-fill what is known from `context/org.md`; mark the rest for the user to complete.
 4. Include an import-debug step: "If the AI doesn't seem to have standing orders, ask it 'What are your standing orders?' — if it can't describe the constitution, the @AGENTS.md import failed. Fallback: open AGENTS.md and paste its contents directly into the chat."
 
 ## Mode 2 — Audit
