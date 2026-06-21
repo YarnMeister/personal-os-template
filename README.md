@@ -106,6 +106,16 @@ personal-os/
 
 If a broken MCP credential blocks a local-only workflow, that is a bug. Local workflows must always complete.
 
+### Diagnosing an MCP connectivity problem
+
+If an MCP query fails mid-workflow:
+1. The AI surfaces an error message — the workflow does not silently fail.
+2. Check VS Code's Output panel → MCP Server for connection errors.
+3. Re-enter the credential via the VS Code prompt (Command Palette → "MCP: Reload Servers").
+4. All daily rituals (standup, backlog) continue with local files while you debug.
+
+MCP servers are additive — a broken server never blocks local-only workflows.
+
 ---
 
 ## Setup Walkthrough (Full)

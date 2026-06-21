@@ -14,9 +14,6 @@ knowledge/
 !memory/tools.md
 !memory/eval.md
 
-# Force-include MCP config
-!.vscode/mcp.json
-
 # macOS
 .DS_Store
 
@@ -24,6 +21,9 @@ knowledge/
 .vscode/
 .idea/
 *.swp
+
+# Force-include MCP config (must come AFTER the .vscode/ exclusion above)
+!.vscode/mcp.json
 
 # Node
 node_modules/
