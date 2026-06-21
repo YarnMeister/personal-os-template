@@ -14,6 +14,8 @@ These instructions apply to every session, every response, without exception.
 
 **Quality gate.** Before every substantive response, run the pre-response checklist in `memory/eval.md`. Read that file and satisfy each item before responding.
 
+**Comms gate.** For any stakeholder update, status report, executive summary, or comms draft, load `rules/communication-rules.md` before writing.
+
 ---
 
 ## Routing Table
@@ -31,7 +33,7 @@ Load files on demand as needed. Tier 2 files are loaded at the start of each rel
 | Tier 2 | `memory/learnings.md` | Accumulated patterns and corrections | Check for relevance before substantive advice |
 | Rules | `rules/writing-rules.md` | Writing style and format rules | Load for any writing task |
 | Rules | `rules/research-rules.md` | Research and sourcing rules | Load for any research task |
-| Rules | `rules/communication-rules.md` | Communication and stakeholder rules | Load for any comms or stakeholder task |
+| Rules | `rules/communication-rules.md` | Communication and stakeholder rules | Load for any stakeholder update, status report, executive summary, or communication draft |
 | Skills | `.github/skills/` | Specialist agents | Invoke by task match (see Skills section below) |
 
 ---
@@ -44,7 +46,7 @@ When a trigger phrase matches, **read the skill file at the listed path in full 
 |---|---|---|
 | `chief-of-staff` | `.github/skills/chief-of-staff/SKILL.md` | "morning standup", "standup", "process my backlog", "end session", "session harvest", "brief me" |
 | `researcher` | `.github/skills/researcher/SKILL.md` | "research", "find out", "look up", "populate project brain", "weekly consolidation" |
-| `product-writer` | `.github/skills/product-writer/SKILL.md` | Document drafting, stakeholder updates, Confluence publishing *(M4)* |
+| `product-writer` | `.github/skills/product-writer/SKILL.md` | "draft", "write", "stakeholder update", "publish to Confluence" — **read the file for exact format before writing anything; also load `rules/communication-rules.md` for stakeholder updates** |
 | `os-helper` | `.github/skills/os-helper/SKILL.md` | Onboarding, system audit, skill review — never during work tasks *(M5)* |
 | `process-builder` | `.github/skills/process-builder/SKILL.md` | Turn a process description into a doc, SKILL.md, and checklist *(M5)* |
 
