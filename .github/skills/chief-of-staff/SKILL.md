@@ -1,7 +1,7 @@
 ---
 name: chief-of-staff
 description: Daily orchestration — morning standup, backlog routing, stakeholder updates, and session memory harvest
-version: "1.0"
+version: "1.1"
 last-updated: 2026-06-21
 ---
 
@@ -63,21 +63,34 @@ If BACKLOG.md is empty, say: "BACKLOG.md is empty — nothing to process."
 
 ## Session Harvest
 
-<!-- M2 STUB: Full session harvest behaviour (memory/learnings.md append, memory/usage-log.md row, Confluence publish) is implemented in Story 004. -->
-<!-- When M2 is live, this section will: -->
-<!-- 1. Append at least 1 learning to memory/learnings.md in format: YYYY-MM-DD — [pattern discovered] -->
-<!-- 2. Append a row to memory/usage-log.md: date | task type | MCP sources | quality 1-5 | notes -->
-<!-- 3. Attempt to publish a structured session summary to Confluence as the default behaviour. -->
-<!-- If Confluence MCP is unavailable, steps 1 and 2 still complete — never blocked by a failed publish. -->
+At the end of every substantive session, run the following steps IN ORDER. Do not skip steps because a later step fails.
 
-At end of session, note: "Session complete. Memory harvest will be available in M2."
+**Step 1 — Append to memory/learnings.md**
+Identify 1–3 patterns or corrections discovered during this session. Append each as a new line in this format:
+`YYYY-MM-DD — [pattern or correction, one sentence, specific and actionable]`
+Do this even if the session was brief. At minimum: note what context files were read and whether the response was grounded.
+
+**Step 1b — Append to memory/decisions.md (if applicable)**
+If a significant decision was made during this session (a choice between options, a direction set, a trade-off accepted), append it to `memory/decisions.md` in the format: Date, Decision, Rationale, Alternatives rejected.
+
+**Step 2 — Append to memory/usage-log.md**
+Append exactly one new row to the table in this format:
+`| YYYY-MM-DD | [task type] | [MCP sources used, or "None"] | [1–5] | [one-line note] |`
+Rate quality honestly: 5 = fully grounded, 4 = solid, 3 = adequate, 2 = had to ask for clarification, 1 = fabrication risk or poor grounding.
+
+**Step 3 — Publish to Confluence (default behaviour)**
+Attempt to publish a structured session summary to the designated Confluence space via MCP. This is the default end-of-session behaviour, not an on-request action (Confluence is the authoritative team source of truth).
+- If Confluence MCP is available: publish the summary.
+- If Confluence MCP is unavailable: Steps 1 and 2 have already completed. Retain the summary draft locally. Notify the user: "Confluence publish failed — session summary retained locally. Steps 1 and 2 (local memory harvest) are complete."
+- NEVER block Steps 1 or 2 because Step 3 failed.
+
+**Trigger phrases for harvest:** "end session", "wrap up", "session harvest", "save session". Also run automatically after any substantive response if the user has been working for more than 30 minutes.
 
 ## Quality Check
 
-<!-- Runs memory/eval.md checklist before substantive responses — implemented in Story 005 (M2). -->
-<!-- Stub: for M1, simply confirm you read context/active.md before responding. -->
+Before every substantive response, run the pre-response checklist in `memory/eval.md`. Read that file, check each item, and only proceed when all items are satisfied (or explicitly waived with a reason).
 
-Before every substantive response: confirm you have read `context/active.md`. If you have not, read it now.
+A substantive response is any recommendation, strategy, prioritisation, or decision the user may act on. Casual questions and one-liner factual lookups do not require the full checklist — but confirm you have read `context/active.md` even for those.
 
 ## Constraints
 

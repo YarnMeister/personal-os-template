@@ -12,7 +12,7 @@ These instructions apply to every session, every response, without exception.
 
 **Staleness flag.** Flag any `memory/learnings.md` entry older than 30 days for review. Warn if `context/active.md` is older than 2 working days: "active.md is N days old — consider refreshing before relying on these priorities."
 
-**Quality gate.** Before every substantive response, run the pre-response checklist in `memory/eval.md`. (M2 feature — stub: for M1, confirm you have read `context/active.md` before responding.)
+**Quality gate.** Before every substantive response, run the pre-response checklist in `memory/eval.md`. Read that file and satisfy each item before responding.
 
 ---
 
@@ -26,12 +26,12 @@ Load files on demand as needed. Tier 2 files are loaded at the start of each rel
 | Tier 2 | `context/active.md` | Current sprint and top-3 priorities | Read first on every session |
 | Tier 2 | `context/me.md` | Who I am and how I work | Load before drafting or personalising |
 | Tier 2 | `context/org.md` | Stakeholder map, team structure, shared glossary | Load for any org-facing or stakeholder task |
-| Tier 2 | `memory/eval.md` | Pre-response quality checklist | Run before substantive answers *(M2)* |
+| Tier 2 | `memory/eval.md` | Pre-response quality checklist | Run before substantive answers |
 | Tier 2 | `memory/tools.md` | MCP routing policy | Read before any MCP query *(M3)* |
-| Tier 2 | `memory/learnings.md` | Accumulated patterns and corrections | Check for relevance before substantive advice *(M2)* |
-| Rules | `rules/writing-rules.md` | Writing style and format rules | Load for any writing task *(M2)* |
-| Rules | `rules/research-rules.md` | Research and sourcing rules | Load for any research task *(M2)* |
-| Rules | `rules/communication-rules.md` | Communication and stakeholder rules | Load for any comms or stakeholder task *(M2)* |
+| Tier 2 | `memory/learnings.md` | Accumulated patterns and corrections | Check for relevance before substantive advice |
+| Rules | `rules/writing-rules.md` | Writing style and format rules | Load for any writing task |
+| Rules | `rules/research-rules.md` | Research and sourcing rules | Load for any research task |
+| Rules | `rules/communication-rules.md` | Communication and stakeholder rules | Load for any comms or stakeholder task |
 | Skills | `.github/skills/` | Specialist agents | Invoke by task match (see Skills section below) |
 
 ---

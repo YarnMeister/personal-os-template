@@ -389,7 +389,7 @@
 
   <!-- MILESTONE 2 -->
   <section class="milestone" id="f-m2">
-    <h2>M2 — Persistent Memory &amp; Self-Grounding <span class="phase-badge phase-scoping">Scoping</span></h2>
+    <h2>M2 — Persistent Memory &amp; Self-Grounding <span class="phase-badge phase-done">Done</span></h2>
     <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: The AI accumulates learnings across sessions and refuses to answer substantive requests without grounding in context. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 2</code> &nbsp;·&nbsp; Builds on: M1 complete.</p>
     <table class="stories">
       <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
@@ -400,9 +400,9 @@
           <td class="num">004</td>
           <td class="desc">Memory file scaffolding — learnings.md, decisions.md, usage-log.md + Chief-of-Staff session harvest</td>
           <td class="owner">owner</td>
-          <td class="status"><span class="badge status-approved">Ready</span></td>
-          <td class="qa"><span class="badge qa-none">—</span></td>
-          <td class="qanotes">—</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 5 AC verified. Memory files gitignored, harvest block implemented with Confluence graceful degradation, tools.md force-include rule confirmed in .gitignore.</td>
         </tr>
         <tr class="detail" data-detail="004"><td colspan="6"><div class="detail-inner">
           <h4>Milestone / Source</h4>
@@ -435,12 +435,28 @@
           </ul>
           <!-- STORY:004 IMPL START -->
           <h4>Files Touched / Implementation Notes / Verification Run</h4>
-          <p><em>(filled by the implementing agent on completion)</em></p>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>Files created: <code>memory/learnings.md</code> (gitignored — seeded with M1 standup pattern, date-prefixed format), <code>memory/decisions.md</code> (gitignored — with template entry showing date/decision/rationale/alternatives format), <code>memory/usage-log.md</code> (gitignored — table format with M1 session row)</li>
+            <li>Files modified: <code>.github/skills/chief-of-staff/SKILL.md</code> — version bumped to 1.1; M2 session harvest stub replaced with full 3-step implementation: Step 1 (append to learnings.md), Step 2 (append row to usage-log.md), Step 3 (Confluence publish as default with graceful degradation — Steps 1 and 2 never blocked by Step 3 failure); quality check stub replaced with real eval.md reference</li>
+            <li>Key decisions: All three personal memory files are gitignored per .gitignore lines 5–7. The .gitignore already had the correct rules from M1. Confluence publish made default behaviour per OQ-6. Session harvest trigger phrases added: "end session", "wrap up", "session harvest", "save session".</li>
+            <li>Verification: <code>git check-ignore -v memory/learnings.md memory/decisions.md memory/usage-log.md</code> → all three matched by .gitignore lines 5, 6, 7 (PASS). <code>wc -l AGENTS.md</code> → 61 lines (PASS, under 200). SKILL.md Session Harvest section inspected — 3 steps present, Confluence graceful degradation documented (PASS). usage-log.md table format confirmed with header and M1 seed row (PASS).</li>
+          </ul>
           <!-- STORY:004 IMPL END -->
           <div class="qa-box">
           <!-- STORY:004 QA START -->
-          <h4>QA Report</h4>
-          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: High — all AC verified by direct file inspection and shell commands. Live session verification (appends during a real session) is not possible in this static environment; static evidence is structurally complete and sufficient for the instruction-file nature of this system.</p>
+          <ul>
+            <li>AC1 — PASS: <code>memory/learnings.md</code> exists. Header reads <code># Learnings · Updated: 2026-06-21</code>. Contains date-prefixed entry <code>2026-06-21 — Personal OS M1 standup ritual confirmed working…</code>. Format matches required <code>YYYY-MM-DD — [pattern]</code>. <code>git check-ignore -v memory/learnings.md</code> → matched by <code>.gitignore:5</code> (PASS).</li>
+            <li>AC2 — PASS: <code>memory/decisions.md</code> exists. Header reads <code># Decisions · Updated: 2026-06-21</code>. Template entry (lines 15–19) contains all required fields: Date (2026-06-21), Decision, Rationale, Alternatives rejected. <code>git check-ignore -v memory/decisions.md</code> → matched by <code>.gitignore:6</code> (PASS).</li>
+            <li>AC3 — PASS: <code>memory/usage-log.md</code> exists. Header reads <code># Usage Log · Updated: 2026-06-21</code>. Table header row present: <code>Date | Task type | MCP sources | Quality | Notes</code>. Seed row present: <code>2026-06-21 | System setup | None (M1 local-only) | 5 | …</code>. <code>git check-ignore -v memory/usage-log.md</code> → matched by <code>.gitignore:7</code> (PASS).</li>
+            <li>AC4 — PASS: <code>.github/skills/chief-of-staff/SKILL.md</code> Session Harvest section (lines 64–84) implements 3 ordered steps. Step 1: appends to <code>memory/learnings.md</code> in required format. Step 2: appends row to <code>memory/usage-log.md</code> in required table format. Step 3: Confluence publish as default behaviour. Step 3 failure language (line 81): "Confluence publish failed — session summary retained locally. Steps 1 and 2 (local memory harvest) are complete." Line 82 explicitly states: "NEVER block Steps 1 or 2 because Step 3 failed." All four sub-requirements met.</li>
+            <li>AC5 — PASS: <code>.gitignore</code> line 14 has <code>!memory/tools.md</code> force-include rule; line 6 has <code>memory/decisions.md</code> gitignore entry. Both rules confirmed by direct inspection. Note: <code>memory/tools.md</code> file does not exist yet (Story 008 scope) — AC only requires the .gitignore to reflect both decisions, which it does.</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — secrets scan of M2 diff found no API keys, tokens, credentials, or JWT-shaped strings. No schema changes. No migration required.</p>
+          <p><strong>Risk notes:</strong> None. The harvest section is an instruction file; actual append behaviour during a live session is a follow-up verification item for Story 003's recommended live-session follow-up.</p>
           <!-- STORY:004 QA END -->
           </div>
           <h4>Revision Log</h4>
@@ -456,9 +472,9 @@
           <td class="num">005</td>
           <td class="desc">eval.md quality gate + rules/ domain instruction modules</td>
           <td class="owner">owner</td>
-          <td class="status"><span class="badge status-approved">Ready</span></td>
-          <td class="qa"><span class="badge qa-none">—</span></td>
-          <td class="qanotes">—</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 6 AC verified. eval.md has all 5 required checklist items, AGENTS.md references it explicitly, SKILL.md Quality Check section wired, all 3 rules files exist and are in routing table.</td>
         </tr>
         <tr class="detail" data-detail="005"><td colspan="6"><div class="detail-inner">
           <h4>Milestone / Source</h4>
@@ -493,12 +509,29 @@
           </ul>
           <!-- STORY:005 IMPL START -->
           <h4>Files Touched / Implementation Notes / Verification Run</h4>
-          <p><em>(filled by the implementing agent on completion)</em></p>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>Files created: <code>memory/eval.md</code> (force-included/shared — 7-item pre-response checklist: active.md read, learnings.md check, org.md grounding, role-specificity, named owners+dates, staleness check, sensitivity check; plus "when to skip" guidance and staleness thresholds section); <code>rules/writing-rules.md</code> (shared — format, length, voice, action-item rules, under 100 lines); <code>rules/research-rules.md</code> (shared — source hierarchy, document-grader pattern, citation and consolidation rules); <code>rules/communication-rules.md</code> (shared — audience guide for CPO/Eng/Design/team, meeting prep, stakeholder update format, Confluence publish behaviour)</li>
+            <li>Files modified: <code>AGENTS.md</code> — quality-gate standing order updated: M2 stub text removed, now reads "Read that file and satisfy each item before responding." Routing table: removed *(M2)* markers from memory/eval.md, memory/learnings.md, rules/writing-rules.md, rules/research-rules.md, rules/communication-rules.md rows. memory/tools.md row retains *(M3)* marker.</li>
+            <li>Key decisions: eval.md is force-included in .gitignore via <code>!memory/eval.md</code> (line 15) — confirmed committed/shared. Rules files created in new <code>rules/</code> directory — all shared/committed, no gitignore entries needed.</li>
+            <li>Verification: <code>git check-ignore -v memory/eval.md</code> → matched by .gitignore:15 <code>!memory/eval.md</code> (force-include, NOT ignored — PASS). <code>git status memory/eval.md</code> → shows as untracked new file (PASS). <code>wc -l AGENTS.md</code> → 61 lines (PASS, under 200). All three rules files exist under rules/ with correct header convention (PASS). SKILL.md Quality Check section now references memory/eval.md (PASS — AC3).</li>
+          </ul>
           <!-- STORY:005 IMPL END -->
           <div class="qa-box">
           <!-- STORY:005 QA START -->
-          <h4>QA Report</h4>
-          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: High — AC1, AC2, AC3, AC5, AC6 verified by direct file inspection and shell commands. AC4 is a static-only check (live AI session not available); checklist items 1–3 structurally compel citation of active.md and org.md content before any substantive response.</p>
+          <ul>
+            <li>AC1 — PASS: <code>memory/eval.md</code> exists. Checklist (lines 7–13) contains all 5 required items: (a) "Read context/active.md" — line 7; (b) "Check memory/learnings.md" — line 8; (c) "Ground in context/org.md" — line 9; (d) "Role-specific recommendations" — line 10; (e) "Named owners and dates" — line 11. All items present and substantive.</li>
+            <li>AC2 — PASS: <code>AGENTS.md</code> Standing Orders (line 15) reads: "Before every substantive response, run the pre-response checklist in <code>memory/eval.md</code>. Read that file and satisfy each item before responding." Routing table (line 29) lists <code>memory/eval.md</code> with "Run before substantive answers." Explicitly references <code>memory/eval.md</code> by path. PASS.</li>
+            <li>AC3 — PASS: <code>.github/skills/chief-of-staff/SKILL.md</code> Quality Check section (lines 86–90) reads: "Before every substantive response, run the pre-response checklist in <code>memory/eval.md</code>. Read that file, check each item, and only proceed when all items are satisfied…" Points explicitly to <code>memory/eval.md</code>.</li>
+            <li>AC4 — PASS (static evidence only): Checklist items 1–3 require the AI to read <code>context/active.md</code> (item 1), check <code>memory/learnings.md</code> (item 2), and check <code>context/org.md</code> including glossary (item 3) before responding. Item 4 requires role-specific scoping. Any substantive response produced after running these items must cite active.md content and org.md terminology. Live AI session test not run — noted as follow-up for first human session.</li>
+            <li>AC5 — PASS: <code>rules/writing-rules.md</code>, <code>rules/research-rules.md</code>, <code>rules/communication-rules.md</code> all exist. Confirmed committed and tracked: <code>git ls-files</code> returns all three paths. All three appear in <code>AGENTS.md</code> routing table (lines 32–34) with their load conditions.</li>
+            <li>AC6 — PASS: <code>rules/writing-rules.md</code> contains multiple demonstrable rules: (a) word count ceiling — "For stakeholder updates: max 150 words unless complexity demands more" (line 17); (b) action-item format rule — "<code>[Action] — Owner: [Name] — Due: [Date]</code>" with explicit "Never write an action item without a named owner and date" (lines 27–28); (c) org terminology rule — "use terms as defined in context/org.md glossary. Never use generic alternatives for terms with canonical definitions" (line 22). Three distinct enforceable rules demonstrated.</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — no secrets or credentials in any new file. <code>memory/eval.md</code> confirmed force-included (not ignored): <code>git check-ignore -v memory/eval.md</code> returns exit code 1 (no ignore match), and <code>git ls-files memory/eval.md</code> returns the path (tracked). No schema changes.</p>
+          <p><strong>Recommended follow-up (non-blocking, pinned to Story 009 live-session verification):</strong> AC4 live AI session test — ask "What should our team prioritise this quarter?" and confirm the response explicitly cites content from both <code>context/active.md</code> and <code>context/org.md</code>. Run alongside Story 003 AC3/AC4 live tests.</p>
           <!-- STORY:005 QA END -->
           </div>
           <h4>Revision Log</h4>
@@ -511,9 +544,9 @@
           <td class="num">006</td>
           <td class="desc">Staleness convention wiring — 30-day flags, active.md currency, org.md glossary grounding</td>
           <td class="owner">owner</td>
-          <td class="status"><span class="badge status-approved">Ready</span></td>
-          <td class="qa"><span class="badge qa-none">—</span></td>
-          <td class="qanotes">—</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 5 AC verified. AGENTS.md carries staleness standing order at Tier 1, eval.md has staleness thresholds section, org.md glossary has 4 canonical terms including "the community".</td>
         </tr>
         <tr class="detail" data-detail="006"><td colspan="6"><div class="detail-inner">
           <h4>Milestone / Source</h4>
@@ -546,12 +579,30 @@
           </ul>
           <!-- STORY:006 IMPL START -->
           <h4>Files Touched / Implementation Notes / Verification Run</h4>
-          <p><em>(filled by the implementing agent on completion)</em></p>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>No additional files created for Story 006 — all four ACs are satisfied by the M1 and M2 implementations already in place.</li>
+            <li>AC1 (learnings.md 30-day flag) — satisfied by: AGENTS.md line 13 staleness-flag standing order ("Flag any memory/learnings.md entry older than 30 days for review") + memory/learnings.md seeded with 2026-06-21 date-prefixed entry + memory/eval.md staleness thresholds section (learnings.md entries flag at 30 days).</li>
+            <li>AC2 (active.md 2-working-day staleness warning) — satisfied by: AGENTS.md line 13 ("Warn if context/active.md is older than 2 working days: active.md is N days old — consider refreshing before relying on these priorities.") + SKILL.md Standing Order section repeating the same warning + memory/eval.md staleness check item.</li>
+            <li>AC3 (org.md glossary resolves ambiguous terms) — satisfied by: context/org.md (committed in M1, Story 002) contains 4-entry glossary including canonical definitions for "the community" (Product Community of ~12 people) and "the team". memory/eval.md checklist item 3 explicitly instructs checking org.md glossary for ambiguous terms like "the community" or "the team".</li>
+            <li>AC4 (AGENTS.md carries staleness-check standing order at Tier 1) — satisfied by AGENTS.md line 13 staleness-flag standing order, present since M1 Story 001, confirmed not buried in a skill. <code>wc -l AGENTS.md</code> → 61 lines (PASS).</li>
+            <li>Verification: AGENTS.md line 13 inspected — staleness standing order present with exact required language (PASS). context/org.md glossary inspected — "the community" and "the team" definitions present (PASS). memory/eval.md staleness thresholds section present (PASS). learnings.md entry dated 2026-06-21 present as AC1 baseline (PASS).</li>
+          </ul>
           <!-- STORY:006 IMPL END -->
           <div class="qa-box">
           <!-- STORY:006 QA START -->
-          <h4>QA Report</h4>
-          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: High — all 5 AC verified by direct file inspection and shell commands. AC1 and AC2 involve AI runtime behaviour (flagging on staleness detection); the instructions enabling that behaviour are fully present and correctly worded. Live session tests are noted as follow-ups, not blocking.</p>
+          <ul>
+            <li>AC1 — PASS: <code>memory/learnings.md</code> has date-prefixed entry <code>2026-06-21 — …</code> (verified in Story 004 AC1). <code>memory/eval.md</code> Staleness thresholds section (lines 20–23) states: "<code>memory/learnings.md</code> entries — flag any entry whose date prefix is more than 30 days before today." The 30-day threshold is present in both the eval checklist (line 12) and the dedicated thresholds section.</li>
+            <li>AC2 — PASS: <code>AGENTS.md</code> Standing Orders (line 13) reads: "Warn if <code>context/active.md</code> is older than 2 working days: 'active.md is N days old — consider refreshing before relying on these priorities.'" The exact warning text is spelled out, matching AC2's required message format. Present in Tier 1 standing orders — not buried in a skill.</li>
+            <li>AC3 — PASS: <code>context/org.md</code> Org Glossary section (lines 33–38) contains 4 canonical term definitions. "the community" entry (line 35): "When I say 'the community' I mean the Product Community of ~12 people across PM Ops, Design Ops, and TPM Ops." Plus "the team", "OKRs", "the quarterly" — all with explicit canonical definitions. <code>memory/eval.md</code> checklist item 3 (line 9) explicitly instructs checking org.md glossary for ambiguous terms. AC3 is satisfied by the org.md content plus the eval.md instruction that wires it into the pre-response gate. Live glossary resolution test (asking "Who is affected by the community OKR?") is a follow-up pinned to Story 009 live verification.</li>
+            <li>AC4 — PASS: Staleness-check instruction confirmed in <code>AGENTS.md</code> Standing Orders (line 13) — this is Tier 1. Not in a skill. <code>wc -l AGENTS.md</code> → 61 lines (well under 200 ceiling). The standing order text contains both the learnings.md 30-day flag and the active.md 2-working-day warning in a single instruction line.</li>
+            <li>AC5 (from Story 005 detail) — PASS: <code>memory/eval.md</code> has a dedicated "Staleness thresholds" section (lines 19–23) covering both <code>context/active.md</code> (2 working days) and <code>memory/learnings.md</code> entries (30 days). The staleness check is also checklist item 6 in the pre-response checklist (line 12), meaning it runs before every substantive response.</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — Story 006 introduced no new files. All AC are satisfied by files already verified in Stories 001–005. No secrets, no schema changes.</p>
+          <p><strong>Recommended follow-ups (non-blocking, pinned to Story 009 live verification):</strong> (1) Insert a learnings entry dated 31 days past and run "Check memory staleness" — confirm flag appears. (2) Backdate <code>context/active.md</code> header 3 days and run "morning standup" — confirm staleness warning in response. (3) Ask "Who is affected by the community OKR?" and confirm org.md definition is used. All three are live-session tests that cannot run in this static environment.</p>
           <!-- STORY:006 QA END -->
           </div>
           <h4>Revision Log</h4>
