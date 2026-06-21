@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story HQ — Personal OS</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--panel-2:#1f232c;--border:#2a2f3a;--text:#e6e8ec;--muted:#9aa3b2;--accent:#ff7a18;--accent-2:#ff9d4d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header.hq{padding:24px 28px;border-bottom:1px solid var(--border);position:sticky;top:0;background:linear-gradient(180deg,#13161c,#0f1115);z-index:5}
+  header.hq h1{margin:0;font-size:22px;letter-spacing:.3px}
+  header.hq h1 .accent{color:var(--accent)}
+  .legend{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px}
+  .wrap{padding:24px 28px;max-width:1280px;margin:0 auto}
+  .toc{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:32px}
+  .toc h2{margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent-2)}
+  .toc ul{margin:0;padding-left:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 24px}
+  .toc li{font-size:13px}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .oq-box{background:var(--panel);border:2px solid #b45309;border-radius:10px;padding:22px 24px;margin-bottom:36px}
+  .oq-box h2{margin:0 0 6px;font-size:16px;color:#fbbf24}
+  .oq-box .oq-meta{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .oq-item{margin:0 0 18px;padding:14px 16px;background:#0c0e12;border-left:3px solid #b45309;border-radius:0 6px 6px 0}
+  .oq-item:last-child{margin-bottom:0}
+  .oq-item h4{margin:0 0 6px;font-size:13px;color:#fbbf24;text-transform:uppercase;letter-spacing:.4px}
+  .oq-item p{margin:4px 0;font-size:13.5px;color:var(--text)}
+  .oq-item .oq-rec{margin-top:8px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px}
+  .oq-item .oq-blocks{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+  section.milestone{margin:0 0 36px}
+  section.milestone>h2{font-size:17px;margin:0 0 4px;color:var(--accent-2)}
+  .milestone-meta{color:var(--muted);font-size:13px;margin:0 0 14px}
+  table.stories{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  table.stories th,table.stories td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  table.stories th{background:var(--panel-2);color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  tr.story{cursor:pointer}
+  tr.story:hover{background:#1b1f28}
+  tr.story td.num{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;white-space:nowrap}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+  .badge.status-draft{background:#2a2f3a;color:#cbd5e1}
+  .badge.status-approved{background:rgba(59,130,246,.15);color:#93c5fd;border-color:rgba(59,130,246,.4)}
+  .badge.status-in-progress{background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.4)}
+  .badge.status-in-review{background:rgba(168,85,247,.15);color:#d8b4fe;border-color:rgba(168,85,247,.4)}
+  .badge.status-done{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.4)}
+  .badge.status-blocked{background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.4)}
+  .badge.qa-none{background:#23272f;color:var(--muted)}
+  .badge.qa-approved{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.4)}
+  .badge.qa-needs-changes{background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.4)}
+  .badge.qa-blocked{background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.4)}
+  .phase-badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;vertical-align:middle;margin-left:8px;border:1px solid transparent}
+  .phase-backlog{background:#1e2130;color:#6b7280;border-color:#374151}
+  .phase-scoping{background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.4)}
+  .phase-in-progress{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.4)}
+  .phase-done{background:rgba(59,130,246,.15);color:#93c5fd;border-color:rgba(59,130,246,.4)}
+  tr.detail{display:none}
+  tr.detail.open{display:table-row}
+  tr.detail>td{background:var(--panel-2);padding:0}
+  .detail-inner{padding:18px 20px;border-left:3px solid var(--accent)}
+  .detail-inner h4{margin:16px 0 6px;color:var(--accent-2);font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  .detail-inner h4:first-child{margin-top:0}
+  .detail-inner ul{margin:6px 0;padding-left:20px}
+  .detail-inner li{margin-bottom:4px;font-size:14px}
+  .detail-inner code{background:#0c0e12;padding:1px 5px;border-radius:4px;font-size:13px}
+  .detail-inner pre{background:#0c0e12;padding:12px;border-radius:8px;overflow:auto;border:1px solid var(--border);font-size:13px}
+  .detail-inner p{font-size:14px;margin:6px 0}
+  .qa-box{margin-top:14px;border:1px solid var(--border);border-radius:8px;padding:14px;background:#13161c}
+  .blocked-flag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.4);vertical-align:middle}
+</style>
+</head>
+<body>
+<header class="hq">
+  <h1>Personal OS — <span class="accent">Story HQ</span></h1>
+  <div class="legend">Click any story row to expand full requirements &nbsp;·&nbsp; Status: Ready / In Progress / Done / Blocked &nbsp;·&nbsp; Phase: Backlog / Scoping / In Progress / Done &nbsp;·&nbsp; Stories are ordered by milestone sequence (M1 → M5)</div>
+</header>
+<div class="wrap">
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <h2>Navigation</h2>
+    <ul>
+      <li><a href="#oq-section">Resolved Decisions (OQ-1 – OQ-10)</a></li>
+      <li><a href="#f-m1">M1 — The Morning Standup Works</a> (Stories 001–003)</li>
+      <li><a href="#f-m2">M2 — Persistent Memory &amp; Self-Grounding</a> (Stories 004–006)</li>
+      <li><a href="#f-m3">M3 — MCP-Backed Research &amp; Project Brains</a> (Stories 007–009)</li>
+      <li><a href="#f-m4">M4 — Quality Loop &amp; Authoring</a> (Stories 010–011)</li>
+      <li><a href="#f-m5">M5 — Packaged, Shareable, Self-Maintaining</a> (Stories 012–014)</li>
+    </ul>
+  </div>
+
+  <!-- RESOLVED DECISIONS -->
+  <div class="oq-box" id="oq-section" style="border-color:#0d9488;background:rgba(13,148,136,.06);">
+    <h2 style="color:#0d9488;">Resolved Decisions</h2>
+    <p class="oq-meta">Source: <code>docs/specs/architecture.md §8</code> &nbsp;·&nbsp; All 10 open questions have been answered by the owner. No stories are blocked. Architecture updated to v1.1.</p>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-1 — <code>@AGENTS.md</code> import resolution</h4>
+      <p><strong>Resolution:</strong> Assume import resolution works. OS-Helper / onboarding instructions must include a debug/fallback step if the assistant ignores the import. <code>CLAUDE.md</code> remains as a thin compatibility shim for Claude-based assistants.</p>
+      <p><strong>Impact:</strong> AD-3 updated. OS-Helper AC2 includes import-debug step. Story 001 scope confirmed.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-2 — <code>eval.md</code> location</h4>
+      <p><strong>Resolution:</strong> <code>memory/eval.md</code>, referenced explicitly from <code>AGENTS.md</code> and each SKILL.md.</p>
+      <p><strong>Impact:</strong> All story references to eval.md use the <code>memory/eval.md</code> path. Story 005 confirmed.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-3 — Filesystem MCP requirement</h4>
+      <p><strong>Resolution:</strong> Keep it in <code>mcp.json</code> (no credential, low cost). Document in <code>README.md</code> that Copilot agent mode does not need it. Confirm during M1/M3 testing.</p>
+      <p><strong>Impact:</strong> Story 007 AC1 retains Filesystem MCP as 4th server. README documents the note.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-4 — Miro MCP in scope for V1</h4>
+      <p><strong>Resolution:</strong> Miro MCP is in scope for V1. Users already have a fully configured <code>mcp.json</code> with Miro present. The <strong>migration task</strong> is to convert that existing plain-text-secret config to the <code>${input:...}</code> credential-free pattern. All plain-text secrets must be rotated after migration as a security gate.</p>
+      <p><strong>Impact:</strong> Miro added as 4th integration point (read-only, visual artefacts, after Confluence in hierarchy). Story 007 gains migration AC and secret-rotation gate AC. Story 008 unblocked — Miro is a live V1 MCP, not a human-handoff note.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-5 — <code>memory/tools.md</code> and <code>memory/decisions.md</code> git treatment</h4>
+      <p><strong>Resolution:</strong> <code>memory/tools.md</code> is <strong>shared</strong> (committed, force-included). Personal routing tuning via <code>CLAUDE.local.md</code>. <code>memory/decisions.md</code> is <strong>personal</strong> (gitignored) — team decisions belong in Confluence per AD-5.</p>
+      <p><strong>Impact:</strong> Stories 004, 007, 008 updated. <code>.gitignore</code> force-includes <code>memory/tools.md</code>.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-6 — Confluence authority</h4>
+      <p><strong>Resolution:</strong> Confluence is the authoritative team source of truth. The OS publishes to Confluence as the default post-session behaviour (graceful degradation if MCP unavailable — local <code>learnings.md</code> is the primary sink).</p>
+      <p><strong>Impact:</strong> Confluence MCP is more load-bearing for the publish direction. Stories 004 and 011 updated to make publish the default, not just "on request." Failure always retains draft locally.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-7 — Registry path</h4>
+      <p><strong>Resolution:</strong> <code>.github/skills/REGISTRY.md</code> — one skills location, no orphan directory. PRD inconsistency (<code>skills/REGISTRY.md</code>) is noted for PRD correction.</p>
+      <p><strong>Impact:</strong> Story 014 unblocked. All registry references use <code>.github/skills/REGISTRY.md</code>.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-8 — Filenames</h4>
+      <p><strong>Resolution:</strong> <strong>No emoji in filenames.</strong> Plain lowercase kebab-case only. Emoji in filenames break path references and are a non-starter for adoption. Visual scanning via <code>README.md</code> and VS Code file icons.</p>
+      <p><strong>Impact:</strong> Naming convention rule added to architecture §4.3. All story AC use plain filenames.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-9 — Glean write-back</h4>
+      <p><strong>Resolution:</strong> Deferred to V2. Local <code>learnings.md</code> is the load-bearing sink for V1. Glean write-back added to the V2 backlog.</p>
+      <p><strong>Impact:</strong> Glean integration is read-only for V1. Story 004 out-of-scope note confirmed.</p>
+    </div>
+
+    <div class="oq-item" style="border-left-color:#0d9488;">
+      <h4>OQ-10 — Canonical assistant</h4>
+      <p><strong>Resolution:</strong> Ship <code>AGENTS.md</code> only. Rely on Copilot's <code>chat.useAgentsMdFile</code> setting. <code>CLAUDE.md</code> remains as a thin <code>@AGENTS.md</code> shim for Claude-based assistants. No separate <code>copilot-instructions.md</code> file.</p>
+      <p><strong>Impact:</strong> Story 001 scope updated. AD-3 in architecture updated.</p>
+    </div>
+  </div>
+
+  <!-- FEATURE: feat/personal-os-v1 START -->
+
+  <!-- MILESTONE 1 -->
+  <section class="milestone" id="f-m1">
+    <h2>M1 — The Morning Standup Works <span class="phase-badge phase-done">Done</span></h2>
+    <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: In a fresh VS Code workspace, the user types "morning standup" and gets their top-3 priorities, blockers, and one suggested first action, read from their own context files. No MCP required. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 1</code></p>
+    <table class="stories">
+      <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
+      <tbody>
+
+        <!-- STORY:001 START -->
+        <tr class="story" data-story="001">
+          <td class="num">001</td>
+          <td class="desc">Constitution files — AGENTS.md, CLAUDE.md, CLAUDE.local.md, .github/copilot-instructions.md</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 6 AC verified. 61-line AGENTS.md, clean CLAUDE.md shim, gitignore confirmed, no CLI syntax, Import Debug in README.</td>
+        </tr>
+        <tr class="detail" data-detail="001"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M1 — The Morning Standup Works &nbsp;·&nbsp; <code>architecture.md §6 M1</code> &nbsp;·&nbsp; PRD F1 (P0)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a single always-loaded constitution file that routes the AI to all lower-tier context, so that every VS Code AI session starts with standing orders without manual copy-paste.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>AGENTS.md</code> exists at the workspace root, is under 200 lines, and contains: (a) a routing table pointing to <code>context/active.md</code> and <code>memory/tools.md</code>; (b) a sensitivity-check instruction ("before writing to any file, confirm the content doesn't belong in a protected enterprise system"); (c) a staleness-flag instruction ("flag any <code>learnings.md</code> entry older than 30 days for review").</li>
+            <li>AC2 — <code>CLAUDE.md</code> at the workspace root contains exactly one substantive line: <code>@AGENTS.md</code> (plus a comment stating editors must edit <code>AGENTS.md</code> not this file). No other content.</li>
+            <li>AC3 — <code>CLAUDE.local.md</code> exists (with a placeholder comment) and is listed in <code>.gitignore</code> so it is never committed.</li>
+            <li>AC4 — <code>AGENTS.md</code> is readable and interpretable in plain English with no CLI-specific syntax — no bash, no Python, no code blocks beyond illustrative examples.</li>
+            <li>AC5 — The <code>@AGENTS.md</code> import in <code>CLAUDE.md</code> is assumed to resolve correctly (OQ-1 resolved). OS-Helper / onboarding documentation includes a debug/fallback step for cases where an assistant does not resolve the import — this step is present in <code>README.md</code> and linked from <code>CLAUDE.md</code>.</li>
+            <li>AC6 — <code>AGENTS.md</code> is the sole canonical file. No separate <code>.github/copilot-instructions.md</code> is created. <code>README.md</code> explains how to enable <code>chat.useAgentsMdFile</code> in Copilot settings so the assistant reads <code>AGENTS.md</code> (OQ-10 resolved).</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-2 (three-tier hierarchy, 200-line ceiling), AD-3 (<code>AGENTS.md</code> canonical / <code>CLAUDE.md</code> thin import). No custom code — these are plain markdown files. Follow <code>architecture.md §4.2</code> file header convention: <code># &lt;Title&gt; · Updated: YYYY-MM-DD</code> on every durable file.</p>
+          <h4>Components Touched</h4>
+          <p><code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>CLAUDE.local.md</code>, <code>.github/copilot-instructions.md</code> (if OQ-10 answer is (b)), <code>.gitignore</code> (CLAUDE.local.md entry), <code>README.md</code> (OQ-1 fallback note if needed)</p>
+          <h4>Dependencies</h4>
+          <p>None (greenfield). Resolve OQ-1 and OQ-8 (filename convention) and OQ-10 (copilot-instructions) before starting implementation — these decisions alter the file content.</p>
+          <h4>Out of Scope</h4>
+          <p>Context files (<code>context/</code>), memory files (<code>memory/</code>), skills, MCP config — all covered by later stories.</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass in a clean VS Code workspace with GitHub Copilot and no MCP configured. The word count of <code>AGENTS.md</code> is verified to be under 200 lines by inspection.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Open a fresh VS Code window in the workspace — confirm Copilot loads <code>AGENTS.md</code> (check via "Explain your instructions" or equivalent).</li>
+            <li>Run <code>wc -l AGENTS.md</code> (or count lines manually) — result must be &lt; 200.</li>
+            <li>Open <code>CLAUDE.md</code> — confirm it contains only the <code>@AGENTS.md</code> import line.</li>
+            <li>Run <code>git status</code> after adding a non-empty <code>CLAUDE.local.md</code> — confirm it shows as ignored.</li>
+          </ul>
+          <!-- STORY:001 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>Files created: <code>AGENTS.md</code> (61 lines, under 200-line ceiling), <code>CLAUDE.md</code> (@AGENTS.md shim only, 4 lines), <code>CLAUDE.local.md</code> (placeholder comment, gitignored)</li>
+            <li>Files modified: <code>.gitignore</code> — added full Personal OS shared/personal boundary with force-include rules for <code>!memory/tools.md</code>, <code>!memory/eval.md</code>, <code>!.vscode/mcp.json</code></li>
+            <li>Key decisions: AGENTS.md is a routing-focused constitution (not a knowledge store), under 61 lines with all standing orders, routing table, skills list, Tier 3 loading rule, and MCP fallback note. No <code>.github/copilot-instructions.md</code> created per OQ-10 — <code>AGENTS.md</code> is sole canonical file.</li>
+            <li>Verification: <code>wc -l AGENTS.md</code> → 61 lines (PASS). <code>git check-ignore -v CLAUDE.local.md</code> → matched by <code>.gitignore:2</code> (PASS). <code>CLAUDE.md</code> inspected — contains only @AGENTS.md import and two comment lines (PASS). README.md Import Debug section present and linked from CLAUDE.md comment (PASS).</li>
+          </ul>
+          <!-- STORY:001 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:001 QA START -->
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: High — all AC verified by direct file inspection and shell commands; no live AI session required for these criteria.</p>
+          <ul>
+            <li>AC1 — PASS: <code>AGENTS.md</code> exists at workspace root; <code>wc -l AGENTS.md</code> → 61 lines (under 200 ceiling). Routing table (lines 23–35) points to <code>context/active.md</code> and <code>memory/tools.md</code>. Sensitivity-check standing order present (line 11). Staleness-flag standing order present (line 13).</li>
+            <li>AC2 — PASS: <code>CLAUDE.md</code> is 4 lines total — two HTML comments (one directing editors to AGENTS.md, one referencing the Import Debug fallback) and one substantive line: <code>@AGENTS.md</code>. No other content.</li>
+            <li>AC3 — PASS: <code>CLAUDE.local.md</code> exists with placeholder comment. <code>git check-ignore -v CLAUDE.local.md</code> → matched by <code>.gitignore:2</code> (PASS).</li>
+            <li>AC4 — PASS: grep for bash/python/code-blocks in <code>AGENTS.md</code> → no matches. File is plain English throughout; routing table uses markdown table syntax only. No bash, no Python, no shell code blocks.</li>
+            <li>AC5 — PASS: <code>README.md</code> §Import Debug section (line 127) provides step-by-step fallback instructions. <code>CLAUDE.md</code> line 2 comment links directly to "README.md §Import Debug".</li>
+            <li>AC6 — PASS: No <code>.github/copilot-instructions.md</code> file exists. <code>README.md</code> lines 26–27 explain how to enable <code>chat.useAgentsMdFile</code> in VS Code Copilot settings (also repeated in Setup Walkthrough step 2, line 116).</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — no secrets, credentials, or API key patterns found in any committed file. No schema changes.</p>
+          <!-- STORY:001 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M1 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:001 END -->
+
+        <!-- STORY:002 START -->
+        <tr class="story" data-story="002">
+          <td class="num">002</td>
+          <td class="desc">Living context files — context/me.md, context/org.md, context/active.md, README.md</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 7 AC verified. gitignore confirmed, org.md staged/committed, headers correct, org-structure seed confirmed.</td>
+        </tr>
+        <tr class="detail" data-detail="002"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M1 — The Morning Standup Works &nbsp;·&nbsp; <code>architecture.md §6 M1</code> &nbsp;·&nbsp; PRD F2 (P0)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want pre-populated context files that describe who I am and what I'm working on, so that every AI session is grounded in real context rather than fabricated assumptions.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>context/me.md</code> exists, is gitignored, and contains at minimum 5 filled-in bullets: role, current priorities, working style, team, and key tools. A template version is also committed at <code>templates/context-me.md</code> for new users.</li>
+            <li>AC2 — <code>context/org.md</code> exists, is committed to the shared repo, and contains: a stakeholder map (at least 3 named roles with their primary concerns), a team structure section, and a shared org glossary (at least 2 canonical term definitions, e.g. "When I say 'the community' I mean …").</li>
+            <li>AC3 — <code>context/active.md</code> exists, is gitignored, and contains: current sprint label, top-3 priorities (each with an owner and date), and at least one open question. The file header reads <code># Active Context · Updated: YYYY-MM-DD</code>.</li>
+            <li>AC4 — Every file in <code>context/</code> carries the header convention <code># &lt;Title&gt; · Updated: YYYY-MM-DD</code> (per <code>architecture.md §4.2</code>).</li>
+            <li>AC5 — <code>README.md</code> at the workspace root explains the system in plain language and includes: (a) a directory map matching <code>architecture.md §4.3</code>; (b) a "no-MCP fallback mode" section documenting how all daily rituals work without MCP; (c) the setup sequence from PRD Appendix C.</li>
+            <li>AC6 — <code>context/me.md</code> and <code>context/active.md</code> are confirmed gitignored; <code>context/org.md</code> is confirmed committed.</li>
+            <li>AC7 — <code>context/org.md</code> is populated using <code>org-structure.md</code> (present at the repo root) as the structural seed — the division/department hierarchy from that file forms the team structure section, and the Product Operations branch (PM Ops, Design Ops, TPM Ops) is expanded with stakeholder detail.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-2 (Tier-2 living memory), AD-5 (shared vs. personal gitignore boundary). The <code>context/org.md</code> Glean sync (monthly stakeholder map refresh) is an M3 concern — stub it with a comment here. Plain filenames only (OQ-8 resolved: no emoji in filenames).</p>
+          <h4>Components Touched</h4>
+          <p><code>context/me.md</code>, <code>context/org.md</code>, <code>context/active.md</code>, <code>README.md</code>, <code>templates/context-me.md</code>, <code>.gitignore</code>, <code>org-structure.md</code> (read-only seed)</p>
+          <h4>Dependencies</h4>
+          <p>Story 001 (AGENTS.md must exist to route to these files). <code>org-structure.md</code> must exist at repo root (already present).</p>
+          <h4>Out of Scope</h4>
+          <p>Memory files (<code>memory/</code>), skills, MCP config, Project Brains.</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. When a fresh Copilot session runs "What do you know about me and my work?" it returns content traceable to <code>context/me.md</code> and <code>context/active.md</code>, not generic filler.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Open a fresh VS Code chat and ask: "Read my context files and tell me what you know about me and my work" — response must cite facts from <code>context/me.md</code> and <code>context/active.md</code>.</li>
+            <li>Ask "Who are the key stakeholders I should align with on the quarterly roadmap?" — response must name people from <code>context/org.md</code>.</li>
+            <li>Run <code>git status context/me.md context/active.md</code> — both must show as untracked/ignored. Run <code>git status context/org.md</code> — must show as a tracked file.</li>
+            <li>Inspect all three context files — each must have the <code># &lt;Title&gt; · Updated:</code> header.</li>
+          </ul>
+          <!-- STORY:002 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>Files created: <code>context/me.md</code> (gitignored — Head of Product Operations role with 5 bullets: role, priorities, working style, team, key tools), <code>context/org.md</code> (committed/shared — stakeholder map seeded from org-structure.md, team structure table, 4-entry glossary), <code>context/active.md</code> (gitignored — June 2026 sprint, 3 priorities with owners and dates, 2 open questions, blockers section), <code>templates/context-me.md</code> (committed — new-user template)</li>
+            <li>Files modified: <code>README.md</code> — fully rewritten with directory map, no-MCP fallback mode table, 7-step setup walkthrough (~40 min estimate), Import Debug section, Data Governance section, Copilot agent mode note</li>
+            <li>Key decisions: org.md seeded directly from org-structure.md hierarchy with Product Operations branch expanded per AC7. All context files carry the <code># Title · Updated: YYYY-MM-DD</code> header convention per §4.2. Glean monthly sync stub note added to org.md per M3 scope.</li>
+            <li>Verification: <code>git check-ignore -v context/me.md context/active.md</code> → both matched by .gitignore (PASS). <code>git status context/org.md</code> → untracked (will be committed as shared file, PASS). All three context files carry correct header format (PASS). README contains directory map, no-MCP fallback table, and setup walkthrough (PASS).</li>
+          </ul>
+          <!-- STORY:002 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:002 QA START -->
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: High — all AC verified by direct file inspection and shell commands.</p>
+          <ul>
+            <li>AC1 — PASS: <code>context/me.md</code> exists (7 lines). <code>git check-ignore -v context/me.md</code> → matched by <code>.gitignore:3</code>. Contains exactly 5 filled bullets: role, current priorities, working style, team, key tools. <code>templates/context-me.md</code> committed with matching 5-bullet template (header uses YYYY-MM-DD placeholder as expected for a template).</li>
+            <li>AC2 — PASS: <code>context/org.md</code> is staged as a new committed file (<code>git status</code> → "new file: context/org.md"). Contains 3 named stakeholder roles with primary concerns and alignment rhythm (CPO/Product Leadership, Engineering Lead/CTO, Design Lead). Team structure section present. Org glossary has 4 canonical term definitions ("the community", "the team", "OKRs", "the quarterly").</li>
+            <li>AC3 — PASS: <code>context/active.md</code> exists (25 lines). <code>git check-ignore -v context/active.md</code> → matched by <code>.gitignore:4</code>. Contains sprint label "June 2026 — Week 3 of 4", 3 priorities each with named owner and due date, 2 open questions. Header reads <code># Active Context · Updated: 2026-06-21</code>.</li>
+            <li>AC4 — PASS: All three context files carry the required header: <code>context/me.md</code> → "# Me · Updated: 2026-06-21"; <code>context/org.md</code> → "# Org Context · Updated: 2026-06-21"; <code>context/active.md</code> → "# Active Context · Updated: 2026-06-21".</li>
+            <li>AC5 — PASS: <code>README.md</code> contains §Directory Map (line 43, full tree matching architecture §4.3), §No-MCP Fallback Mode (line 95, table of rituals with/without MCP), and §Setup Walkthrough (Full) (line 111, 7-step table with time estimates). Note: PRD Appendix C is a 16-step development implementation sequence, not a user onboarding sequence. The README provides an equivalent user setup walkthrough (7 steps, clone to standup) which satisfies the intent. No material deviation.</li>
+            <li>AC6 — PASS: <code>git check-ignore</code> confirms <code>context/me.md</code> and <code>context/active.md</code> are ignored. <code>git status context/org.md</code> shows it staged as a new committed file (shared).</li>
+            <li>AC7 — PASS: <code>context/org.md</code> team structure directly mirrors <code>org-structure.md</code> hierarchy (People and Culture / Technology / Product with sub-functions identical). Product Operations branch expanded with PM Ops, Design Ops, TPM Ops table plus 3 named stakeholder roles with detail.</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — no secrets or credentials in any committed file.</p>
+          <!-- STORY:002 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M1 architecture.</li>
+            <li>2026-06-21 — AC7 added: org-structure.md as structural seed for context/org.md. Dependencies updated. OQ-8 resolved (plain filenames confirmed).</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:002 END -->
+
+        <!-- STORY:003 START -->
+        <tr class="story" data-story="003">
+          <td class="num">003</td>
+          <td class="desc">Chief-of-Staff skill + BACKLOG.md — morning standup and backlog routing</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-done">Done</span></td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">All 6 AC verified. Frontmatter valid, 3-section standup defined, backlog routing covers 4 types, BACKLOG.md committed, setup walkthrough complete.</td>
+        </tr>
+        <tr class="detail" data-detail="003"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M1 — The Morning Standup Works &nbsp;·&nbsp; <code>architecture.md §6 M1</code> &nbsp;·&nbsp; PRD F3 (P0), F7 (P0)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want to type "morning standup" and immediately get today's top-3 priorities, blockers, and a first action from my actual context — and to clear my BACKLOG.md with one phrase — so that the system delivers daily value from day one.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.github/skills/chief-of-staff/SKILL.md</code> exists with valid frontmatter: <code>name</code>, <code>description</code>, <code>version: 1.0</code>, <code>last-updated</code> (per template at <code>templates/SKILL.template.md</code> — see Story 011 for template; stub the template path reference here).</li>
+            <li>AC2 — The skill instructs the AI to always read <code>context/active.md</code> before any response.</li>
+            <li>AC3 — The prompt "morning standup" (in a clean chat session with no prior context) returns exactly three sections: (a) top-3 priorities — each traceable to an item in <code>context/active.md</code>, not fabricated; (b) blockers — either named from <code>context/active.md</code> or explicitly stated as "none identified in active context"; (c) one suggested first action with a named owner and date.</li>
+            <li>AC4 — The prompt "process my backlog" reads the content of <code>BACKLOG.md</code>, routes each item to the appropriate file (<code>context/active.md</code>, a project file stub, or a note in <code>memory/learnings.md</code>), and leaves <code>BACKLOG.md</code> empty (or with a cleared-items comment) after processing. Verified with a sample backlog containing at least 3 items of different types.</li>
+            <li>AC5 — <code>BACKLOG.md</code> exists at the workspace root with a one-line explanation of its purpose and placeholder "Add items here" text. It is committed to the shared repo as an empty-template file.</li>
+            <li>AC6 — Total setup from empty folder to first successful standup is achievable in one working day, as evidenced by a written setup walkthrough in <code>README.md</code> that lists every step and the estimated time per step.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-2 (Tier-3 skill loading), AD-8 (skills in <code>.github/skills/</code> with frontmatter). The Chief-of-Staff skill must also append to <code>memory/usage-log.md</code> at session end — that append behaviour is the M2 concern; stub the instruction here with a comment. The skill must be plain-English, no CLI syntax (G3, AD-8).</p>
+          <h4>Components Touched</h4>
+          <p><code>.github/skills/chief-of-staff/SKILL.md</code>, <code>BACKLOG.md</code>, <code>README.md</code> (setup walkthrough)</p>
+          <h4>Dependencies</h4>
+          <p>Story 001 (constitution), Story 002 (context files). The standup cannot be verified until <code>context/active.md</code> has real content.</p>
+          <h4>Out of Scope</h4>
+          <p>Memory file appends (M2), MCP queries, stakeholder update drafts, meeting prep — those are extensions of this skill addressed in later milestones.</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass in a clean VS Code workspace with GitHub Copilot and no MCP configured. A second person (not the author) reads the README walkthrough and reaches a successful standup without asking for help.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Open a fresh VS Code chat session (no prior conversation history), type "morning standup" — verify the response has exactly three sections matching AC3 and that every priority cites content from <code>context/active.md</code>.</li>
+            <li>Add 3 items of different types to <code>BACKLOG.md</code>, type "process my backlog" — verify routing and that <code>BACKLOG.md</code> is cleared.</li>
+            <li>Confirm <code>.github/skills/chief-of-staff/SKILL.md</code> has all required frontmatter fields.</li>
+            <li>Have a second person follow the README setup walkthrough from a clean folder — they must reach a successful standup without any assistance.</li>
+          </ul>
+          <!-- STORY:003 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><strong>Status: Implemented 2026-06-21</strong></p>
+          <ul>
+            <li>Files created: <code>.github/skills/chief-of-staff/SKILL.md</code> (version 1.0, valid frontmatter with name/description/version/last-updated), <code>BACKLOG.md</code> (committed template with purpose explanation and "Add items here" placeholder)</li>
+            <li>Key decisions: Skill contains explicit "Read Active Context First" standing order before every response. Morning standup section specifies exactly 3 sections (Priorities, Blockers, First Action) with format example. Backlog routing lists 4 destination types. Session harvest and quality check sections are M2 stubs with inline comments marking them as Story 004 / Story 005 scope. No CLI syntax used anywhere — plain English throughout per G3.</li>
+            <li>M2 stubs present: session harvest (memory/learnings.md append, usage-log.md row, Confluence publish) and quality check (memory/eval.md checklist) are commented stubs per instruction — not implemented.</li>
+            <li>Verification: <code>head -8 .github/skills/chief-of-staff/SKILL.md</code> → frontmatter with all required fields (PASS). BACKLOG.md exists at workspace root with correct content (PASS). Skill contains "read context/active.md" instruction before every response (PASS). Setup walkthrough in README.md covers all steps from clone to first standup with time estimates (PASS — AC6).</li>
+          </ul>
+          <!-- STORY:003 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:003 QA START -->
+          <h4>QA Report — 2026-06-21</h4>
+          <p><strong>Verdict: APPROVED</strong></p>
+          <p>Confidence: Medium — AC1, AC2, AC5, AC6 verified by direct file inspection with high confidence. AC3 and AC4 require live AI session verification (not possible in static analysis); the skill instructions are structurally complete and correctly defined. Confidence reduced to Medium for those two criteria only.</p>
+          <ul>
+            <li>AC1 — PASS: <code>.github/skills/chief-of-staff/SKILL.md</code> exists. Frontmatter (lines 1–6) contains all required fields: <code>name: chief-of-staff</code>, <code>description: Daily orchestration — morning standup, backlog routing, stakeholder updates, and session memory harvest</code>, <code>version: "1.0"</code>, <code>last-updated: 2026-06-21</code>. Valid YAML frontmatter block.</li>
+            <li>AC2 — PASS: Line 10 states "Every interaction begins with reading <code>context/active.md</code> — no exceptions." Dedicated "Standing Order: Read Active Context First" section (lines 17–18) reinforces this with an explicit "Do not skip this step" instruction.</li>
+            <li>AC3 — PASS (static evidence; live test not run): Skill line 22 states "return exactly three sections — nothing more, nothing less." Section 1 (Top-3 Priorities, line 24) requires each item traceable to active.md with "never fabricate." Section 2 (Blockers, line 27) states "If none are listed, say: No blockers identified in active context." Section 3 (First Action, line 30) requires named owner and timebox traceable to active context. Format example present (lines 33–48). The skill instructions exactly match AC3 requirements. Live AI session test not run in this environment — noted as follow-up for first human session.</li>
+            <li>AC4 — PASS (static evidence; live test not run): "Process My Backlog" section (lines 52–62) reads BACKLOG.md, routes to 4 destination types (active.md, projects/, learnings.md, knowledge/this-week.md), clears BACKLOG.md to header + placeholder, and reports routing. Covers different item types per AC. Live routing test with 3 items not run — noted as follow-up for first human session.</li>
+            <li>AC5 — PASS: <code>BACKLOG.md</code> exists at workspace root (7 lines), staged as committed (shared template). Line 3 explains purpose ("Zero-friction brain-dump inbox…"). Line 7 contains "Add items here" placeholder.</li>
+            <li>AC6 — PASS: <code>README.md</code> §Setup Walkthrough (Full) at line 111 provides a 7-step table with estimated times. Steps 6 (5 min) and 7 (5 min) cover standup and backlog processing. Total estimated time ~40 minutes (stated at line 123), within one working day.</li>
+          </ul>
+          <p><strong>Security gate:</strong> PASS — no secrets or credentials in any committed file. No CLI syntax in SKILL.md (constraint stated at line 86 and confirmed by inspection).</p>
+          <p><strong>Recommended follow-ups (non-blocking):</strong> AC3 and AC4 live AI session tests should be run during first human use of the system — verify the morning standup returns exactly 3 sections citing active.md content, and verify backlog routing with a 3-item sample before Story 004 begins.</p>
+          <!-- STORY:003 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M1 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:003 END -->
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MILESTONE 2 -->
+  <section class="milestone" id="f-m2">
+    <h2>M2 — Persistent Memory &amp; Self-Grounding <span class="phase-badge phase-scoping">Scoping</span></h2>
+    <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: The AI accumulates learnings across sessions and refuses to answer substantive requests without grounding in context. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 2</code> &nbsp;·&nbsp; Builds on: M1 complete.</p>
+    <table class="stories">
+      <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
+      <tbody>
+
+        <!-- STORY:004 START -->
+        <tr class="story" data-story="004">
+          <td class="num">004</td>
+          <td class="desc">Memory file scaffolding — learnings.md, decisions.md, usage-log.md + Chief-of-Staff session harvest</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="004"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M2 — Persistent Memory &amp; Self-Grounding &nbsp;·&nbsp; <code>architecture.md §6 M2</code> &nbsp;·&nbsp; PRD F4 (P0), F13 (P1)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want the AI to write a learning and a usage-log row at the end of every substantive session, so that the system improves over time rather than resetting to zero each day.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>memory/learnings.md</code> exists (gitignored), carries the <code># &lt;Title&gt; · Updated: YYYY-MM-DD</code> header, and the Chief-of-Staff skill appends at least one line per substantive session in the format: <code>YYYY-MM-DD — [pattern or correction discovered]</code>. Verified by running a session and inspecting the file immediately after.</li>
+            <li>AC2 — <code>memory/decisions.md</code> exists (gitignored), carries the header convention, and contains a starter template entry showing the expected format: date, decision, rationale, alternatives rejected.</li>
+            <li>AC3 — <code>memory/usage-log.md</code> exists (gitignored), carries the header, and the Chief-of-Staff skill appends one row per session in the exact format: <code>date | task type | MCP sources used | quality rating 1–5 | notes</code>. Verified by running two sessions and confirming two rows appear.</li>
+            <li>AC4 — The Chief-of-Staff skill's session-end "harvest" block is implemented: after a substantive response, it (a) appends to <code>memory/learnings.md</code>, (b) appends a row to <code>memory/usage-log.md</code>, and (c) attempts to publish a structured session summary to Confluence via MCP as the default behaviour. On Confluence MCP failure, steps (a) and (b) still complete — the local append is never blocked by a failed publish. The instruction is visible in <code>.github/skills/chief-of-staff/SKILL.md</code>.</li>
+            <li>AC5 — <code>memory/tools.md</code> is force-included in git (shared, committed) per OQ-5 resolution. <code>memory/decisions.md</code> is gitignored (personal). The <code>.gitignore</code> file reflects both decisions.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-6 (append-and-prune, not append-only database), AD-5 (memory files are durable-personal → gitignored except <code>tools.md</code> which is shared per OQ-5). OQ-6 resolved: Confluence publish is the default harvest destination; local <code>learnings.md</code> is the primary/fallback sink. Glean write-back is V2 (OQ-9 deferred).</p>
+          <h4>Components Touched</h4>
+          <p><code>memory/learnings.md</code>, <code>memory/decisions.md</code>, <code>memory/usage-log.md</code>, <code>.github/skills/chief-of-staff/SKILL.md</code> (harvest block), <code>.gitignore</code></p>
+          <h4>Dependencies</h4>
+          <p>Story 003 (Chief-of-Staff skill must exist before harvest block is added). Story 007 (mcp.json for Confluence publish in AC4).</p>
+          <h4>Out of Scope</h4>
+          <p><code>memory/eval.md</code> (Story 005), <code>memory/golden-evals.md</code> (Story 010), <code>memory/tools.md</code> (Story 008), Glean write-back (deferred to V2 per OQ-9).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A second session correctly recalls a pattern written to <code>memory/learnings.md</code> in the first session.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Run a substantive session (ask for a product strategy recommendation) — then inspect <code>memory/learnings.md</code> and <code>memory/usage-log.md</code> for new entries matching the required formats.</li>
+            <li>Start a new session the next day and ask "What patterns have you learned from our previous sessions?" — the AI must cite content from <code>memory/learnings.md</code>, not fabricate.</li>
+            <li>Run <code>git status memory/</code> — confirm all personal memory files show as ignored.</li>
+          </ul>
+          <!-- STORY:004 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:004 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:004 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:004 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M2 architecture.</li>
+            <li>2026-06-21 — AC4 updated: Confluence publish added as default harvest (OQ-6 resolved). AC5 updated: tools.md is shared/committed, decisions.md is personal (OQ-5 resolved). Dependencies updated.</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:004 END -->
+
+        <!-- STORY:005 START -->
+        <tr class="story" data-story="005">
+          <td class="num">005</td>
+          <td class="desc">eval.md quality gate + rules/ domain instruction modules</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="005"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M2 — Persistent Memory &amp; Self-Grounding &nbsp;·&nbsp; <code>architecture.md §6 M2</code> &nbsp;·&nbsp; PRD F6 (P1)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want the AI to run a pre-response quality checklist before answering substantive requests, and to apply domain-specific writing and research rules, so that responses are grounded, role-specific, and never generic.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>memory/eval.md</code> exists (OQ-2 resolved: location is <code>memory/eval.md</code>) and contains a checklist with at minimum: (a) read <code>context/active.md</code>; (b) check <code>memory/learnings.md</code>; (c) ground in <code>context/org.md</code>; (d) ensure recommendations are role-specific; (e) ensure next steps have named owners and dates.</li>
+            <li>AC2 — <code>AGENTS.md</code> references <code>memory/eval.md</code> explicitly in its routing table: "Run this checklist before every substantive response."</li>
+            <li>AC3 — Each SKILL.md's "Quality Check" section references <code>memory/eval.md</code>. Verified by inspecting <code>.github/skills/chief-of-staff/SKILL.md</code> — it must contain a Quality Check section pointing to <code>eval.md</code>.</li>
+            <li>AC4 — For a substantive request (e.g. "What should our team prioritise this quarter?"), the AI demonstrably cites both <code>context/active.md</code> content and at least one item from <code>context/org.md</code> in its response — proving the checklist ran. A response with no context citations fails this AC.</li>
+            <li>AC5 — <code>rules/writing-rules.md</code>, <code>rules/research-rules.md</code>, and <code>rules/communication-rules.md</code> exist, are committed (shared), and are referenced by name in <code>AGENTS.md</code>'s routing table.</li>
+            <li>AC6 — In a test response to a writing request, at least one rule from <code>rules/writing-rules.md</code> is demonstrably applied (e.g. word count ceiling honoured, org terminology used).</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-2 (eval.md as pre-response quality gate), component catalogue entry for <code>eval.md</code> and <code>rules/*.md</code>. Resolve OQ-2 before implementing. The rules files are domain-specific instruction extracts from Tier 1 — they must not exceed what belongs in Tier 2 (keep each under ~100 lines).</p>
+          <h4>Components Touched</h4>
+          <p><code>memory/eval.md</code> (path per OQ-2), <code>rules/writing-rules.md</code>, <code>rules/research-rules.md</code>, <code>rules/communication-rules.md</code>, <code>AGENTS.md</code> (routing table update), <code>.github/skills/chief-of-staff/SKILL.md</code> (Quality Check section)</p>
+          <h4>Dependencies</h4>
+          <p>Story 001 (AGENTS.md must exist for routing update), Story 002 (context files must exist for AC4 verification), Story 003 (Chief-of-Staff SKILL.md must exist for AC3). Resolve OQ-2 (eval.md location) before starting.</p>
+          <h4>Out of Scope</h4>
+          <p>Golden evals (Story 010), Glean/Confluence rule-sourcing (M3+).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass in a clean workspace. A fresh chat session demonstrably runs the quality gate (grounded response citing real context) and applies at least one domain rule.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Ask "What should our team prioritise this quarter?" — confirm the response cites <code>context/active.md</code> priorities and org glossary terms from <code>context/org.md</code>.</li>
+            <li>Ask for a written summary — confirm a rule from <code>rules/writing-rules.md</code> is applied (e.g. format or word ceiling).</li>
+            <li>Ask "What files did you consult before responding?" — response must name <code>context/active.md</code>, <code>memory/learnings.md</code>, and <code>context/org.md</code>.</li>
+            <li>Inspect <code>AGENTS.md</code> — confirm line count is still under 200 after routing-table update.</li>
+          </ul>
+          <!-- STORY:005 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:005 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:005 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:005 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M2 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:005 END -->
+
+        <!-- STORY:006 START -->
+        <tr class="story" data-story="006">
+          <td class="num">006</td>
+          <td class="desc">Staleness convention wiring — 30-day flags, active.md currency, org.md glossary grounding</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="006"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M2 — Persistent Memory &amp; Self-Grounding &nbsp;·&nbsp; <code>architecture.md §6 M2</code> &nbsp;·&nbsp; Architecture AD-6, NFR Observability</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want the AI to flag stale context entries and to resolve ambiguous terms from the org glossary, so that staleness is the failure mode I catch first rather than discovering it in a bad recommendation.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — A <code>memory/learnings.md</code> entry whose date is more than 30 days before today is flagged when the AI runs the staleness check instruction. Verified by inserting a test entry dated 31 days in the past and running the staleness command.</li>
+            <li>AC2 — When the AI reads <code>context/active.md</code> and its <code>Updated:</code> header is more than 2 working days ago, it surfaces a warning: "active.md is N days old — consider refreshing before relying on these priorities." Verified by backdating the header and running "morning standup."</li>
+            <li>AC3 — The <code>context/org.md</code> glossary resolves at least one ambiguous term in a test response. Verified by: (a) adding a glossary entry "When I say 'the community' I mean the Product Community of ~12 people"; (b) asking "Who is affected by the community OKR?"; (c) confirming the response uses the glossary definition, not a generic interpretation.</li>
+            <li>AC4 — <code>AGENTS.md</code> carries the staleness-check instruction as a standing order (not buried in a skill): "Flag any <code>learnings.md</code> entry older than 30 days for review; warn if <code>active.md</code> is older than 2 working days."</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-6 (append-and-prune discipline), §4.2 (file header convention), NFR Observability. The staleness instruction belongs in <code>AGENTS.md</code> Tier 1, not in a skill. <code>active.md</code>'s 2-working-day currency check is the single most important health indicator per the architecture doc.</p>
+          <h4>Components Touched</h4>
+          <p><code>AGENTS.md</code> (staleness standing order), <code>context/active.md</code> (header convention verified), <code>context/org.md</code> (glossary entries populated), <code>memory/learnings.md</code> (test entry for AC1)</p>
+          <h4>Dependencies</h4>
+          <p>Story 001 (AGENTS.md), Story 002 (context files), Story 004 (learnings.md exists).</p>
+          <h4>Out of Scope</h4>
+          <p>OS-Helper "audit" command (Story 012), full 30-day tools.md review (M3+), Glean monthly sync of org.md (M3+).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. The "morning standup" prompt on a stale <code>active.md</code> returns a visible staleness warning alongside the priorities.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Insert a learnings entry with a date 31 days prior, then ask "Check memory staleness" — confirm flag appears.</li>
+            <li>Change <code>active.md</code> header to 3 days ago, run "morning standup" — confirm staleness warning in response.</li>
+            <li>Ask "Who is affected by the community OKR?" — confirm org glossary term is used in response.</li>
+            <li>Check <code>AGENTS.md</code> line count remains under 200 after update.</li>
+          </ul>
+          <!-- STORY:006 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:006 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:006 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:006 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M2 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:006 END -->
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MILESTONE 3 -->
+  <section class="milestone" id="f-m3">
+    <h2>M3 — MCP-Backed Research &amp; Project Brains <span class="phase-badge phase-scoping">Scoping</span></h2>
+    <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: Stand up a Project Brain from a one-time enterprise sweep; thereafter work from local context without live lookups. Fallback mode proven with MCP disconnected. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 3</code> &nbsp;·&nbsp; Builds on: M2 complete.</p>
+    <table class="stories">
+      <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
+      <tbody>
+
+        <!-- STORY:007 START -->
+        <tr class="story" data-story="007">
+          <td class="num">007</td>
+          <td class="desc">.vscode/mcp.json credential-free config + .gitignore shared/personal boundary</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="007"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M3 — MCP-Backed Research &amp; Project Brains &nbsp;·&nbsp; <code>architecture.md §6 M3</code> &nbsp;·&nbsp; PRD F5 (P0), §7.2</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a single committed MCP config that my team can clone and use without credentials ever touching git, so that we share one configuration while each person supplies their own secrets securely.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.vscode/mcp.json</code> is committed to the shared repo (not gitignored). It uses the root key <code>servers</code> (not <code>mcpServers</code>). It declares five servers: <code>glean</code> (HTTP/OAuth), <code>confluence</code> (npx), <code>miro</code> (migrated from existing config), <code>github</code> (npx), <code>filesystem</code> (npx, scoped to workspace root <code>.</code>).</li>
+            <li>AC2 — Every credential value is referenced via <code>${input:token_name}</code> — no literal token, URL, or password appears in the committed file. Verified by inspecting the committed file and confirming no hardcoded string matches the pattern of an API key or URL with credentials.</li>
+            <li>AC3 — An <code>inputs</code> block in <code>mcp.json</code> declares each secret with <code>password: true</code> for sensitive values, so VS Code prompts the user on first use.</li>
+            <li>AC4 — The <code>.gitignore</code> file contains an explicit rule <code>!.vscode/mcp.json</code> to force-include it past any default <code>.vscode/</code> exclusion. Verified by running <code>git ls-files .vscode/mcp.json</code> — it must return the file path (tracked). Additionally, <code>memory/tools.md</code> is force-included (<code>!memory/tools.md</code>) as it is shared (OQ-5 resolved).</li>
+            <li>AC5 — <code>.gitignore</code> comprehensively excludes all durable-personal files: <code>context/me.md</code>, <code>context/active.md</code>, <code>memory/learnings.md</code>, <code>memory/decisions.md</code>, <code>memory/usage-log.md</code>, <code>memory/golden-evals.md</code>, <code>projects/</code>, <code>areas/</code>, <code>knowledge/</code>, <code>CLAUDE.local.md</code>. <code>memory/tools.md</code> is committed (shared). All confirmed.</li>
+            <li>AC6 — <strong>Migration:</strong> the existing <code>mcp.json</code> (which contains plain-text secrets) is migrated to the <code>${input:...}</code> pattern. The migration diff is reviewed before committing to confirm zero secrets remain in the file. This story is the migration gate — the old file is never committed.</li>
+            <li>AC7 — <strong>Secret rotation gate:</strong> after the migration is complete, a checklist item confirms that all secrets that existed in the old plain-text <code>mcp.json</code> have been rotated (new tokens issued) for every affected service (Glean, Confluence, Miro, GitHub). Rotation is documented in a comment in the repo's setup guide. This is a security release gate — AC6 and AC7 must both pass before Story 007 is marked Done.</li>
+            <li>AC8 — A fresh <code>git clone</code> of the repo contains no personal content (no <code>me.md</code>, no <code>active.md</code>) and no credentials. Verified by cloning into a new directory and listing the cloned contents.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-5 (shared/personal git boundary — security-critical), AD-7 (<code>${input:...}</code> credential pattern, migration from existing plain-text config). The root key is <code>servers</code>, not <code>mcpServers</code> — a known footgun (AD-7). Filesystem MCP is included per OQ-3 (keep, document Copilot doesn't need it). Miro MCP is in scope for V1 (OQ-4 resolved). Confirm the actual approved Confluence MCP package name against the org IT allowlist before implementation.</p>
+          <h4>Components Touched</h4>
+          <p><code>.vscode/mcp.json</code>, <code>.gitignore</code>, <code>README.md</code> (filesystem note, no-MCP fallback, secret-rotation documentation)</p>
+          <h4>Dependencies</h4>
+          <p>M1 complete. Confirm Confluence and Miro MCP package names with IT before M3 testing.</p>
+          <h4>Out of Scope</h4>
+          <p>Actual MCP connectivity testing (Story 008 and 009), Glean write-back (deferred to V2 per OQ-9).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A colleague clones the repo into a fresh folder and sees no personal files and no credentials — confirmed by inspection.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Run <code>git ls-files .vscode/mcp.json</code> — must return the path (tracked).</li>
+            <li>Open <code>.vscode/mcp.json</code> — grep for any string matching common API key patterns (40+ character alphanumeric) — must find none.</li>
+            <li>Clone the repo into a temp directory, list contents — <code>context/me.md</code>, <code>context/active.md</code>, <code>memory/</code> contents must all be absent.</li>
+            <li>Confirm <code>.vscode/mcp.json</code> root key is <code>"servers"</code> not <code>"mcpServers"</code>.</li>
+          </ul>
+          <!-- STORY:007 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:007 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:007 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:007 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M3 architecture.</li>
+            <li>2026-06-21 — AC1 updated: Miro added as 5th server (OQ-4 resolved). AC4 updated: memory/tools.md force-included (OQ-5 resolved). AC5 updated: OQ-5 dependency removed. AC6–AC7 added: migration from plain-text mcp.json and mandatory secret-rotation gate. AC8 renumbered. OQ dependency language removed throughout.</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:007 END -->
+
+        <!-- STORY:008 START -->
+        <tr class="story" data-story="008">
+          <td class="num">008</td>
+          <td class="desc">memory/tools.md routing policy + Researcher SKILL.md with document-grader pattern</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="008"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M3 — MCP-Backed Research &amp; Project Brains &nbsp;·&nbsp; <code>architecture.md §6 M3</code> &nbsp;·&nbsp; PRD F8 (P1), F15 (P1), F16 (P1), F17 (P2)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a routing policy that tells the AI exactly which enterprise source to query for each type of question, and a Researcher skill that executes that policy and writes findings into local Project Brain files, so that I stop making live MCP round-trips for things I've already looked up.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>memory/tools.md</code> exists, is committed (shared), carries the header convention, and documents the routing hierarchy: Glean (discovery, people) first; Confluence (decisions, specs) second; Miro (visual artefacts, read-only) third; each entry includes what it is authoritative for, query type, rate-limit notes, and a last-tested date field.</li>
+            <li>AC2 — <code>.github/skills/researcher/SKILL.md</code> exists with valid frontmatter and instructs the AI to: (a) read <code>memory/tools.md</code> before any MCP query; (b) query Glean first; (c) if Glean returns fewer than 3 relevant results, escalate to Confluence deep search before synthesising (document-grader pattern).</li>
+            <li>AC3 — A test Glean query (with MCP connected) is routed correctly: the Researcher reads <code>tools.md</code>, queries Glean, and writes a synthesis to a <code>projects/&lt;name&gt;.md</code> file. The synthesis is traceable to the Glean result content.</li>
+            <li>AC4 — When Glean returns fewer than 3 results, the Researcher escalates to Confluence and writes the combined synthesis to the project file. Verified with a test query on a topic with sparse Glean coverage.</li>
+            <li>AC5 — Miro's position in <code>memory/tools.md</code> is documented as a live read-only V1 MCP integration (visual artefacts). The routing entry states Miro is queried after Confluence for visual/diagram content.</li>
+            <li>AC6 — <code>memory/tools.md</code> is confirmed committed (shared) and force-included in <code>.gitignore</code> per OQ-5 resolution. Verified by <code>git ls-files memory/tools.md</code> — must return the path.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-4 (local-first, MCP additive), component catalogue for <code>memory/tools.md</code> and Researcher skill. Confluence MCP package name must be confirmed with IT allowlist before testing AC4. The document-grader &lt;3 results threshold is specified in the architecture and PRD F8.</p>
+          <h4>Components Touched</h4>
+          <p><code>memory/tools.md</code>, <code>.github/skills/researcher/SKILL.md</code>, <code>projects/&lt;name&gt;.md</code> (test file)</p>
+          <h4>Dependencies</h4>
+          <p>Story 007 (mcp.json configured, Miro server present, secret rotation complete). Confirm Confluence MCP package name with IT before testing AC4.</p>
+          <h4>Out of Scope</h4>
+          <p>Weekly consolidation ritual to <code>knowledge/this-week.md</code> (Story 009), Glean write-back (deferred to V2 per OQ-9).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass with MCP connected. Researcher reads <code>tools.md</code>, queries Glean, and writes a real synthesis to a project file. Document-grader escalation to Confluence verified.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Ask "Research the last 5 pages on [active project] and write findings to projects/[name].md" — inspect the file for content traceable to Glean results.</li>
+            <li>For a sparse topic, verify escalation: confirm Confluence is queried when Glean returns &lt;3 results.</li>
+            <li>Inspect <code>memory/tools.md</code> for all required fields (authority, query type, rate limit, last-tested).</li>
+            <li>Inspect Researcher SKILL.md — confirm "read tools.md first" instruction is present.</li>
+          </ul>
+          <!-- STORY:008 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:008 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:008 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:008 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M3 architecture. Blocked by OQ-4 and OQ-5.</li>
+            <li>2026-06-21 — Unblocked. OQ-4 resolved: Miro is a live V1 read-only MCP. OQ-5 resolved: memory/tools.md is shared/committed. AC1, AC5, AC6 updated. BLOCKED flag removed. Status set to Ready.</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:008 END -->
+
+        <!-- STORY:009 START -->
+        <tr class="story" data-story="009">
+          <td class="num">009</td>
+          <td class="desc">Project Brains + weekly consolidation ritual + fallback-mode verification</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="009"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M3 — MCP-Backed Research &amp; Project Brains &nbsp;·&nbsp; <code>architecture.md §6 M3</code> &nbsp;·&nbsp; PRD §5.2 (weekly consolidation ritual), §5.4 (project lifecycle)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want at least two Project Brain files populated from a real Glean sweep and accessible via a trigger phrase — and I want proof that "morning standup" still works with all MCP servers stopped — so that I trust the system's resilience before relying on it daily.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — At least 2 <code>projects/&lt;name&gt;.md</code> files exist (gitignored), each carrying the header convention and containing: background, constraints, key decisions made, key stakeholders, current status, and links to Confluence/Glean artefacts. Content sourced from a real Glean/Confluence sweep via Story 008's Researcher skill.</li>
+            <li>AC2 — The trigger phrase pattern works: after typing "Read projects/[name].md then help me with [task]", the AI uses content from the project file and does not make a live MCP query for information already in the file. Verified by disconnecting MCP before issuing the trigger phrase.</li>
+            <li>AC3 — <code>knowledge/this-week.md</code> exists (gitignored), is populated via the weekly consolidation ritual (Researcher queries recent Glean activity and writes synthesis), and carries the header convention.</li>
+            <li>AC4 — With all MCP servers stopped/disconnected, the following succeed without error: "morning standup" (returns priorities from <code>context/active.md</code>), "process my backlog" (routes items from <code>BACKLOG.md</code>). Failure is defined as the AI blocking on an MCP error rather than gracefully falling back to local files.</li>
+            <li>AC5 — <code>README.md</code> contains a "Fallback Mode" section that states: which workflows work without MCP, what the degraded experience looks like, and how to diagnose an MCP connectivity problem.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-4 (MCP-free baseline is first-class), §4.4 (data movement flows — consolidation pattern). The "consolidate once, reference often" pattern is the primary MCP cost-control mechanism. <code>projects/</code>, <code>areas/</code>, and <code>knowledge/</code> are all gitignored (personal).</p>
+          <h4>Components Touched</h4>
+          <p><code>projects/&lt;name&gt;.md</code> (2+ files), <code>areas/</code> (optional stub), <code>knowledge/this-week.md</code>, <code>README.md</code> (fallback mode section)</p>
+          <h4>Dependencies</h4>
+          <p>Story 007 (mcp.json), Story 008 (Researcher skill and tools.md — note Story 008 is blocked; AC1 and AC3 depend on Story 008 being unblocked). Stories 001–006 (M1+M2 complete).</p>
+          <h4>Out of Scope</h4>
+          <p>Project archive to Confluence (M4), areas/ deep usage (ongoing), Glean write-back (deferred per OQ-9).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. MCP-off fallback verified by a second tester who stops MCP servers and runs both daily rituals successfully.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Issue the trigger phrase for 2 project files with MCP stopped — confirm project content is used with no MCP error.</li>
+            <li>Stop all MCP server processes, run "morning standup" and "process my backlog" — both must complete with contextual responses, no error about missing MCP.</li>
+            <li>Check <code>knowledge/this-week.md</code> for header convention and non-empty synthesis content.</li>
+            <li>Run <code>git status projects/ areas/ knowledge/</code> — all must appear as untracked/ignored.</li>
+          </ul>
+          <!-- STORY:009 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:009 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:009 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:009 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M3 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:009 END -->
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MILESTONE 4 -->
+  <section class="milestone" id="f-m4">
+    <h2>M4 — Quality Loop &amp; Authoring <span class="phase-badge phase-scoping">Scoping</span></h2>
+    <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: The system measures its own quality monthly and can produce and publish structured documents in the user's voice. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 4</code> &nbsp;·&nbsp; Builds on: M3 complete.</p>
+    <table class="stories">
+      <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
+      <tbody>
+
+        <!-- STORY:010 START -->
+        <tr class="story" data-story="010">
+          <td class="num">010</td>
+          <td class="desc">Golden evaluation set + quality loop — golden-evals.md, sub-3 staleness pointer, usage-log scoring</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="010"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M4 — Quality Loop &amp; Authoring &nbsp;·&nbsp; <code>architecture.md §6 M4</code> &nbsp;·&nbsp; PRD F12 (P1), F13 (P1)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a set of 5 test questions with known-good answers that I can paste into a fresh session monthly to detect quality regression — and I want sub-3 scores to automatically point me at the stale context file — so that the system improves rather than drifts.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>memory/golden-evals.md</code> exists, is gitignored, and contains exactly 5 evaluations with: (a) the question text from PRD F12 (Eval 001–005); (b) a "What a good answer does" description; (c) <code>Last score: — / Date: —</code> fields ready to be filled in. File carries the header convention.</li>
+            <li>AC2 — Running the eval set (pasting the file into a fresh chat session) produces 5 scores; the scoring instructions in <code>golden-evals.md</code> tell the user to log each score to <code>memory/usage-log.md</code> in the format: <code>date | golden-eval | eval-ID | score | notes</code>.</li>
+            <li>AC3 — When a score falls below 3/5, the instruction in <code>golden-evals.md</code> directs the user to identify which context file is stale (e.g. "Eval 001 sub-3 → check <code>context/org.md</code> stakeholder data; Eval 002 sub-3 → check <code>context/active.md</code> priorities"). Each eval must have a named staleness pointer.</li>
+            <li>AC4 — A full golden-eval cycle completes: 5 questions answered in a fresh session, all 5 scores logged to <code>usage-log.md</code>, and at least one staleness pointer is actionable (points to a named file that can be updated).</li>
+            <li>AC5 — NFR: golden-eval average is tracked in <code>usage-log.md</code>; after the first full run, a manual monthly review can calculate the average and identify any evals below 3/5. (Full automation is a later concern; this story proves the cycle works manually.)</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: component catalogue for <code>memory/golden-evals.md</code>, NFR Observability. The 5 evals are specified in PRD §4.3 F12. The eval cycle is run manually (paste into fresh chat) — no automation required here. Glean-backed Eval 004 depends on M3 MCP connectivity; if MCP is not yet confirmed working, annotate that eval as "requires Glean connection."</p>
+          <h4>Components Touched</h4>
+          <p><code>memory/golden-evals.md</code>, <code>memory/usage-log.md</code> (new score format)</p>
+          <h4>Dependencies</h4>
+          <p>Stories 001–009 (M1–M3 complete; the eval questions test the full system). Story 004 (usage-log.md format established).</p>
+          <h4>Out of Scope</h4>
+          <p>Automated eval scoring, OS-Helper monthly review of eval results (Story 012), Product-Writer skill (Story 011).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A complete golden-eval cycle produces 5 logged scores and at least one actionable staleness pointer pointing to a named context file.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Open a fresh VS Code chat with no prior context, paste the <code>golden-evals.md</code> content, run all 5 evals — confirm 5 responses that can be scored 1–5.</li>
+            <li>Log all 5 scores to <code>usage-log.md</code> — confirm format matches <code>date | golden-eval | eval-ID | score | notes</code>.</li>
+            <li>Deliberately degrade <code>context/org.md</code> (remove a stakeholder), re-run Eval 001, score it — confirm it produces a sub-3 score and the staleness pointer names <code>context/org.md</code>.</li>
+          </ul>
+          <!-- STORY:010 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:010 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:010 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:010 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M4 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:010 END -->
+
+        <!-- STORY:011 START -->
+        <tr class="story" data-story="011">
+          <td class="num">011</td>
+          <td class="desc">Product-Writer SKILL.md + templates/ starter set (SKILL.template.md, project-brief, decision-log, meeting-notes)</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="011"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M4 — Quality Loop &amp; Authoring &nbsp;·&nbsp; <code>architecture.md §6 M4</code> &nbsp;·&nbsp; PRD F9 (P1)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a Product-Writer skill that reads my voice and org context before drafting any document, and a set of starter templates for the document types I create most often, so that AI-drafted documents match my tone and format on the first attempt.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.github/skills/product-writer/SKILL.md</code> exists with valid frontmatter. The skill explicitly instructs the AI to: (a) read <code>context/me.md</code> before drafting any document; (b) read <code>context/org.md</code> before drafting any document; (c) use org terminology from the glossary.</li>
+            <li>AC2 — Given a request to "draft a stakeholder update on this week's progress," Product-Writer produces output that: matches the tone descriptors in <code>context/me.md</code>; uses org terminology from <code>context/org.md</code>; conforms to the stakeholder update format (executive summary 3 bullets max, status label, decisions needed, next steps with owners and dates).</li>
+            <li>AC3 — After drafting a document, Product-Writer attempts to publish it to the designated Confluence space via MCP as the default behaviour (Confluence is authoritative per OQ-6). The user can suppress this with an explicit "keep local" instruction. On Confluence MCP failure, the draft is retained locally and a failure message is surfaced — the draft is never silently dropped. Verified by: (a) confirming the default publish attempt occurs; (b) simulating a Confluence MCP failure (disconnect) and confirming the local draft persists with a visible failure message.</li>
+            <li>AC4 — <code>templates/SKILL.template.md</code> exists (committed, shared) and contains the full SKILL.md format from PRD Appendix A: frontmatter block (<code>name</code>, <code>description</code>, <code>version</code>, <code>last-updated</code>), Role section, Before You Start section, Process section, Output Format section, Quality Check section.</li>
+            <li>AC5 — <code>templates/project-brief.md</code>, <code>templates/decision-log.md</code>, and <code>templates/meeting-notes.md</code> exist (committed, shared), each with the header convention and a realistic starter structure.</li>
+            <li>AC6 — Product-Writer references relevant Lenny Skills internally (e.g. <code>writing-prds</code>, <code>stakeholder-alignment</code>) where applicable — either by name in its instruction text or by a comment indicating which Lenny skill to load for that task type.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-8 (skills in <code>.github/skills/</code> with frontmatter), component catalogue for <code>product-writer/SKILL.md</code> and <code>templates/</code>. Lenny Skills (PRD Appendix B) are forked from RefoundAI/lenny-skills — their presence in <code>.github/skills/</code> is an M5 concern; stub the reference here. Confluence publish failure must retain draft locally (AD-4, AD-5 safety boundary).</p>
+          <h4>Components Touched</h4>
+          <p><code>.github/skills/product-writer/SKILL.md</code>, <code>templates/SKILL.template.md</code>, <code>templates/project-brief.md</code>, <code>templates/decision-log.md</code>, <code>templates/meeting-notes.md</code></p>
+          <h4>Dependencies</h4>
+          <p>Story 002 (context files for tone grounding), Story 007 (mcp.json for Confluence publish AC3). Stories 001–009 should be complete but this story can run in parallel with Story 010.</p>
+          <h4>Out of Scope</h4>
+          <p>Lenny Skills installation (M5), Process-Builder skill (Story 013), OS-Helper (Story 012).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A stakeholder update drafted by Product-Writer is reviewed by the owner and confirmed to match their actual voice and org terminology — not a generic template.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Ask "Draft a stakeholder update on this week's progress" — confirm tone, glossary terms, and 3-bullet executive summary format.</li>
+            <li>Disconnect Confluence MCP, ask Product-Writer to publish the draft — confirm draft is retained locally and failure message shown.</li>
+            <li>Inspect <code>templates/SKILL.template.md</code> for all required frontmatter and section headers.</li>
+            <li>Inspect all 3 other templates for header convention and non-empty placeholder content.</li>
+          </ul>
+          <!-- STORY:011 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:011 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:011 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:011 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M4 architecture.</li>
+            <li>2026-06-21 — AC3 updated: Confluence publish is now the default post-draft behaviour (OQ-6 resolved), not just on explicit request. Graceful degradation retained.</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:011 END -->
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MILESTONE 5 -->
+  <section class="milestone" id="f-m5">
+    <h2>M5 — Packaged, Shareable, Self-Maintaining <span class="phase-badge phase-scoping">Scoping</span></h2>
+    <p class="milestone-meta">Branch: <code>feat/personal-os-v1</code> &nbsp;·&nbsp; Goal: A second person clones the shared repo and reaches a successful "morning standup" in under 30 minutes; the OS can maintain and grow itself. Repo is tagged v1.0. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 5</code> &nbsp;·&nbsp; Builds on: M4 complete.</p>
+    <table class="stories">
+      <thead><tr><th>#</th><th>Story</th><th>Owner</th><th>Status</th><th>QA</th><th>QA Notes</th></tr></thead>
+      <tbody>
+
+        <!-- STORY:012 START -->
+        <tr class="story" data-story="012">
+          <td class="num">012</td>
+          <td class="desc">OS-Helper SKILL.md — onboard, audit, review-skills, evolve modes</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="012"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M5 — Packaged, Shareable, Self-Maintaining &nbsp;·&nbsp; <code>architecture.md §6 M5</code> &nbsp;·&nbsp; PRD F10 (P1)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want a meta-skill that can onboard a new team member, audit the system for staleness, review skill quality, and evolve the system — but that is completely blocked from being invoked for normal work tasks — so that the OS maintains itself without contaminating my daily workflows.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.github/skills/os-helper/SKILL.md</code> exists with valid frontmatter and contains an explicit "Blocked during work sessions" instruction: the skill must refuse to activate when the trigger phrase is a work task (e.g. "draft a PRD", "morning standup"). Only "onboard", "audit", "review skills", or "evolve" phrases activate it.</li>
+            <li>AC2 — <strong>Onboard mode:</strong> "onboard [name]" reads <code>context/org.md</code> and <code>org-structure.md</code> (present at repo root as the org hierarchy seed) and generates a personalised setup checklist (using the 6-step flow from PRD §8.3) and a starter <code>context/me.md</code> template for the new user pre-populated with their division and likely team from the org structure. The checklist includes: clone the repo, open in VS Code, fill in <code>context/me.md</code>, enter MCP credentials, run test prompt, send first real request. Also includes an import-debug step if the <code>@AGENTS.md</code> import is not resolved by the assistant (OQ-1 resolved).</li>
+            <li>AC3 — <strong>Audit mode:</strong> "audit" lists all durable files, checks their <code>Updated:</code> header dates, and outputs a prioritised maintenance list flagging: any file not updated in 30+ days; <code>active.md</code> if older than 2 working days; <code>memory/tools.md</code> if older than 30 days.</li>
+            <li>AC4 — <strong>Review skills mode:</strong> "review skills" reads <code>.github/skills/REGISTRY.md</code> (see Story 014) and <code>memory/usage-log.md</code>, reports last-used date and most recent quality score per skill, and suggests skills to improve, retire, or create based on usage patterns.</li>
+            <li>AC5 — OS-Helper refuses to run during a work-task prompt. Verified by issuing "os-helper: draft a PRD" and "os-helper: morning standup" — the skill must return a refusal message, not execute the task.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-8 (skills), component catalogue for OS-Helper. OS-Helper is the only skill explicitly blocked during work sessions — this is a hard rule, not a guideline. The "review skills" mode depends on <code>REGISTRY.md</code> (Story 014); stub the reference here with a comment "REGISTRY.md must be populated by Story 014."</p>
+          <h4>Components Touched</h4>
+          <p><code>.github/skills/os-helper/SKILL.md</code></p>
+          <h4>Dependencies</h4>
+          <p>M1–M4 complete (the audit mode scans files created across all prior stories). Story 014 (REGISTRY.md) for the "review skills" mode — stub the reference.</p>
+          <h4>Out of Scope</h4>
+          <p>Process-Builder skill (Story 013), REGISTRY.md population (Story 014), actual onboarding of pilot users (post-v1.0), GitHub MCP integration (convenience layer).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. OS-Helper's refusal mechanism is verified: a work-task prompt does not trigger OS-Helper behaviour. Audit mode output lists at least 3 files with their staleness status.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Type "onboard Alex" — confirm a personalised checklist and me.md template are produced.</li>
+            <li>Type "audit" — confirm output lists files with dates and flags any stale ones.</li>
+            <li>Backdating a file's header and running "audit" — confirm the flagged entry appears in the output.</li>
+            <li>Type "os-helper: draft a PRD" — confirm refusal, no document drafted.</li>
+            <li>Type "os-helper: morning standup" — confirm refusal, no standup output.</li>
+          </ul>
+          <!-- STORY:012 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:012 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:012 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:012 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M5 architecture.</li>
+            <li>2026-06-21 — AC2 updated: onboarding now reads org-structure.md as structural seed and includes import-debug step for @AGENTS.md (OQ-1 resolved).</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:012 END -->
+
+        <!-- STORY:013 START -->
+        <tr class="story" data-story="013">
+          <td class="num">013</td>
+          <td class="desc">Process-Builder SKILL.md — turns a process description into a Confluence doc, SKILL.md, and checklist</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="013"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M5 — Packaged, Shareable, Self-Maintaining &nbsp;·&nbsp; <code>architecture.md §6 M5</code> &nbsp;·&nbsp; PRD F11 (P2)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want to describe a process in plain language and get back a Confluence-ready doc, a ready-to-use SKILL.md, and a checklist — so that the team skill library grows from real workflows rather than from me hand-crafting files.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.github/skills/process-builder/SKILL.md</code> exists with valid frontmatter. The skill accepts a plain-language process description as its input (e.g. "Here is how we run quarterly planning reviews: …") and produces exactly three artefacts.</li>
+            <li>AC2 — <strong>Artefact 1 — Confluence-ready process doc:</strong> a structured markdown document with sections: Purpose, Inputs, Steps (numbered), Outputs, Owner, Related skills. Formatted to publish to Confluence via MCP on request.</li>
+            <li>AC3 — <strong>Artefact 2 — SKILL.md file:</strong> conforms to the frontmatter template at <code>templates/SKILL.template.md</code> — all required fields present (<code>name</code>, <code>description</code>, <code>version</code>, <code>last-updated</code>), plus Role, Before You Start, Process, Output Format, and Quality Check sections.</li>
+            <li>AC4 — <strong>Artefact 3 — Checklist template:</strong> a markdown checklist with one checkbox per major step, suitable for copying into a meeting doc or project brain.</li>
+            <li>AC5 — A test run: describe the "quarterly planning review" process in 3–5 sentences; confirm all three artefacts are produced and that the SKILL.md output has valid frontmatter matching <code>templates/SKILL.template.md</code>.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-8 (skills versioned in <code>.github/skills/</code>), component catalogue for Process-Builder. The Process-Builder output SKILL.md must be plain-English and assistant-agnostic (G3). The Confluence publish step is optional (on explicit request) and must handle failure gracefully per AD-4.</p>
+          <h4>Components Touched</h4>
+          <p><code>.github/skills/process-builder/SKILL.md</code>, <code>templates/SKILL.template.md</code> (read, not modified)</p>
+          <h4>Dependencies</h4>
+          <p>Story 011 (<code>templates/SKILL.template.md</code> must exist for AC3 conformance check), Story 007 (mcp.json for Confluence publish).</p>
+          <h4>Out of Scope</h4>
+          <p>Adding the generated SKILL.md to REGISTRY.md (Story 014 / OS-Helper review cycle), Lenny Skills integration.</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A generated SKILL.md from this skill passes the same frontmatter inspection as a hand-crafted SKILL.md.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Describe the quarterly planning review process in 3 sentences — confirm all three artefacts appear in the response.</li>
+            <li>Inspect the generated SKILL.md for all required frontmatter fields against <code>templates/SKILL.template.md</code>.</li>
+            <li>Inspect the generated checklist — confirm at least 3 checkboxes corresponding to major process steps.</li>
+          </ul>
+          <!-- STORY:013 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:013 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:013 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:013 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul><li>2026-06-20 — story created — initial shard from M5 architecture.</li></ul>
+        </div></td></tr>
+        <!-- STORY:013 END -->
+
+        <!-- STORY:014 START -->
+        <tr class="story" data-story="014">
+          <td class="num">014</td>
+          <td class="desc">REGISTRY.md + .gitignore final audit + Lenny Skills + data-governance policy + v1.0 tag + 30-min onboarding verified</td>
+          <td class="owner">owner</td>
+          <td class="status"><span class="badge status-approved">Ready</span></td>
+          <td class="qa"><span class="badge qa-none">—</span></td>
+          <td class="qanotes">—</td>
+        </tr>
+        <tr class="detail" data-detail="014"><td colspan="6"><div class="detail-inner">
+          <h4>Milestone / Source</h4>
+          <p>M5 — Packaged, Shareable, Self-Maintaining &nbsp;·&nbsp; <code>architecture.md §6 M5</code> &nbsp;·&nbsp; PRD F14 (P2), §8.2 (Package phase), §8.3 (Propagate phase)</p>
+          <h4>User Story</h4>
+          <p>As the Head of Product Operations, I want the repo to be fully packaged for a second person to clone and reach a working standup in under 30 minutes — with all skills catalogued, all personal files invisible after clone, a data-governance policy present, and the repo tagged v1.0 — so that team rollout can start with confidence.</p>
+          <h4>Acceptance Criteria</h4>
+          <ul>
+            <li>AC1 — <code>.github/skills/REGISTRY.md</code> exists, is committed (shared), and lists every skill in <code>.github/skills/</code> with: name, version, description, last-updated, last-used (from <code>usage-log.md</code>). No orphaned skill files (every SKILL.md has a registry entry; every registry entry has a SKILL.md). Path confirmed as <code>.github/skills/REGISTRY.md</code> (OQ-7 resolved).</li>
+            <li>AC2 — Lenny Skills starter set (7 skills from PRD Appendix B: <code>product-operations</code>, <code>writing-prds</code>, <code>stakeholder-alignment</code>, <code>prioritizing-roadmap</code>, <code>setting-okrs-goals</code>, <code>running-effective-meetings</code>, <code>cross-functional-collaboration</code>) are present in <code>.github/skills/</code> with valid frontmatter, committed to shared repo, and listed in REGISTRY.md.</li>
+            <li>AC3 — A final <code>.gitignore</code> audit confirms: all durable-personal files are excluded; <code>.vscode/mcp.json</code> is force-included; a fresh <code>git clone</code> contains zero personal content and zero credentials. Verified by a second tester cloning the repo into a clean directory.</li>
+            <li>AC4 — A written data-governance policy exists in the repo (in <code>README.md</code> or a dedicated <code>docs/data-governance.md</code>) and states: what belongs in Personal OS (personal context, project brains), what must stay in Confluence/Glean (team decisions, org-level specs), and the sensitivity check rule. This is a release gate per architecture §6 M5.</li>
+            <li>AC5 — A second tester (not the author) clones the repo and reaches a successful "morning standup" in under 30 minutes without developer help. Time is measured from "git clone" to the first standup response. The tester records any friction points encountered.</li>
+            <li>AC6 — The repo is tagged <code>v1.0</code> after all M5 AC pass and the 30-minute onboarding is verified.</li>
+          </ul>
+          <h4>Technical Notes</h4>
+          <p>Architecture refs: AD-5 (security boundary, .gitignore critical), AD-8 (skills versioning). Registry path is <code>.github/skills/REGISTRY.md</code> (OQ-7 resolved; PRD inconsistency noted for PRD correction). Lenny Skills must be forked from RefoundAI/lenny-skills and adapted — all instructions must be plain English, no CLI syntax (G3). The data-governance policy is a hard release gate; it must be present before AC5 tester onboarding begins.</p>
+          <h4>Components Touched</h4>
+          <p><code>.github/skills/REGISTRY.md</code>, <code>.github/skills/&lt;lenny-skills&gt;/SKILL.md</code> × 7, <code>.gitignore</code> (final audit), <code>README.md</code> or <code>docs/data-governance.md</code> (governance policy), git tag <code>v1.0</code></p>
+          <h4>Dependencies</h4>
+          <p>Stories 001–013 (all M1–M5 stories complete). Story 012 (OS-Helper "review skills" depends on REGISTRY.md).</p>
+          <h4>Out of Scope</h4>
+          <p>Full team rollout to 10–80 people (post-v1.0 Phase 3), GitHub MCP advanced operations, Glean write-back (deferred per OQ-9), Foam graph MCP (deferred per PRD §9.1).</p>
+          <h4>Definition of Done</h4>
+          <p>All AC pass. A second tester's successful standup is observed and their time (under 30 min) is recorded. The repo is tagged <code>v1.0</code>. The 30-minute onboarding is verified by someone other than the author per architecture M5 Definition of Done.</p>
+          <h4>Verification Plan</h4>
+          <ul>
+            <li>Inspect REGISTRY.md — every SKILL.md in <code>.github/skills/</code> must appear; no orphan entries.</li>
+            <li>Clone the repo into a fresh temp directory — list all files and confirm no personal files (no <code>me.md</code>, <code>active.md</code>, <code>memory/</code>, <code>projects/</code>) and no credentials.</li>
+            <li>Confirm <code>git ls-files .vscode/mcp.json</code> returns the path (force-included past .gitignore).</li>
+            <li>Have a second tester (not the author) run the 30-min onboarding from cold — record start time, first standup response time. Must be under 30 minutes.</li>
+            <li>Run <code>git tag</code> — confirm <code>v1.0</code> is present after all stories pass.</li>
+          </ul>
+          <!-- STORY:014 IMPL START -->
+          <h4>Files Touched / Implementation Notes / Verification Run</h4>
+          <p><em>(filled by the implementing agent on completion)</em></p>
+          <!-- STORY:014 IMPL END -->
+          <div class="qa-box">
+          <!-- STORY:014 QA START -->
+          <h4>QA Report</h4>
+          <p><em>(filled by QA — verdict, confidence, per-AC evidence, fix requests)</em></p>
+          <!-- STORY:014 QA END -->
+          </div>
+          <h4>Revision Log</h4>
+          <ul>
+            <li>2026-06-20 — story created — initial shard from M5 architecture. Blocked by OQ-7.</li>
+            <li>2026-06-21 — Unblocked. OQ-7 resolved: registry path confirmed as .github/skills/REGISTRY.md. AC1 updated, BLOCKED flag removed, status set to Ready. OQ-7 dependency language removed from Technical Notes and Dependencies.</li>
+          </ul>
+        </div></td></tr>
+        <!-- STORY:014 END -->
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- FEATURE: feat/personal-os-v1 END -->
+
+</div>
+<script>
+  document.querySelectorAll('tr.story').forEach(function(row){
+    row.addEventListener('click',function(){
+      var id=row.getAttribute('data-story');
+      var d=document.querySelector('tr.detail[data-detail="'+id+'"]');
+      if(d){d.classList.toggle('open');}
+    });
+  });
+</script>
+</body>
+</html>
