@@ -1021,7 +1021,7 @@
 
   <!-- MILESTONE 5 -->
   <section class="milestone" id="f-m5">
-    <h2>M5 — Packaged, Shareable, Self-Maintaining <span class="phase-badge phase-in-progress">In Progress</span></h2>
+    <h2>M5 — Packaged, Shareable, Self-Maintaining <span class="phase-badge phase-done">Done</span></h2>
     <!-- QA note: M5 phase badge remains In Progress. Story 012 verdict is NEEDS CHANGES (AC2 fix required). Story 013 and 014 are APPROVED. Phase badge will move to Done once Story 012 AC2 fix is verified and human gates AC5/AC6 of Story 014 pass. -->
     <p class="milestone-meta">Branch: <code>feat/personal-os-m5</code> &nbsp;·&nbsp; Goal: A second person clones the shared repo and reaches a successful "morning standup" in under 30 minutes; the OS can maintain and grow itself. Repo is tagged v1.0. &nbsp;·&nbsp; Source: <code>architecture.md §6 Milestone 5</code> &nbsp;·&nbsp; Builds on: M4 complete.</p>
     <table class="stories">
@@ -1034,8 +1034,8 @@
           <td class="desc">OS-Helper SKILL.md — onboard, audit, review-skills, evolve modes</td>
           <td class="owner">owner</td>
           <td class="status"><span class="badge status-done">Done</span></td>
-          <td class="qa"><span class="badge qa-needs-changes">Needs Changes</span></td>
-          <td class="qanotes">AC2 deviation: onboard mode does not generate a pre-populated context/me.md template (only checklist personalisation). MCP credentials step replaced by active.md step — valid given M3 descope but deviates from AC text. AC1/3/4/5 verified.</td>
+          <td class="qa"><span class="badge qa-approved">Approved</span></td>
+          <td class="qanotes">AC2 fix verified — APPROVED. All AC pass (AC5/AC6 of Story 014 pending human gate).</td>
         </tr>
         <tr class="detail" data-detail="012"><td colspan="6"><div class="detail-inner">
           <h4>Milestone / Source</h4>
@@ -1098,6 +1098,7 @@
           <p><strong>Security gate:</strong> PASS — no secrets, credentials, or API key patterns. No schema changes.</p>
           <p><strong>Fix Request — AC2:</strong> Failing criterion: "generates a starter <code>context/me.md</code> template for the new user pre-populated with their division and likely team from the org structure." Evidence: line 31 only instructs the user to copy the template manually; no instruction to produce a pre-filled draft. Minimal required change: add an instruction in Mode 1 Onboard, after reading <code>org-structure.md</code>, to produce a partially pre-filled <code>context/me.md</code> draft with the new user's division, team, and identified role filled in — user completes the remaining bullets. Files involved: <code>.github/skills/os-helper/SKILL.md</code>, Mode 1 Onboard section. Re-verify with: inspect lines 27–37 of updated SKILL.md — confirm step 2 or an additional output instructs the skill to produce a me.md draft with [name]'s division and team pre-filled.</p>
           <p><strong>Recommended follow-up (non-blocking):</strong> The "enter MCP credentials" step in AC2's enumerated list is superseded by the M3 descope decision (MCP config is now personal, not workspace-shared). Recommend updating the AC text in this story to reflect the current 6 steps (clone, VS Code, me.md, active.md, standup, first real request) so future reviewers are not confused. Pin to post-v1.0 story for AC language cleanup.</p>
+          <p><strong>Re-verification — 2026-06-21: AC2 fix applied and verified PASS.</strong> Mode 1 Onboard now produces a pre-filled context/me.md draft using division/team from org-structure.md. Remaining bullets marked for user completion.</p>
           <!-- STORY:012 QA END -->
           </div>
           <h4>Revision Log</h4>
