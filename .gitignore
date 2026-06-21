@@ -14,9 +14,6 @@ knowledge/
 !memory/tools.md
 !memory/eval.md
 
-# Force-include MCP config
-!.vscode/mcp.json
-
 # macOS
 .DS_Store
 

@@ -75,19 +75,15 @@ The eight most consequential decisions. Each lists the decision, why it was chos
 
 **Consequences.** The weekly learnings-review and staleness rituals are not optional niceties — they are the mechanism that keeps the system healthy. A staleness convention (`# File · Updated: [date]` header on every file) and a 30-day flag are required so the AI can surface what to prune.
 
-### AD-7 — Credentials via VS Code `${input:...}` prompts; `mcp.json` is committed credential-free
+### AD-7 — MCP configuration is personal; no workspace mcp.json is committed
 
-**Decision.** `.vscode/mcp.json` is committed to the shared repo with the `servers` block referencing every secret as `${input:token_name}`, plus an `inputs` block declaring those prompts (`password: true` for secrets). VS Code prompts each user securely at first use.
+**Decision.** Each team member configures MCP servers in their personal VS Code User settings (`~/Library/Application Support/Code/User/mcp.json`). The shared repo does not commit a `.vscode/mcp.json` — this file is excluded from the repo entirely.
 
-**Starting state and migration (OQ-4).** Users today already have a *fully configured* `.vscode/mcp.json` in which secrets — Glean, Confluence, GitHub, and **Miro** tokens — are stored in **plain text**. The desired state above (credential-free, `${input:...}`) is therefore reached by a **migration**, not a clean build: M3 setup converts each in-place plain-text token into an `${input:token_name}` reference plus a matching `inputs` declaration, preserving the existing server set (Miro included). The migration is the first thing the credential-free config achieves; the architecture treats the existing file as the source the migration reads from.
+**Rationale.** Every team member already has a working MCP configuration. A shared workspace `mcp.json` adds complexity (credential prompts, gitignore force-include rules, migration tasks) without meaningful benefit — the team does not need identical server configurations, and MCP credentials are inherently personal. The "no committed MCP config" approach is simpler, safer, and requires zero onboarding friction.
 
-**Rationale.** Lets the team share one MCP config while each member supplies their own credentials, with secrets never touching git. The root key is `servers` (VS Code), not `mcpServers` (Claude Desktop) — a known footgun the config must get right.
+**Rejected alternative.** Committing a credential-free `mcp.json` with `${input:...}` prompts — introduces a force-include gitignore rule, per-user prompt flows on first use, and a migration burden. Rejected as unnecessary overhead (v1.1 decision, superseding original AD-7).
 
-**Rejected alternatives.** *Hardcoded tokens* (secret leak — and the status quo we are migrating away from). *Per-user uncommitted `mcp.json`* (loses the shared-config benefit; every user reconfigures from scratch).
-
-**Consequences.** `.vscode/` is in the default `.gitignore` template — the repo must explicitly force-include `.vscode/mcp.json` (`!.vscode/mcp.json`) or relocate the gitignore rule.
-
-**Security risk — credential rotation is mandatory after migration.** Because the pre-migration `mcp.json` held plain-text secrets (and may already have been committed or synced), every secret it contained — Glean, Confluence, GitHub, and Miro tokens — **must be rotated/revoked after migration to the `${input:...}` pattern**. Converting the file to the credential-free form does not undo the prior exposure; only rotation does. This rotation step is a security gate on M3 completion.
+**Consequences.** The `memory/tools.md` routing policy remains shared and committed — it documents which MCP sources to use and in what order, regardless of how each user has configured them. Team onboarding includes a step to configure personal MCP servers in VS Code User settings.
 
 ### AD-8 — Skills are versioned `SKILL.md` agents in `.github/skills/`, catalogued in a registry
 

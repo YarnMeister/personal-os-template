@@ -58,7 +58,7 @@ personal-os/
 ├── memory/
 │   ├── learnings.md              # Patterns the AI has accumulated [personal, gitignored]
 │   ├── decisions.md              # Key decisions with rationale [personal, gitignored]
-│   ├── tools.md                  # MCP routing policy [shared, force-included]
+│   ├── tools.md                  # MCP routing policy [shared]
 │   ├── usage-log.md              # Session log [personal, gitignored]
 │   ├── golden-evals.md           # Test questions with known-good answers [personal, gitignored]
 │   └── eval.md                   # Pre-response quality checklist [shared, force-included]
@@ -87,7 +87,7 @@ personal-os/
 │   ├── os-helper/SKILL.md        # OS maintenance skill [shared]
 │   └── process-builder/SKILL.md  # Process-to-skill builder [shared]
 │
-└── .vscode/mcp.json              # MCP server config, credential-free [shared, force-included]
+└── .vscode/                      # gitignored — each team member configures MCP in VS Code User settings
 ```
 
 ---
@@ -105,6 +105,16 @@ personal-os/
 | Publish to Confluence | Not available | Draft retained locally; user notified |
 
 If a broken MCP credential blocks a local-only workflow, that is a bug. Local workflows must always complete.
+
+### Diagnosing an MCP connectivity problem
+
+If an MCP query fails mid-workflow:
+1. The AI surfaces an error message — the workflow does not silently fail.
+2. Check VS Code's Output panel → MCP Server for connection errors.
+3. Re-enter the credential via the VS Code prompt (Command Palette → "MCP: Reload Servers").
+4. All daily rituals (standup, backlog) continue with local files while you debug.
+
+MCP servers are additive — a broken server never blocks local-only workflows.
 
 ---
 
@@ -146,6 +156,12 @@ If in doubt, keep it in a gitignored file (`context/me.md`, `context/active.md`,
 
 ---
 
+## MCP Configuration
+
+MCP servers (Glean, Confluence, Miro, GitHub, Filesystem) are configured in each team member's VS Code User settings — not in this workspace. See `memory/tools.md` for the routing policy that applies once MCP is configured.
+
+To configure: open `~/Library/Application Support/Code/User/mcp.json` (Mac) or the equivalent on your platform, and add your servers there.
+
 ## Copilot Agent Mode Note
 
-GitHub Copilot in agent mode does not require the Filesystem MCP server — it has native file access to the workspace. The Filesystem MCP entry in `.vscode/mcp.json` exists for AI assistants that lack native file access. See `docs/specs/architecture.md §5` for details.
+GitHub Copilot in agent mode has native file access to the workspace and does not require the Filesystem MCP server for local file operations. See `docs/specs/architecture.md §5` for details.
