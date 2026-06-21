@@ -22,8 +22,10 @@ Before drafting, confirm who the primary reader is and what decision or action t
 - Lead with the so-what, not the detail.
 - Format: **Status** (On track / At risk / Blocked) → Key change since last update → Next milestone → Ask (if any).
 - Flag risks explicitly. Do not bury them in context.
+- **Every next step must have a named owner and a date.** No next step without both. Format: `[Action] — Owner: [Name] — Due: YYYY-MM-DD`. This is non-negotiable.
+- Word ceiling: 150 words for the body. Asks/next steps are additional.
 
 ## Confluence Publishing
 
-- When a document is finished and share-worthy: offer to publish to the appropriate Confluence space as the default behaviour.
+- When a document is finished and share-worthy: **always ask "Publish to Confluence, or keep local?" before ending the response.** Do not skip this.
 - A Confluence publish failure must: retain the draft locally, notify the user, never silently disappear.
