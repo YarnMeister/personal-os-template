@@ -1,0 +1,64 @@
+{
+  "id": "004",
+  "featureId": "f-onboarding",
+  "title": "File scaffolding service + docs/specs/file-contracts.md",
+  "owner": "developer",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-002",
+    "ADR-P6-003",
+    "ADR-P6-004",
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user who has confirmed my interview answers or completed the profile lock-in, I want the wizard to write my real OS files from those answers, so that context/me.md, context/org.md, and context/active.md are ready with real content and no placeholder markers.",
+  "acceptanceCriteria": [
+    {
+      "text": "After phase 4 manual-path confirmation, `cat context/me.md` shows a `# Me \u00b7 Updated: <today>` header (YYYY-MM-DD, not the literal string) and sections Role, Working style, Team, Key tools \u2014 all containing the user's entered text, no `[bracketed]` markers, no literal `YYYY-MM-DD`."
+    },
+    {
+      "text": "After phase 4 manual-path sensitivity confirmation, `cat context/org.md` shows a `# Org \u00b7 Updated: <today>` header and sections for team structure, stakeholders, and glossary \u2014 no placeholder markers. If confirmation was declined, the file is not written (or is left unchanged if it pre-existed)."
+    },
+    {
+      "text": "After phase 5 confirmation (both paths), `cat context/active.md` shows a `# Active \u00b7 Updated: <today>` header, a Priorities section with each priority formatted as `<title> \u2014 Owner: <owner> \u2014 Due: <dueDate>`, a Blockers section, and an Open Questions section."
+    },
+    {
+      "text": "On wizard mount, each applicable phase reads its target file and shows a per-phase \"file already exists\" notice when non-placeholder content is detected (heuristic: file contains no `[` characters AND does not contain the literal string `YYYY-MM-DD`). The notice includes an explicit \"Overwrite\" confirmation before writing."
+    },
+    {
+      "text": "`cat docs/specs/file-contracts.md` shows a file documenting: (a) section contracts for me.md, org.md, and active.md (heading names, content shape, the `# <Title> \u00b7 Updated: YYYY-MM-DD` header format); (b) the context/profile.md structure (title header `# <Name> \u2014 AI Context Profile`, numbered `## N. Title` sections, Confirmed/Derived/Unknown claim labels, Open Questions section, closing How My AI Assistant Should Support Me section); (c) the onboarding-state.json shape; (d) the profile-bootstrap and profile-corrections handoff block formats alongside the onboarding handoff format, each with a version label."
+    },
+    {
+      "text": "When `context/profile.md` is present on disk (seeded path), scaffold-files detects it and writes ONLY context/active.md from phase 5 answers \u2014 it does NOT write context/me.md or context/org.md. Those files are distilled from profile.md by the assistant during the lock-in handoff (story 011). `cat context/me.md` on the seeded path shows content written by the assistant, not by scaffold-files."
+    }
+  ],
+  "technicalNotes": "New server function `scaffold-files` in `work-hq/src/server/`. Renders answers into markdown using `templates/context-me.md` as the source scaffold for me.md; the developer must also create `templates/context-org.md` and `templates/context-active.md`. Distillation branch: if `context/profile.md` exists at call time (seeded path), scaffold-files skips writing me.md and org.md; it writes only active.md from phase 5 answers. me.md and org.md are written by the assistant via the lock-in handoff in story 011. The wizard NEVER writes AGENTS.md or any file under skills/ (ADR-P6-004 labour split). File-detection for existing files uses `fs.readFileSync`; non-placeholder heuristic: absence of `[` and absence of literal `YYYY-MM-DD`. `docs/specs/file-contracts.md` is a committed Markdown file. See ADR-P6-002 \u00a7C and ADR-P6-007 \u00a7decision for the distillation contract.",
+  "dependencies": [
+    "001",
+    "003"
+  ],
+  "outOfScope": "os-helper wizard-aware mode (story 006), Health tile wiring (story 008), ritual-output history snapshots (OQ-004 \u2014 deferred), BACKLOG.md scaffolding (not in scope for M6 wizard), the profile parser and section cards (story 010).",
+  "verificationPlan": [
+    {
+      "command": "cat context/me.md",
+      "checks": "File exists, first line matches `# Me \u00b7 Updated:` with today's real date, no `[` bracket characters appear in the file body."
+    },
+    {
+      "command": "cat context/active.md",
+      "checks": "Priorities section entries contain `Owner:` and `Due:` labels with the values entered in phase 5. No literal `YYYY-MM-DD` in priority lines."
+    },
+    {
+      "command": "cat docs/specs/file-contracts.md",
+      "checks": "File exists and contains section headings covering me.md, org.md, active.md contracts, context/profile.md structure, onboarding-state.json shape, and both profile-bootstrap and profile-corrections handoff formats."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Added distillation contract AC (seeded path: scaffold-files writes only active.md; me/org distilled from profile.md by assistant via story 011); expanded file-contracts.md AC to include profile.md structure and new handoff kinds; phase references updated; added ADR-P6-007 to adrRefs.",
+      "reason": "ADR-P6-007 adds context/profile.md as a seeding source; distillation replaces typed answers on the bootstrap path."
+    }
+  ]
+}

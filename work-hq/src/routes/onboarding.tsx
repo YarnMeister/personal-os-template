@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { loadOnboarding } from "@/server/load-onboarding";
 import { saveOnboarding } from "@/server/save-onboarding";
 import { checkProfileExists } from "@/server/check-profile-exists";
+import { checkContextFiles } from "@/server/check-context-files";
+import { scaffoldFiles } from "@/server/scaffold-files";
 import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
 import { readProfile } from "@/server/read-profile";
 
@@ -111,11 +113,18 @@ function normalizeAnswers(raw: unknown): Answers {
   // Normalise editedSections: default to {} if missing or malformed.
   const rawEditedSections = a.editedSections;
   const editedSections: Answers["editedSections"] =
-    rawEditedSections && typeof rawEditedSections === "object" && !Array.isArray(rawEditedSections)
+    rawEditedSections &&
+    typeof rawEditedSections === "object" &&
+    !Array.isArray(rawEditedSections)
       ? (rawEditedSections as Answers["editedSections"])
       : {};
 
-  return { ...emptyAnswers, ...(raw as Partial<Answers>), priorities, editedSections };
+  return {
+    ...emptyAnswers,
+    ...(raw as Partial<Answers>),
+    priorities,
+    editedSections,
+  };
 }
 
 const phases = [
@@ -947,12 +956,9 @@ function StatusChip({
   status: "Confirmed" | "Derived" | "Unknown";
 }) {
   const styles: Record<"Confirmed" | "Derived" | "Unknown", string> = {
-    Confirmed:
-      "border-fresh/40 bg-fresh/10 text-fresh",
-    Derived:
-      "border-warning/40 bg-warning/10 text-warning",
-    Unknown:
-      "border-border bg-muted text-muted-foreground",
+    Confirmed: "border-fresh/40 bg-fresh/10 text-fresh",
+    Derived: "border-warning/40 bg-warning/10 text-warning",
+    Unknown: "border-border bg-muted text-muted-foreground",
   };
   return (
     <span
@@ -1207,6 +1213,22 @@ function PhaseFourManual({
   // org sub-step.  Resets if the component unmounts (phase navigation away).
   const [orgAgreed, setOrgAgreed] = useState(false);
 
+  // AC4: Check for existing non-placeholder me.md / org.md on phase mount.
+  // Results are available by the time the user reaches the review sub-step.
+  const [existingFiles, setExistingFiles] = useState<{
+    me: boolean;
+    org: boolean;
+  } | null>(null);
+  const [overwriteMe, setOverwriteMe] = useState(false);
+  const [overwriteOrg, setOverwriteOrg] = useState(false);
+  const [scaffolding, setScaffolding] = useState(false);
+
+  useEffect(() => {
+    void checkContextFiles().then((result) => {
+      setExistingFiles({ me: result.me, org: result.org });
+    });
+  }, []);
+
   /* ── About-you step ── */
   if (step === "about") {
     return (
@@ -1380,13 +1402,57 @@ function PhaseFourManual({
     );
   }
 
-  /* ── Review step (AC3) ── */
+  /* ── Review step (AC3 + AC4) ── */
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Review your answers. Click <strong>Confirm</strong> to save and move to
-        phase 5.
+        Review your answers. Click <strong>Confirm</strong> to write your OS
+        files and move to phase 5.
       </p>
+
+      {/* AC4: per-file "already exists" notices with explicit Overwrite confirmation. */}
+      {existingFiles?.me && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            context/me.md already exists
+          </p>
+          <p className="text-sm text-foreground/90">
+            Your <code className="font-mono text-xs">context/me.md</code>{" "}
+            already contains real content. Check the box below to overwrite it
+            with your answers above.
+          </p>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={overwriteMe}
+              onChange={(e) => setOverwriteMe(e.target.checked)}
+              className="size-4 accent-primary"
+            />
+            <span className="text-sm">Overwrite context/me.md</span>
+          </label>
+        </div>
+      )}
+      {existingFiles?.org && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            context/org.md already exists
+          </p>
+          <p className="text-sm text-foreground/90">
+            Your <code className="font-mono text-xs">context/org.md</code>{" "}
+            already contains real content. Check the box below to overwrite it
+            with your answers above.
+          </p>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={overwriteOrg}
+              onChange={(e) => setOverwriteOrg(e.target.checked)}
+              className="size-4 accent-primary"
+            />
+            <span className="text-sm">Overwrite context/org.md</span>
+          </label>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
         <ReviewRow label="Role" value={answers.role || "—"} />
@@ -1406,13 +1472,53 @@ function PhaseFourManual({
       <div className="flex items-center gap-4">
         <button
           type="button"
-          onClick={() => {
+          disabled={scaffolding}
+          onClick={async () => {
+            if (scaffolding) return;
+            setScaffolding(true);
+            try {
+              // AC1 + AC2: write context/me.md and context/org.md.
+              // scaffold-files skips both if context/profile.md exists (AC6).
+              await scaffoldFiles({
+                data: {
+                  target: "me-org",
+                  answers: {
+                    role: answers.role,
+                    workstyle: answers.workstyle,
+                    team: answers.team,
+                    keyTools: answers.keyTools,
+                    stakeholders: answers.stakeholders,
+                    glossary: answers.glossary,
+                    priorities: answers.priorities,
+                    blockers: answers.blockers,
+                    openQuestions: answers.openQuestions,
+                  },
+                  // Invariant: orgAgreed is true at the review step — the
+                  // user must accept the sensitivity gate before the org form
+                  // is shown, and the org form must be submitted before review.
+                  orgAgreed: true,
+                  overwriteMe,
+                  overwriteOrg,
+                  overwriteActive: false,
+                },
+              });
+            } catch {
+              // Write error — still advance; user can manually edit the files.
+            } finally {
+              setScaffolding(false);
+            }
             saveNow();
             next();
           }}
-          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+          className={cn(
+            "flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground",
+            scaffolding
+              ? "cursor-not-allowed opacity-70"
+              : "shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110",
+          )}
         >
-          Confirm <ArrowRight className="size-4" />
+          {scaffolding ? "Writing files…" : "Confirm"}{" "}
+          <ArrowRight className="size-4" />
         </button>
         <button
           type="button"
@@ -1448,6 +1554,17 @@ function PhaseNow({
   saveNow: () => void;
 }) {
   const [step, setStep] = useState<"form" | "review">("form");
+
+  // AC4: Check for existing non-placeholder active.md on phase mount.
+  const [activeExists, setActiveExists] = useState<boolean | null>(null);
+  const [overwriteActive, setOverwriteActive] = useState(false);
+  const [scaffolding, setScaffolding] = useState(false);
+
+  useEffect(() => {
+    void checkContextFiles().then((result) => {
+      setActiveExists(result.active);
+    });
+  }, []);
 
   const exampleTitles = [
     "Launch product discovery sprint",
@@ -1548,13 +1665,36 @@ function PhaseNow({
     );
   }
 
-  /* ── Review step (AC5) ── */
+  /* ── Review step (AC3 + AC4) ── */
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Review your priorities. Click <strong>Confirm</strong> to save and move
-        to phase 6.
+        Review your priorities. Click <strong>Confirm</strong> to write your
+        active context and move to phase 6.
       </p>
+
+      {/* AC4: "file already exists" notice for context/active.md. */}
+      {activeExists && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            context/active.md already exists
+          </p>
+          <p className="text-sm text-foreground/90">
+            Your <code className="font-mono text-xs">context/active.md</code>{" "}
+            already contains real content. Check the box below to overwrite it
+            with your priorities above.
+          </p>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={overwriteActive}
+              onChange={(e) => setOverwriteActive(e.target.checked)}
+              className="size-4 accent-primary"
+            />
+            <span className="text-sm">Overwrite context/active.md</span>
+          </label>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
         {answers.priorities.map((p, i) => (
@@ -1577,13 +1717,49 @@ function PhaseNow({
       <div className="flex items-center gap-4">
         <button
           type="button"
-          onClick={() => {
+          disabled={scaffolding}
+          onClick={async () => {
+            if (scaffolding) return;
+            setScaffolding(true);
+            try {
+              // AC3: write context/active.md for both bootstrap and manual paths.
+              await scaffoldFiles({
+                data: {
+                  target: "active",
+                  answers: {
+                    role: answers.role,
+                    workstyle: answers.workstyle,
+                    team: answers.team,
+                    keyTools: answers.keyTools,
+                    stakeholders: answers.stakeholders,
+                    glossary: answers.glossary,
+                    priorities: answers.priorities,
+                    blockers: answers.blockers,
+                    openQuestions: answers.openQuestions,
+                  },
+                  orgAgreed: false,
+                  overwriteMe: false,
+                  overwriteOrg: false,
+                  overwriteActive,
+                },
+              });
+            } catch {
+              // Write error — still advance; user can manually edit the file.
+            } finally {
+              setScaffolding(false);
+            }
             saveNow();
             next();
           }}
-          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+          className={cn(
+            "flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground",
+            scaffolding
+              ? "cursor-not-allowed opacity-70"
+              : "shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110",
+          )}
         >
-          Confirm <ArrowRight className="size-4" />
+          {scaffolding ? "Writing files…" : "Confirm"}{" "}
+          <ArrowRight className="size-4" />
         </button>
         <button
           type="button"
