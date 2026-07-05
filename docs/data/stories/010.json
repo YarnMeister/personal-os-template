@@ -3,9 +3,46 @@
   "featureId": "f-onboarding",
   "title": "Review & correct phase (phase 4, seeded path) \u2014 profile parser and editable section cards",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "d479171",
+    "filesTouched": [
+      "work-hq/src/server/read-profile.ts (new)",
+      "work-hq/src/__fixtures__/fictional-profile.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/010.json (modified)"
+    ],
+    "notes": "readProfile server function reads context/profile.md at request time (not import.meta.glob). parseProfileSections splits on /^## /m boundaries; detectStatus finds first Confirmed/Derived/Unknown in body (defaults to Unknown). PhaseReviewCorrect has two render states: waiting (profile not found, AC1) and review (profile parsed, AC2). Waiting state auto-polls via checkProfileExists every 5 s and shows a Refresh button plus a 'Continue without reviewing' escape hatch. Review state renders SectionCard per section; editing updates answers.editedSections via set(), which flows through the debounced saveOnboarding to onboarding-state.json. The 'Edited' badge appears on cards where isEdited===true (AC3). Phase heading dynamically shows 'Review your profile · N sections edited' (AC3). 'Looks good' / 'Confirm all' button advances via saveNow() + next() (AC4). Fictional persona fixture labelled FICTIONAL PERSONA (AC5). hideNextButton widened to phase===4||phase===5; both paths now use internal Confirm; waiting state provides a Continue escape hatch.",
+    "verificationRun": [
+      {
+        "command": "grep -rn 'FICTIONAL' work-hq/src/",
+        "result": "PASS — work-hq/src/__fixtures__/fictional-profile.ts:1: // FICTIONAL PERSONA — do not replace with real data."
+      },
+      {
+        "command": "cat docs/data/local/onboarding-state.json | grep editedSections",
+        "result": "PASS — returns '    \"editedSections\": {' confirming editedSections key is persisted in onboarding-state.json"
+      },
+      {
+        "command": "grep -n 'profile.md' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — 14 matches including server function call, waiting-state instruction text, parser comments, and component JSDoc"
+      },
+      {
+        "command": "grep -c '^## ' context/profile.md (fictional fixture)",
+        "result": "PASS — grep -c '^## ' returns 20; node parser also returns 20 sections; count matches"
+      },
+      {
+        "command": "npx tsc --noEmit (from work-hq/)",
+        "result": "PASS — no TypeScript errors"
+      },
+      {
+        "command": "npm run build (from work-hq/)",
+        "result": "PASS — client 41.58 kB / server 64.53 kB onboarding bundles; both environments built clean"
+      }
+    ]
+  },
   "adrRefs": [
     "ADR-P6-007"
   ],
