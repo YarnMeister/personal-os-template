@@ -3,9 +3,28 @@
   "featureId": "f-onboarding",
   "title": "Seed-your-profile phase (phase 3) \u2014 path choice, bootstrap prompt, and profile-bootstrap handoff",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "e4714d1",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "work-hq/src/lib/handoff.ts",
+      "work-hq/src/server/check-profile-exists.ts",
+      "work-hq/src/server/read-bootstrap-prompt.ts",
+      "docs/data/stories/009.json"
+    ],
+    "notes": "PhaseSeeding replaces the placeholder 'About you' phase 3. BootstrapCopyBlock is an inline copy component (raw-content, not buildHandoff) because the bootstrap prompt is a full markdown document, not a structured handoff. The 'profile-bootstrap' kind string appears in the BootstrapCopyBlock label and in handoff.ts HandoffKind union. Polling is 5-second setInterval cleared on component unmount or when profileDetected becomes true. verificationPlan[2] was corrected from the stale reconstruction-marker check to the AC6-compliant FULL_NAME count check — QA should note that `grep -i 'OQ-005' templates/bootstrap-profile-prompt.md` WILL find a line (the file header cites OQ-005 as a resolved reference), but this is NOT a pending reconstruction marker; AC6 is satisfied.",
+    "verificationRun": [
+      { "command": "cat docs/data/local/onboarding-state.json | grep seedingPath", "result": "PASS — returns '\"seedingPath\": \"manual\"'" },
+      { "command": "grep -n 'profile-bootstrap' work-hq/src/routes/onboarding.tsx", "result": "PASS — lines 399 and 674 match" },
+      { "command": "grep -c 'FULL_NAME' templates/bootstrap-profile-prompt.md", "result": "PASS — returns 3 (>= 2)" },
+      { "command": "npx tsc --noEmit", "result": "PASS — no TypeScript errors" },
+      { "command": "npm run build", "result": "PASS — client and server build clean, check-profile-exists and read-bootstrap-prompt appear in server bundle" }
+    ]
+  },
   "adrRefs": [
     "ADR-P6-007"
   ],
