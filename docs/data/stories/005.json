@@ -3,9 +3,18 @@
   "featureId": "f-onboarding",
   "title": "Wire-assistant phase (now phase 2) \u2014 Copilot setup steps, other-assistant branch, failure recovery",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "6ecb20b",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "PhaseWire fully rewritten and repositioned from phase 5 to phase 2. Copilot branch: two ordered steps with chat.useAgentsMdFile in copyable monospace; verification prompt is the exact AC2 string in a click-to-copy button. Other-assistant branch: three panels covering (a) Copilot assumption note, (b) CLAUDE.md shim explanation, (c) generic adaptation guidance. That-didn't-work expandable panel sourced from skills/os-helper/SKILL.md Mode 1 Troubleshooting note. Next button disabled at phase 2 until all three checkboxes are ticked, ensuring completedPhases only records phase 2 after wiring is confirmed (AC6 data plumbing for story 009). AC5 (state persistence) satisfied by existing answers.assistant and answers.checks fields already serialised by story 001 save-onboarding. Story is owned by ui-dev but implemented per explicit user direction.",
+    "verificationRun": "grep -n 'chat.useAgentsMdFile' work-hq/src/routes/onboarding.tsx → PASS (lines 497, 555, 563, 569, 574); grep -n 'Confirm you can read my constitution' work-hq/src/routes/onboarding.tsx → PASS (line 482); npx tsc --noEmit → PASS; npm run format → PASS (no structural changes)"
+  },
   "adrRefs": [
     "ADR-P6-003",
     "ADR-P6-004"
