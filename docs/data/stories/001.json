@@ -1,0 +1,46 @@
+{
+  "id": "001",
+  "featureId": "f-onboarding",
+  "title": "Onboarding state service + multi-session resume",
+  "owner": "developer",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-003",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user setting up my Personal OS, I want the wizard to remember where I left off, so that I can complete onboarding across multiple sessions without losing my progress.",
+  "acceptanceCriteria": [
+    {
+      "text": "Running `npm run onboard` after completing at least one phase resumes at the first incomplete phase (e.g. phase 2 if phase 1 was completed), not at phase 1."
+    },
+    {
+      "text": "`cat docs/data/local/onboarding-state.json` after completing phase 1 returns a JSON object containing exactly the keys: phase, answers, completedPhases, updatedAt."
+    },
+    {
+      "text": "The `save-onboarding` server function debounces writes; typing continuously for 2 seconds then pausing produces exactly one file write, not one per keystroke (verify via file mtime: `stat docs/data/local/onboarding-state.json`)."
+    },
+    {
+      "text": "On wizard mount, phase and answers state are loaded from `docs/data/local/onboarding-state.json` if the file exists; localStorage is updated to mirror that state but is never the primary source."
+    },
+    {
+      "text": "`grep 'data/local' .gitignore` returns a match \u2014 `docs/data/local/` is gitignored and `git status` shows no tracked changes when only `onboarding-state.json` is modified."
+    }
+  ],
+  "technicalNotes": "New server function `save-onboarding` (mirror the `save-human-input.ts` pattern in work-hq/src/server/). State shape: `{ phase: number, answers: object, completedPhases: number[], updatedAt: string }`. Wizard loads state on mount via a `/api/load-onboarding` server function or equivalent import.meta.glob read. localStorage is the offline write-through cache only (ADR-P6-003). The `docs/data/local/` directory is already gitignored per ADR-P6-006; confirm the entry exists or add it. See ADR-P6-003 \u00a7decision for the dual-channel persistence contract.",
+  "dependencies": [],
+  "outOfScope": "Phase content changes (stories 002, 003, 005, 006), file scaffolding to context/*.md (story 004), Health tile wiring (story 008).",
+  "verificationPlan": [
+    {
+      "command": "cat docs/data/local/onboarding-state.json",
+      "checks": "File exists and is valid JSON with top-level keys: phase (number), answers (object), completedPhases (array), updatedAt (ISO date string)."
+    },
+    {
+      "command": "grep 'data/local' .gitignore",
+      "checks": "Returns a line confirming docs/data/local/ is present in .gitignore."
+    }
+  ],
+  "revisionLog": []
+}
