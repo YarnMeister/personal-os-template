@@ -3,9 +3,30 @@
   "featureId": "f-onboarding",
   "title": "File scaffolding service + docs/specs/file-contracts.md",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "3665841",
+    "filesTouched": [
+      "docs/data/stories/004.json",
+      "docs/specs/file-contracts.md",
+      "templates/context-org.md",
+      "templates/context-active.md",
+      "work-hq/src/server/scaffold-files.ts",
+      "work-hq/src/server/check-context-files.ts",
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "scaffold-files enforces the distillation contract server-side: when context/profile.md exists (bootstrap path), it returns early with me.md and org.md in the skipped list without touching them. check-context-files uses the same non-placeholder heuristic (no [ and no YYYY-MM-DD) as the technical notes specify. Verification was run via the Node.js content builders (equivalent to what the server function executes at runtime). The 'file already exists' notices and Overwrite checkboxes are added to PhaseFourManual review step (for me.md/org.md) and PhaseNow review step (for active.md).",
+    "verificationRun": [
+      "cat context/me.md → PASS: first line '# Me · Updated: 2026-07-05', no [ brackets, no YYYY-MM-DD",
+      "cat context/active.md → PASS: Priorities section has 'Owner:' and 'Due:' labels, no literal YYYY-MM-DD",
+      "cat docs/specs/file-contracts.md → PASS: headings cover me.md, org.md, active.md contracts, context/profile.md structure, onboarding-state.json shape, profile-bootstrap and profile-corrections handoff formats with version labels",
+      "npx tsc --noEmit → PASS: no TypeScript errors",
+      "npx prettier --check → PASS: all files conform"
+    ]
+  },
   "adrRefs": [
     "ADR-P6-002",
     "ADR-P6-003",
