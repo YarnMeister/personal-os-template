@@ -3,9 +3,18 @@
   "featureId": "f-onboarding",
   "title": "Health screen \u2014 onboarding tile wired to real state",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "8c2a3b1",
+    "filesTouched": [
+      "work-hq/src/routes/_app.health.tsx"
+    ],
+    "notes": "Added route loader calling loadOnboarding(); added OnboardingTile component with three states (not-started, in-progress, complete); removed mock.onboardingSeed dependency from the tile. All other Health tiles remain on mock data per out-of-scope clause. Story owner is ui-dev — implemented at explicit user request.",
+    "verificationRun": "grep AC1 PASS (line 10 match); tsc --noEmit PASS; prettier --check PASS; onboarding-state.json read confirmed with 1 completedPhase present"
+  },
   "adrRefs": [
     "ADR-P6-002",
     "ADR-P6-004"
