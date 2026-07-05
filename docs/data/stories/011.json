@@ -3,9 +3,42 @@
   "featureId": "f-onboarding",
   "title": "Profile corrections handoff + lock-in (profile-corrections block, AGENTS.md routing-table row)",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "a345fc5",
+    "filesTouched": [
+      "work-hq/src/lib/handoff.ts",
+      "work-hq/src/routes/onboarding.tsx",
+      "AGENTS.md",
+      "docs/data/stories/011.json"
+    ],
+    "notes": "context/profile.md was already on line 3 of .gitignore (AC4 pre-satisfied). buildProfileCorrectionsMarkdown is file-local (not in handoff.ts) so the 'profile-corrections' kind string appears directly in onboarding.tsx, satisfying the grep check. The Ask text uses the exact sensitivity gate phrase from AGENTS.md §Sensitivity check and includes the first-person conversion step from templates/bootstrap-profile-prompt.md §Follow-up prompt.",
+    "verificationRun": [
+      {
+        "command": "grep -n 'profile-corrections' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — matched on lines 571, 584, 585, 619, 648, 1302"
+      },
+      {
+        "command": "grep 'context/profile.md' .gitignore",
+        "result": "PASS — matched: context/profile.md"
+      },
+      {
+        "command": "grep 'context/profile.md' AGENTS.md",
+        "result": "PASS — matched: | Tier 2 | `context/profile.md` | Full AI context profile (bootstrap path) | Load before drafting or personalising, after me.md |"
+      },
+      {
+        "command": "npm run build (work-hq/)",
+        "result": "PASS — ✓ built in 352ms / 328ms (two passes, no errors)"
+      },
+      {
+        "command": "npm run format (work-hq/)",
+        "result": "PASS — prettier ran; onboarding.tsx reformatted; build re-verified clean"
+      }
+    ]
+  },
   "adrRefs": [
     "ADR-P6-007",
     "ADR-P6-003"
