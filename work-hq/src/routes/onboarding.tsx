@@ -15,6 +15,7 @@ import { loadOnboarding } from "@/server/load-onboarding";
 import { saveOnboarding } from "@/server/save-onboarding";
 import { checkProfileExists } from "@/server/check-profile-exists";
 import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
+import { readProfile } from "@/server/read-profile";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Onboarding · Work HQ" }] }),
@@ -50,6 +51,13 @@ type Answers = {
   fullName: string;
   /** AC3: work email collected before generating the bootstrap prompt */
   workEmail: string;
+  /**
+   * AC3 (story 010): edited section bodies and flags from the Review & correct
+   * phase.  Keys are section headings from context/profile.md; values hold the
+   * current body text (possibly user-edited) and an `edited` flag.
+   * Persisted in onboarding-state.json so edits survive a page refresh.
+   */
+  editedSections: Record<string, { body: string; edited: boolean }>;
 };
 
 const emptyAnswers: Answers = {
@@ -72,6 +80,7 @@ const emptyAnswers: Answers = {
   seedingPath: "",
   fullName: "",
   workEmail: "",
+  editedSections: {},
 };
 
 /**
@@ -99,7 +108,14 @@ function normalizeAnswers(raw: unknown): Answers {
     priorities = migrated as [Priority, Priority, Priority];
   }
 
-  return { ...emptyAnswers, ...(raw as Partial<Answers>), priorities };
+  // Normalise editedSections: default to {} if missing or malformed.
+  const rawEditedSections = a.editedSections;
+  const editedSections: Answers["editedSections"] =
+    rawEditedSections && typeof rawEditedSections === "object" && !Array.isArray(rawEditedSections)
+      ? (rawEditedSections as Answers["editedSections"])
+      : {};
+
+  return { ...emptyAnswers, ...(raw as Partial<Answers>), priorities, editedSections };
 }
 
 const phases = [
@@ -228,11 +244,27 @@ function OnboardingPage() {
 
   const back = () => setPhase((p) => Math.max(1, p - 1));
 
-  // Phase 4 (manual path) and phase 5 manage their own Confirm action that
+  // Phase 4 (both paths) and phase 5 manage their own Confirm action that
   // saves + advances — the global Next button is hidden for those cases so
-  // the review card's Confirm is the only way to advance.
-  const hideNextButton =
-    (phase === 4 && answers.seedingPath === "manual") || phase === 5;
+  // the Confirm action is the only way to advance.
+  // Bootstrap path: internal "Confirm all" / "Looks good" in PhaseReviewCorrect.
+  // Manual path: internal "Confirm" in PhaseFourManual.
+  // Waiting state (bootstrap, profile not yet written): a "Continue" link in
+  // PhaseReviewCorrect acts as the escape hatch.
+  const hideNextButton = phase === 4 || phase === 5;
+
+  // Count edited sections for the dynamic phase 4 bootstrap heading (AC3).
+  const editedCount = Object.values(answers.editedSections).filter(
+    (s) => s.edited,
+  ).length;
+
+  // Dynamic subtitle for phase 4 bootstrap path — shows edited-section count.
+  const phaseSubtitle =
+    phase === 4 && answers.seedingPath === "bootstrap"
+      ? editedCount > 0
+        ? `Review your profile · ${editedCount} section${editedCount === 1 ? "" : "s"} edited`
+        : "Review your profile"
+      : phases[phase - 1].subtitle;
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground">
@@ -278,7 +310,7 @@ function OnboardingPage() {
           Phase {phase} of 6 · {phases[phase - 1].title}
         </p>
         <h1 className="mt-2 text-4xl font-semibold tracking-tight text-balance">
-          {phases[phase - 1].subtitle}
+          {phaseSubtitle}
         </h1>
 
         <div className="mt-10">
@@ -815,7 +847,7 @@ function PhaseSeeding({
 /* ----- PhaseFour (phase 4) — story 003 ----- */
 
 /**
- * PhaseFour — phase 4 of the onboarding wizard (story 003).
+ * PhaseFour — phase 4 of the onboarding wizard (story 003 + story 010).
  *
  * Manual path (seedingPath === 'manual'):
  *   About-you form → sensitivity check → Your-org form → review summary.
@@ -823,8 +855,9 @@ function PhaseSeeding({
  *   The global Next button is hidden for this path (see OnboardingPage).
  *
  * Bootstrap path (seedingPath === 'bootstrap'):
- *   Placeholder — story 010 will replace with Review & correct section cards.
- *   Global Next button remains visible so the user can advance.
+ *   PhaseReviewCorrect — reads context/profile.md, renders editable section
+ *   cards, persists edits to onboarding-state.json.  Internal Confirm action
+ *   saves + advances.  Global Next button is hidden (see OnboardingPage).
  */
 function PhaseFour({
   answers,
@@ -837,19 +870,14 @@ function PhaseFour({
   next: () => void;
   saveNow: () => void;
 }) {
-  // Bootstrap-path placeholder (story 010 scope).
   if (answers.seedingPath === "bootstrap") {
     return (
-      <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-        <p className="text-sm font-semibold text-foreground">
-          Review your bootstrapped profile
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Your profile review cards will appear here once your bootstrap profile
-          has been generated. Click <strong>Next phase</strong> to continue for
-          now.
-        </p>
-      </div>
+      <PhaseReviewCorrect
+        answers={answers}
+        set={set}
+        next={next}
+        saveNow={saveNow}
+      />
     );
   }
 
@@ -861,6 +889,301 @@ function PhaseFour({
       next={next}
       saveNow={saveNow}
     />
+  );
+}
+
+/* ----- Profile parser — story 010 ----- */
+
+/** Parsed section from context/profile.md (## heading boundaries). */
+interface ProfileSection {
+  heading: string;
+  body: string;
+}
+
+/**
+ * Detect the status label from a section body.
+ * Returns the first of "Confirmed", "Derived", or "Unknown" found in `body`,
+ * defaulting to "Unknown" when none is present (AC2).
+ */
+function detectStatus(body: string): "Confirmed" | "Derived" | "Unknown" {
+  type StatusLabel = "Confirmed" | "Derived" | "Unknown";
+  const candidates = (
+    [
+      { status: "Confirmed" as StatusLabel, pos: body.indexOf("Confirmed") },
+      { status: "Derived" as StatusLabel, pos: body.indexOf("Derived") },
+      { status: "Unknown" as StatusLabel, pos: body.indexOf("Unknown") },
+    ] satisfies Array<{ status: StatusLabel; pos: number }>
+  ).filter(({ pos }) => pos !== -1);
+
+  if (candidates.length === 0) return "Unknown";
+  candidates.sort((a, b) => a.pos - b.pos);
+  return candidates[0].status;
+}
+
+/**
+ * Parse a profile.md string into sections on `## ` heading boundaries (AC2).
+ * The content before the first `## ` heading (title line, preamble) is skipped.
+ */
+function parseProfileSections(content: string): ProfileSection[] {
+  const parts = content.split(/^## /m);
+  return parts
+    .slice(1) // drop preamble before first ##
+    .map((part) => {
+      const newlineIdx = part.indexOf("\n");
+      const heading =
+        newlineIdx === -1 ? part.trim() : part.slice(0, newlineIdx).trim();
+      const body =
+        newlineIdx === -1 ? "" : part.slice(newlineIdx + 1).trimEnd();
+      return { heading, body };
+    })
+    .filter((s) => s.heading.length > 0);
+}
+
+/* ----- StatusChip ----- */
+
+function StatusChip({
+  status,
+}: {
+  status: "Confirmed" | "Derived" | "Unknown";
+}) {
+  const styles: Record<"Confirmed" | "Derived" | "Unknown", string> = {
+    Confirmed:
+      "border-fresh/40 bg-fresh/10 text-fresh",
+    Derived:
+      "border-warning/40 bg-warning/10 text-warning",
+    Unknown:
+      "border-border bg-muted text-muted-foreground",
+  };
+  return (
+    <span
+      className={cn(
+        "rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
+        styles[status],
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+/* ----- SectionCard ----- */
+
+/**
+ * Editable card for a single ## section from context/profile.md.
+ * Shows the section heading, current body in a textarea, and a live status
+ * chip (re-detected from the current body text).  Displays an "Edited" badge
+ * when `isEdited` is true (AC2, AC3).
+ */
+function SectionCard({
+  heading,
+  body,
+  isEdited,
+  onChange,
+}: {
+  heading: string;
+  body: string;
+  isEdited: boolean;
+  onChange: (body: string) => void;
+}) {
+  const status = detectStatus(body);
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-4 space-y-3 transition",
+        isEdited ? "border-primary/50" : "border-border",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-foreground leading-snug">
+          {heading}
+        </h3>
+        <div className="flex shrink-0 items-center gap-2">
+          {isEdited && (
+            <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
+              Edited
+            </span>
+          )}
+          <StatusChip status={status} />
+        </div>
+      </div>
+      <textarea
+        value={body}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+      />
+    </div>
+  );
+}
+
+/* ----- PhaseReviewCorrect (phase 4, bootstrap path) — story 010 ----- */
+
+/**
+ * PhaseReviewCorrect — phase 4 of the onboarding wizard, bootstrap path
+ * (story 010).
+ *
+ * Waiting state: context/profile.md not found → shows instruction text,
+ *   a Refresh button (AC1), and a subtle Continue link as an escape hatch.
+ *   Auto-polls every 5 s via check-profile-exists (reused from story 009).
+ *
+ * Review state: profile parsed → renders one SectionCard per ## section (AC2).
+ *   Editing a card updates answers.editedSections and marks it as edited (AC3).
+ *   "Confirm all" / "Looks good" button saves + advances to phase 5 (AC4).
+ */
+function PhaseReviewCorrect({
+  answers,
+  set,
+  next,
+  saveNow,
+}: {
+  answers: Answers;
+  set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
+  next: () => void;
+  saveNow: () => void;
+}) {
+  const [profileContent, setProfileContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
+
+  // Load profile.md on mount (AC2: read at request time, not import.meta.glob).
+  useEffect(() => {
+    void readProfile().then(({ content }) => {
+      setProfileContent(content);
+      setLoading(false);
+    });
+  }, []);
+
+  // AC1: Auto-poll every 5 s while waiting for the file to appear.
+  useEffect(() => {
+    if (loading || profileContent !== null) return;
+    const id = setInterval(() => {
+      void checkProfileExists().then(({ exists }) => {
+        if (exists) {
+          void readProfile().then(({ content }) => {
+            setProfileContent(content);
+          });
+        }
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [loading, profileContent]);
+
+  const handleRefresh = () => {
+    setChecking(true);
+    void readProfile().then(({ content }) => {
+      setChecking(false);
+      setProfileContent(content);
+    });
+  };
+
+  // While awaiting initial server read, show nothing (avoids flicker).
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-sm text-muted-foreground">Loading profile…</p>
+      </div>
+    );
+  }
+
+  // AC1: Waiting state — profile.md does not exist yet.
+  if (profileContent === null) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Waiting for your assistant
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            After your assistant writes{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+              context/profile.md
+            </code>
+            , click Refresh or wait — this page detects the file automatically.
+          </p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={checking}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-4", checking && "animate-spin")} />
+            {checking ? "Checking…" : "Refresh"}
+          </button>
+          <p className="text-[10px] text-muted-foreground">
+            Auto-checking every 5 seconds in the background.
+          </p>
+        </div>
+
+        {/* Escape hatch: advance without reviewing if user wants to skip. */}
+        <button
+          type="button"
+          onClick={() => {
+            saveNow();
+            next();
+          }}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          Continue without reviewing →
+        </button>
+      </div>
+    );
+  }
+
+  // AC2: Review state — parse profile.md and render editable section cards.
+  const sections = parseProfileSections(profileContent);
+
+  // Count sections the user has edited for the Confirm button label (AC4).
+  const editedCount = Object.values(answers.editedSections).filter(
+    (s) => s.edited,
+  ).length;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Review each section your assistant wrote. Edit any section to correct
+        errors — edited sections are highlighted and saved automatically.
+      </p>
+
+      {sections.map((section) => {
+        const saved = answers.editedSections[section.heading];
+        // AC3: show saved body if edited; otherwise show original parsed body.
+        const currentBody = saved !== undefined ? saved.body : section.body;
+        const isEdited = saved?.edited ?? false;
+
+        return (
+          <SectionCard
+            key={section.heading}
+            heading={section.heading}
+            body={currentBody}
+            isEdited={isEdited}
+            onChange={(newBody) => {
+              // AC3: mark as edited only when the text differs from original.
+              const isNowEdited = newBody !== section.body;
+              set("editedSections", {
+                ...answers.editedSections,
+                [section.heading]: { body: newBody, edited: isNowEdited },
+              });
+            }}
+          />
+        );
+      })}
+
+      {/* AC4: internal Confirm action — no global Next button for phase 4. */}
+      <div className="flex items-center gap-4 pt-2">
+        <button
+          type="button"
+          onClick={() => {
+            saveNow();
+            next();
+          }}
+          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+        >
+          {editedCount === 0 ? "Looks good" : "Confirm all"}{" "}
+          <ArrowRight className="size-4" />
+        </button>
+      </div>
+    </div>
   );
 }
 

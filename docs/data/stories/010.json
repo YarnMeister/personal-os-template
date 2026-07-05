@@ -1,0 +1,56 @@
+{
+  "id": "010",
+  "featureId": "f-onboarding",
+  "title": "Review & correct phase (phase 4, seeded path) \u2014 profile parser and editable section cards",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-007",
+  "userStory": "As a user who bootstrapped my profile via Glean, I want to review every section the assistant wrote and correct any errors before locking it in, so that my AI context is accurate and human-verified before it seeds my OS files.",
+  "acceptanceCriteria": [
+    {
+      "text": "When `context/profile.md` does not yet exist, phase 4 (seeded path) shows a waiting state with a 'Refresh' button and instruction text: \"After your assistant writes context/profile.md, click Refresh or wait \u2014 this page detects the file automatically.\""
+    },
+    {
+      "text": "When `context/profile.md` exists on disk, the phase parses it on `## <heading>` boundaries and renders each section as an editable card. Each card shows the section heading, body text, and a status chip. The status chip value (Confirmed, Derived, or Unknown) is parsed from the first Confirmed/Derived/Unknown label found in the section body, defaulting to Unknown if none is found."
+    },
+    {
+      "text": "Editing a section card's body text marks the card with a visible 'edited' badge. The phase heading shows the count of edited sections (e.g. 'Review your profile \u00b7 3 sections edited'). Edited state and body text are stored in onboarding-state.json so they survive a page refresh."
+    },
+    {
+      "text": "Sections that have not been edited show no badge. A 'Confirm all' or 'Looks good' action is available to accept all sections without editing and advance to the corrections handoff (story 011) or phase 5."
+    },
+    {
+      "text": "Any mock profile data used in development or as a Storybook/test fixture represents a FICTIONAL persona \u2014 no real names, real roles, or real org data from any worked example. A comment in the mock file explicitly labels it as fictional (e.g. `// FICTIONAL PERSONA \u2014 do not replace with real data`). `grep -rn 'FICTIONAL' work-hq/src/' returns at least one match."
+    }
+  ],
+  "technicalNotes": "Add phase 4 seeded-path component (PhaseReviewCorrect) to `work-hq/src/routes/onboarding.tsx`. Profile parser: split file content on `/^## /m` boundaries; for each section, extract heading and body; scan body for first occurrence of 'Confirmed', 'Derived', or 'Unknown' to set status chip. Store edited sections as `editedSections: Record<string, { body: string; edited: boolean }>` in onboarding-state.json answers. Read profile.md via a server function (file read at request time, not import.meta.glob, since context/profile.md is gitignored and outside docs/data/). Auto-detect poll: lightweight server function `check-profile-exists` (reuse from story 009 if already created). Phase 4 rendering branches on `answers.seedingPath` \u2014 'bootstrap' renders this component; 'manual' renders story 003's interview forms.",
+  "dependencies": [
+    "001",
+    "009"
+  ],
+  "outOfScope": "Profile corrections handoff and lock-in (story 011), the manual-path interview forms (story 003), the scaffold-files server function (story 004), writing any OS file from this phase.",
+  "verificationPlan": [
+    {
+      "command": "grep -rn 'FICTIONAL' work-hq/src/",
+      "checks": "Returns at least one match confirming a fictional-persona label is present in the mock/fixture data."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json | grep editedSections",
+      "checks": "After editing at least one card, returns a line confirming editedSections is persisted in onboarding-state.json."
+    },
+    {
+      "command": "grep -n 'profile.md' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns multiple matches confirming context/profile.md is referenced in the phase 4 parser and waiting-state detection."
+    },
+    {
+      "command": "grep -c '^## ' context/profile.md  # then count section cards rendered in phase 4",
+      "checks": "The number of section cards rendered in the Review & correct phase equals the ^##-heading count in context/profile.md (use the fictional-persona fixture if no real profile exists)."
+    }
+  ],
+  "revisionLog": []
+}
