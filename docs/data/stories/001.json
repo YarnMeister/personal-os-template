@@ -3,9 +3,39 @@
   "featureId": "f-onboarding",
   "title": "Onboarding state service + multi-session resume",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "9fa7294",
+    "filesTouched": [
+      "work-hq/src/server/save-onboarding.ts (new)",
+      "work-hq/src/server/load-onboarding.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/001.json (modified)",
+      "docs/data/features/f-onboarding.json (modified)"
+    ],
+    "notes": "Server functions use createServerFn from @tanstack/react-start. load-onboarding uses strict:false to satisfy TanStack's serializable constraint for the Record<string,unknown> answers field. The 2-second debounce in the useEffect dependency on [phase, answers, completedPhases] ensures exactly one file write per period of inactivity (AC3). docs/data/local/ was already gitignored before this story.",
+    "verificationRun": [
+      {
+        "command": "cat docs/data/local/onboarding-state.json",
+        "result": "PASS — file contains valid JSON with top-level keys: phase (number), answers (object), completedPhases (array), updatedAt (ISO string)"
+      },
+      {
+        "command": "grep 'data/local' .gitignore",
+        "result": "PASS — output: docs/data/local/"
+      },
+      {
+        "command": "npx tsc --noEmit (in work-hq/)",
+        "result": "PASS — no type errors"
+      },
+      {
+        "command": "npx prettier --check (in work-hq/)",
+        "result": "PASS — all files pass after --write"
+      }
+    ]
+  },
   "adrRefs": [
     "ADR-P6-003",
     "ADR-P6-004"
