@@ -2,7 +2,7 @@
   "id": "f-onboarding",
   "name": "Guided Onboarding",
   "branch": "feat/onboarding",
-  "phase": "In Progress",
+  "phase": "Done",
   "goal": "Turn the prototype wizard into a complete, multi-session onboarding experience that seeds the user's OS via Glean-bootstrapped profile or guided interview forms, writes real OS files, and hands off to the AI.",
   "adrRefs": ["ADR-P6-002", "ADR-P6-003", "ADR-P6-004", "ADR-P6-007"],
   "order": 1

@@ -3,9 +3,22 @@
   "featureId": "f-onboarding",
   "title": "Completion handoff block + os-helper wizard-aware mode",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "2e2408c",
+    "filesTouched": [
+      "work-hq/src/lib/handoff.ts",
+      "work-hq/src/routes/onboarding.tsx",
+      "skills/os-helper/SKILL.md",
+      "skills/REGISTRY.md",
+      "docs/data/stories/006.json"
+    ],
+    "notes": "Added 'onboarding' to HandoffKind; replaced PhaseFirst with a completion-aware version emitting kind 'onboarding' (no 'initialize', no write instructions); added useEffect in OnboardingPage to mark phase 6 complete on arrival; added 'Work HQ handoff' wizard-aware subsection to os-helper SKILL.md Mode 1 covering Signal A (onboarding handoff), Signal B (state file completion), and Signal C (profile-corrections handoff with sensitivity gate); bumped os-helper version 2.0→2.1; updated REGISTRY.md.",
+    "verificationRun": "grep -n 'Work HQ handoff · onboarding' work-hq/src/routes/onboarding.tsx → PASS (line 2219); grep -n 'Work HQ handoff' skills/os-helper/SKILL.md → PASS (lines 45, 51, 63); grep -n 'profile-corrections' skills/os-helper/SKILL.md → PASS (lines 61, 63); npx tsc --noEmit → PASS (no output = clean)"
+  },
   "adrRefs": [
     "ADR-P6-003",
     "ADR-P6-004",
