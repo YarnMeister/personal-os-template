@@ -3,7 +3,7 @@
   "featureId": "f-onboarding",
   "title": "Orientation phase rewrite \u2014 real OS model + retire onboarding.html",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
   "adrRefs": [
@@ -41,5 +41,19 @@
       "checks": "Returns no matches \u2014 old invented path names are absent from the onboarding route file."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "483aef8",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "onboarding.html (deleted — was untracked, removed from working tree)"
+    ],
+    "notes": "Replaced PhaseOrientation's invented tier structure (state/, decisions/, archive/) with the real three-tier model from AGENTS.md. Removed /state and /decisions path references from PhaseWire verification prompt and PhaseFirst ask/hint (AC2 grep returns zero matches). onboarding.html was untracked so deletion is a working-tree-only operation. FileText icon removed from import since it was only used by the old PhaseOrientation.",
+    "verificationRun": [
+      "ls onboarding.html || echo gone → PASS (output: gone)",
+      "grep -n '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx → PASS (no matches)",
+      "npm run build (work-hq) → PASS (built in 234ms, no errors)"
+    ]
+  }
 }
