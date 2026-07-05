@@ -216,6 +216,16 @@ function OnboardingPage() {
     };
   }, [phase, answers, completedPhases]);
 
+  // AC4 (story 006): Phase 6 is the completion/handoff phase — mark it as
+  // complete the moment it is reached so completedPhases contains 1–6.
+  // Uses the callback form of setCompletedPhases to avoid a stale-closure
+  // read; the debounced save above will persist the updated array.
+  useEffect(() => {
+    if (phase === 6) {
+      setCompletedPhases((prev) => (prev.includes(6) ? prev : [...prev, 6]));
+    }
+  }, [phase]);
+
   const set = <K extends keyof Answers>(k: K, v: Answers[K]) =>
     setAnswers((a) => ({ ...a, [k]: v }));
 
@@ -2182,49 +2192,48 @@ function PhaseWire({
   );
 }
 
-function PhaseFirst({ answers }: { answers: Answers }) {
-  // Format each priority as a single readable line for the handoff.
-  const priorityLines = answers.priorities.map(
-    (p, i) =>
-      `${i + 1}. ${p.title || "(untitled)"}${p.owner ? ` — ${p.owner}` : ""}${p.dueDate ? ` by ${p.dueDate}` : ""}`,
-  );
-
+/**
+ * PhaseFirst — phase 6 of the onboarding wizard (story 006).
+ *
+ * The OS files are ALREADY WRITTEN by this phase. This component:
+ *  - Confirms completion with copy that states files are ready (AC1).
+ *  - Emits a handoff block with kind "onboarding" (AC2): lists the three
+ *    scaffolded files and a two-part ask (verify + morning standup), with no
+ *    instruction to write any file and no use of the word "initialize".
+ */
+function PhaseFirst({ answers: _answers }: { answers: Answers }) {
   return (
     <div className="space-y-8">
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center">
         <Sparkles className="mx-auto size-8 text-primary" />
-        <h3 className="mt-4 text-2xl font-semibold">You're set up.</h3>
+        <h3 className="mt-4 text-2xl font-semibold">Your OS is ready.</h3>
         <p className="mt-2 text-sm text-muted-foreground text-pretty">
-          Everything you told Work HQ is now ready to hand off to your assistant
-          as your very first standup. From tomorrow, this becomes a 2-minute
-          morning ritual.
+          Your context files are written and your assistant already has
+          everything it needs. Paste the handoff below to verify them and run
+          your first morning standup.
         </p>
       </div>
 
+      {/* AC2: kind "onboarding" → first line is "## Work HQ handoff · onboarding · <date>" */}
       <HandoffDock
         spec={{
-          kind: "first-standup",
+          kind: "onboarding",
           sections: [
-            { label: "Role", body: answers.role },
-            { label: "Workstyle", body: answers.workstyle },
-            { label: "Team", body: answers.team },
-            { label: "Key tools", body: answers.keyTools.filter(Boolean) },
-            { label: "Stakeholders", body: answers.stakeholders },
-            { label: "Glossary", body: answers.glossary },
-            { label: "Top 3 priorities", body: priorityLines },
-            { label: "Blockers", body: answers.blockers },
-            ...(answers.openQuestions
-              ? [{ label: "Open questions", body: answers.openQuestions }]
-              : []),
+            {
+              label: "Scaffolded files",
+              body: ["context/me.md", "context/org.md", "context/active.md"],
+            },
             {
               label: "Ask",
-              body: "Please initialize my context/ and memory/ files from the above and confirm you understand my context.",
+              body:
+                "(a) Verify these files are in place and contain real content — confirm each is present.\n" +
+                '(b) Run my first "morning standup".',
             },
           ],
         }}
-        title="First standup handoff"
-        filename="first-standup.md"
-        hint="Paste into your assistant to write your initial context/ files."
+        title="Onboarding handoff"
+        filename="onboarding-handoff.md"
+        hint="Paste into your assistant to verify your context files and run your first standup."
       />
     </div>
   );

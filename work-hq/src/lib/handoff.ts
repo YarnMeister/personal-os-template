@@ -7,7 +7,8 @@ export type HandoffKind =
   | "gather-answers"
   | "first-standup"
   | "profile-bootstrap"
-  | "profile-corrections";
+  | "profile-corrections"
+  | "onboarding";
 
 export type HandoffSection = { label: string; body: string | string[] };
 

@@ -1,0 +1,56 @@
+{
+  "id": "006",
+  "featureId": "f-onboarding",
+  "title": "Completion handoff block + os-helper wizard-aware mode",
+  "owner": "developer",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-003",
+    "ADR-P6-004",
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user who has finished the wizard, I want a handoff block that summarises what was scaffolded and asks my AI to verify the files and run the first standup, so that the transition from setup to daily use requires no manual steps.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 6 copy renders state the OS files are ALREADY WRITTEN. The word \"initialize\" does not appear, and no instruction to write any file appears in the phase 6 content or the handoff block."
+    },
+    {
+      "text": "The Collect & Copy button in Phase 6 places on the clipboard a block whose first line is exactly `## Work HQ handoff \u00b7 onboarding \u00b7 <YYYY-MM-DD>` (today's date at copy time), followed by a summary of which files were scaffolded (listing context/me.md, context/org.md, context/active.md) and a two-part ask: (a) verify the files, (b) run the first \"morning standup\"."
+    },
+    {
+      "text": "`skills/os-helper/SKILL.md` contains a new \"Work HQ handoff\" subsection in Mode 1 stating: when the handoff block (or its bare header line `## Work HQ handoff \u00b7 onboarding`) arrives in chat, OR when `docs/data/local/onboarding-state.json` shows all interview phases complete, skip the interview rounds and run the Gap Scan against the scaffolded files."
+    },
+    {
+      "text": "After reaching Phase 6, `cat docs/data/local/onboarding-state.json` shows `completedPhases` containing the values 1 through 6 (all phases marked complete)."
+    },
+    {
+      "text": "`skills/os-helper/SKILL.md` contains handling for the profile-corrections handoff: when `## Work HQ handoff \u00b7 profile-corrections` arrives in chat, the assistant applies the edited sections to context/profile.md, then distils context/me.md, context/org.md (with the sensitivity gate \u2014 no personnel data, unreleased roadmap items, or commercial terms in the committed org.md), and context/active.md seeds from the updated profile. `grep -n 'profile-corrections' skills/os-helper/SKILL.md` returns a match."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseFirst` in `work-hq/src/routes/onboarding.tsx` \u2014 remove the 'ask the AI to initialize /state files' instruction and replace with the new handoff block spec. The handoff block is built from saved onboarding-state.json answers via the same HandoffDock component pattern. Add a 'Work HQ handoff' subsection to `skills/os-helper/SKILL.md` Mode 1 (after Step 0, before Step 1 \u2014 it is an early-exit branch) covering both the wizard-complete handoff and the profile-corrections handoff (apply corrections to profile.md, distil me/org/active with sensitivity gate on org.md). The developer must write to skills/os-helper/SKILL.md as part of this story. Depends on story 004: the files must be written before Phase 6 is reached, so the handoff block describes completed scaffolding.",
+  "dependencies": [
+    "004",
+    "011"
+  ],
+  "outOfScope": "Actual AI verification of the scaffolded files (the wizard cannot read the chat), Health tile wiring (story 008), the ritual screens' Collect & Copy mechanics (those are separate screens).",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'Work HQ handoff \u00b7 onboarding' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match confirming the handoff header template is present in the Phase 6 component."
+    },
+    {
+      "command": "grep -n 'Work HQ handoff' skills/os-helper/SKILL.md",
+      "checks": "Returns a match confirming the wizard-aware subsection has been added to the os-helper skill file."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Added AC5: os-helper gains the profile-corrections handoff contract (apply corrections, distil me/org/active with sensitivity gate); updated technicalNotes to cover both handoff types; added ADR-P6-007 to adrRefs.",
+      "reason": "ADR-P6-007 adds a profile-corrections handoff kind that os-helper must handle."
+    }
+  ]
+}
