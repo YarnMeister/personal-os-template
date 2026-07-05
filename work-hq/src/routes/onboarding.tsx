@@ -41,10 +41,10 @@ const emptyAnswers: Answers = {
 
 const phases = [
   { n: 1, title: "Orientation", subtitle: "How your Personal OS works" },
-  { n: 2, title: "About you", subtitle: "Role and workstyle" },
-  { n: 3, title: "Your org", subtitle: "Stakeholders and glossary" },
-  { n: 4, title: "Right now", subtitle: "Top-3 priorities & blockers" },
-  { n: 5, title: "Wire your assistant", subtitle: "Verify the bridge" },
+  { n: 2, title: "Wire your assistant", subtitle: "Verify the bridge" },
+  { n: 3, title: "About you", subtitle: "Role and workstyle" },
+  { n: 4, title: "Your org", subtitle: "Stakeholders and glossary" },
+  { n: 5, title: "Right now", subtitle: "Top-3 priorities & blockers" },
   { n: 6, title: "First standup", subtitle: "Celebrate + hand off" },
 ];
 
@@ -131,6 +131,11 @@ function OnboardingPage() {
   const set = <K extends keyof Answers>(k: K, v: Answers[K]) =>
     setAnswers((a) => ({ ...a, [k]: v }));
 
+  // Phase 2 requires all three checkboxes before advancing (AC6: ensures
+  // phase 2 is only added to completedPhases once wiring is confirmed).
+  const allWireChecks = Object.values(answers.checks).every(Boolean);
+  const nextDisabled = phase === 2 && !allWireChecks;
+
   const next = () => {
     // Mark the current phase as completed before advancing.
     setCompletedPhases((prev) =>
@@ -190,10 +195,10 @@ function OnboardingPage() {
 
         <div className="mt-10">
           {phase === 1 && <PhaseOrientation />}
-          {phase === 2 && <PhaseAbout answers={answers} set={set} />}
-          {phase === 3 && <PhaseOrg answers={answers} set={set} />}
-          {phase === 4 && <PhaseNow answers={answers} set={set} />}
-          {phase === 5 && <PhaseWire answers={answers} set={set} />}
+          {phase === 2 && <PhaseWire answers={answers} set={set} />}
+          {phase === 3 && <PhaseAbout answers={answers} set={set} />}
+          {phase === 4 && <PhaseOrg answers={answers} set={set} />}
+          {phase === 5 && <PhaseNow answers={answers} set={set} />}
           {phase === 6 && <PhaseFirst answers={answers} />}
         </div>
 
@@ -208,7 +213,18 @@ function OnboardingPage() {
           {phase < 6 ? (
             <button
               onClick={next}
-              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+              disabled={nextDisabled}
+              title={
+                nextDisabled
+                  ? "Tick all three checkboxes to continue"
+                  : undefined
+              }
+              className={cn(
+                "flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground",
+                nextDisabled
+                  ? "cursor-not-allowed opacity-50"
+                  : "shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110",
+              )}
             >
               Next phase <ArrowRight className="size-4" />
             </button>
@@ -242,7 +258,12 @@ function PhaseOrientation() {
       label: "Living context",
       badge: "On demand",
       desc: "Read at the start of a relevant session: who you are, what you're working on, what the assistant has learned.",
-      files: ["context/me.md", "context/org.md", "context/active.md", "memory/"],
+      files: [
+        "context/me.md",
+        "context/org.md",
+        "context/active.md",
+        "memory/",
+      ],
     },
     {
       n: "Tier 3",
@@ -259,9 +280,8 @@ function PhaseOrientation() {
     <div className="space-y-6">
       <p className="text-base leading-relaxed text-muted-foreground">
         Your Personal OS is plain markdown files — no code, no servers. One
-        file,{" "}
-        <code className="font-mono text-foreground">AGENTS.md</code>, acts as
-        your AI's constitution: always loaded, always routing to everything
+        file, <code className="font-mono text-foreground">AGENTS.md</code>, acts
+        as your AI's constitution: always loaded, always routing to everything
         else.
       </p>
 
@@ -280,7 +300,10 @@ function PhaseOrientation() {
       {/* Three-tier model with exact file/folder names */}
       <div className="space-y-2">
         {tiers.map((t) => (
-          <div key={t.n} className="rounded-xl border border-border bg-card p-4">
+          <div
+            key={t.n}
+            className="rounded-xl border border-border bg-card p-4"
+          >
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t.n} · {t.label}
@@ -458,32 +481,70 @@ function PhaseWire({
   answers: Answers;
   set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
 }) {
-  const checkItems = [
+  const [showDebug, setShowDebug] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // AC2: exact verification prompt text — hardcoded, not user-editable.
+  const verificationPrompt =
+    "Confirm you can read my constitution and context/active.md — tell me my #1 priority.";
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(verificationPrompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  // AC1: Copilot branch checkboxes map to the two explicit setup steps + prompt test.
+  const copilotCheckItems: Array<{
+    key: keyof Answers["checks"];
+    label: string;
+  }> = [
     {
-      key: "installed" as const,
-      label: "I have GitHub Copilot (or my assistant) open in VS Code",
+      key: "installed",
+      label: "I’ve enabled chat.useAgentsMdFile in VS Code Settings",
     },
     {
-      key: "contextOpen" as const,
-      label: "My OS folder is open as a workspace so the AI can read it",
+      key: "contextOpen",
+      label: "My workspace folder containing AGENTS.md is open in VS Code",
     },
     {
-      key: "testedPaste" as const,
-      label: "I've tested pasting the verification prompt below",
+      key: "testedPaste",
+      label: "I’ve sent the verification prompt and my assistant responded",
     },
   ];
-  const verification = `Please read context/active.md and memory/learnings.md.
-Summarize my current top-3 priorities and top blocker in <5 lines.`;
+
+  // AC3: Other-assistant checkboxes use assistant-agnostic language.
+  const otherCheckItems: Array<{
+    key: keyof Answers["checks"];
+    label: string;
+  }> = [
+    {
+      key: "installed",
+      label: "My assistant is running and can read my workspace files",
+    },
+    {
+      key: "contextOpen",
+      label: "My AGENTS.md folder is accessible to my assistant",
+    },
+    {
+      key: "testedPaste",
+      label: "I’ve sent the verification prompt and my assistant responded",
+    },
+  ];
+
+  const checkItems =
+    answers.assistant === "copilot" ? copilotCheckItems : otherCheckItems;
 
   return (
     <div className="space-y-8">
+      {/* Assistant type selector */}
       <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
         {(["copilot", "other"] as const).map((k) => (
           <button
             key={k}
             onClick={() => set("assistant", k)}
             className={cn(
-              "flex-1 rounded-md px-3 py-2 text-sm font-medium capitalize transition",
+              "flex-1 rounded-md px-3 py-2 text-sm font-medium transition",
               answers.assistant === k
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -494,20 +555,98 @@ Summarize my current top-3 priorities and top blocker in <5 lines.`;
         ))}
       </div>
 
-      {answers.assistant === "other" && (
-        <Field label="Which assistant?">
-          <input
-            value={answers.otherAssistant}
-            onChange={(e) => set("otherAssistant", e.target.value)}
-            placeholder="Claude, ChatGPT, Cursor…"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 outline-none focus:ring-2 focus:ring-primary/40"
-          />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Works the same — as long as the assistant reads pasted markdown.
-          </p>
-        </Field>
+      {/* ── GitHub Copilot branch (AC1) ── */}
+      {answers.assistant === "copilot" && (
+        <div className="space-y-3">
+          {/* Step 1: enable chat.useAgentsMdFile */}
+          <div className="space-y-1.5 rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Step 1 of 2
+            </p>
+            <p className="text-sm">
+              Enable the VS Code setting{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                chat.useAgentsMdFile
+              </code>
+              . Open VS Code Settings (
+              <kbd className="font-mono text-xs">⌘,</kbd> or{" "}
+              <kbd className="font-mono text-xs">Ctrl+,</kbd>), search for{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                chat.useAgentsMdFile
+              </code>
+              , and enable it.
+            </p>
+          </div>
+
+          {/* Step 2: workspace folder open */}
+          <div className="space-y-1.5 rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Step 2 of 2
+            </p>
+            <p className="text-sm">
+              Confirm the workspace folder containing{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                AGENTS.md
+              </code>{" "}
+              is open in VS Code. Use <strong>File &rarr; Open Folder</strong>{" "}
+              to open your Personal OS folder if it is not already.
+            </p>
+          </div>
+        </div>
       )}
 
+      {/* ── Other assistant branch (AC3) ── */}
+      {answers.assistant === "other" && (
+        <div className="space-y-3">
+          {/* (a) As-is setup assumes GitHub Copilot in VS Code native chat */}
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Note:</span> The
+              as-is setup assumes GitHub Copilot in VS Code native chat &mdash;
+              the steps and setting names below reflect that configuration.
+            </p>
+          </div>
+
+          {/* (b) CLAUDE.md is a thin shim pointing Claude-flavoured tools at AGENTS.md */}
+          <div className="space-y-1.5 rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Claude and Claude Code
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                CLAUDE.md
+              </code>{" "}
+              is a thin shim that points Claude-flavoured tools at{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                AGENTS.md
+              </code>{" "}
+              &mdash; all the real constitution content lives in{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                AGENTS.md
+              </code>
+              .
+            </p>
+          </div>
+
+          {/* (c) Generic guidance for adapting to a different assistant */}
+          <div className="space-y-1.5 rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Adapting to your assistant
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Point your assistant at{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                AGENTS.md
+              </code>{" "}
+              as its always-loaded instruction file &mdash; via a setting, an
+              import directive, or by pasting its contents directly. The
+              verification prompt below will confirm it loaded.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation checkboxes — same three keys for both branches */}
       <div className="space-y-2">
         {checkItems.map((c) => (
           <label
@@ -530,15 +669,68 @@ Summarize my current top-3 priorities and top blocker in <5 lines.`;
         ))}
       </div>
 
-      <HandoffDock
-        spec={{
-          kind: "gather-answers",
-          sections: [{ label: "Verification prompt", body: verification }],
-        }}
-        title="Verification prompt"
-        filename="verify.md"
-        hint="Paste this into your assistant. If the summary is accurate, you're wired up."
-      />
+      {/* Verification prompt (AC2) — copyable block */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Verification prompt
+        </p>
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Click to copy to clipboard"
+          className="group w-full rounded-xl border border-border bg-card p-4 text-left transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <p className="font-mono text-sm text-foreground">
+            {verificationPrompt}
+          </p>
+          <p className="mt-2 text-[10px] font-medium text-muted-foreground transition group-hover:text-primary">
+            {copied ? "Copied to clipboard ✓" : "Click to copy"}
+          </p>
+        </button>
+        <p className="text-xs text-muted-foreground">
+          Paste this into your assistant. If it tells you your #1 priority,
+          you&apos;re wired up.
+        </p>
+      </div>
+
+      {/* That didn't work — expandable debug panel (AC4) */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => setShowDebug((v) => !v)}
+          aria-expanded={showDebug}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <span>That didn&apos;t work</span>
+          <span className="font-mono text-xs">{showDebug ? "▲" : "▼"}</span>
+        </button>
+        {showDebug && (
+          <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
+            {/* Source: skills/os-helper/SKILL.md Mode 1 Troubleshooting note */}
+            <p className="text-sm text-muted-foreground">
+              Ask your assistant:{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                What are your standing orders?
+              </code>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              If it cannot describe the constitution,{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                @AGENTS.md
+              </code>{" "}
+              did not load.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Fallback:</span>{" "}
+              open{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                AGENTS.md
+              </code>{" "}
+              and paste its contents directly into chat.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,55 @@
+{
+  "id": "005",
+  "featureId": "f-onboarding",
+  "title": "Wire-assistant phase (now phase 2) \u2014 Copilot setup steps, other-assistant branch, failure recovery",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-003",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a new user configuring my AI assistant, I want step-by-step setup guidance and a copyable verification prompt before I choose a seeding path, so that I can confirm my assistant has loaded my constitution and the bootstrap path is ready to use.",
+  "acceptanceCriteria": [
+    {
+      "text": "The Copilot branch of phase 2 shows exactly two setup steps in order: (1) enable the VS Code setting `chat.useAgentsMdFile` (setting name displayed as copyable monospace text), and (2) confirm the workspace folder containing AGENTS.md is open in VS Code."
+    },
+    {
+      "text": "The verification prompt block contains exactly this text: \"Confirm you can read my constitution and context/active.md \u2014 tell me my #1 priority.\" \u2014 verbatim, in a copyable block that places this string on the clipboard when clicked."
+    },
+    {
+      "text": "The \"Other assistant\" branch displays: (a) a note that the as-is setup assumes GitHub Copilot in VS Code native chat, (b) an explanation that CLAUDE.md is a thin shim pointing Claude-flavoured tools at AGENTS.md, and (c) a generic guidance note for adapting the setup to a different assistant."
+    },
+    {
+      "text": "When the user activates a \"That didn't work\" toggle or button, an expandable panel appears showing the import-debug steps: ask the assistant \"What are your standing orders?\" \u2014 if it cannot describe the constitution, @AGENTS.md did not load; fallback: open AGENTS.md and paste its contents directly into chat."
+    },
+    {
+      "text": "Navigating away from phase 2 and returning (including across sessions via story 001's load-on-mount) restores the assistant-type selection (copilot vs other) and all checkbox states."
+    },
+    {
+      "text": "The \"Bootstrap with Glean\" option in phase 3 (story 009) is visually disabled and shows an explanatory note \u2014 \"Complete assistant wiring in phase 2 first\" \u2014 when `completedPhases` in onboarding-state.json does not include phase 2. `cat docs/data/local/onboarding-state.json` must show phase 2 in `completedPhases` before the bootstrap option becomes active."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseWire` in `work-hq/src/routes/onboarding.tsx`. Phase 2 is now positioned before seeding (ADR-P6-004 amended): the bootstrap path in phase 3 requires a working assistant, so this phase gates it. The verification prompt text is hardcoded (not user-editable). Import-debug steps sourced from the Troubleshooting note in `skills/os-helper/SKILL.md` Mode 1. The `checks` object in `Answers` type must be persisted via story 001's save-onboarding \u2014 include `assistant` and `checks` keys in the state shape. Phase 2 completion (all three checkboxes ticked) writes phase 2 into `completedPhases` so story 009 can gate the bootstrap option. No new server functions; UI-only story.",
+  "dependencies": [],
+  "outOfScope": "Actual verification of the assistant's response (the wizard cannot read the chat window), phases 3\u20135 field changes (stories 003, 009, 010), state persistence infrastructure (story 001), the handoff block content (story 006).",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'chat.useAgentsMdFile' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a line number match confirming the exact setting name appears in the phase 2 Copilot branch."
+    },
+    {
+      "command": "grep -n 'Confirm you can read my constitution' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a line containing the exact verification prompt text \u2014 confirms the correct wording is present."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Phase renumbered to 2 (wire assistant precedes seeding per amended ADR-P6-004); added AC: phase 2 completion gates bootstrap path in phase 3; phase references updated throughout; userStory updated to reflect pre-seeding position.",
+      "reason": "ADR-P6-007 requires a working assistant bridge before the bootstrap path is accessible; ADR-P6-004 amended phase order accordingly."
+    }
+  ]
+}
