@@ -1,0 +1,139 @@
+{
+  "id": "010",
+  "featureId": "f-onboarding",
+  "title": "Review & correct phase (phase 4, seeded path) — profile parser and editable section cards",
+  "owner": "ui-dev",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified via code inspection, programmatic parser run, and git/gitignore checks. Build and TypeScript clean.",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "d479171",
+    "filesTouched": [
+      "work-hq/src/server/read-profile.ts (new)",
+      "work-hq/src/__fixtures__/fictional-profile.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/010.json (modified)"
+    ],
+    "notes": "readProfile server function reads context/profile.md at request time (not import.meta.glob). parseProfileSections splits on /^## /m boundaries; detectStatus finds first Confirmed/Derived/Unknown in body (defaults to Unknown). PhaseReviewCorrect has two render states: waiting (profile not found, AC1) and review (profile parsed, AC2). Waiting state auto-polls via checkProfileExists every 5 s and shows a Refresh button plus a 'Continue without reviewing' escape hatch. Review state renders SectionCard per section; editing updates answers.editedSections via set(), which flows through the debounced saveOnboarding to onboarding-state.json. The 'Edited' badge appears on cards where isEdited===true (AC3). Phase heading dynamically shows 'Review your profile · N sections edited' (AC3). 'Looks good' / 'Confirm all' button advances via saveNow() + next() (AC4). Fictional persona fixture labelled FICTIONAL PERSONA (AC5). hideNextButton widened to phase===4||phase===5; both paths now use internal Confirm; waiting state provides a Continue escape hatch.",
+    "verificationRun": [
+      {
+        "command": "grep -rn 'FICTIONAL' work-hq/src/",
+        "result": "PASS — work-hq/src/__fixtures__/fictional-profile.ts:1: // FICTIONAL PERSONA — do not replace with real data."
+      },
+      {
+        "command": "cat docs/data/local/onboarding-state.json | grep editedSections",
+        "result": "PASS — returns '    \"editedSections\": {' confirming editedSections key is persisted in onboarding-state.json"
+      },
+      {
+        "command": "grep -n 'profile.md' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — 14 matches including server function call, waiting-state instruction text, parser comments, and component JSDoc"
+      },
+      {
+        "command": "grep -c '^## ' context/profile.md (fictional fixture)",
+        "result": "PASS — grep -c '^## ' returns 20; node parser also returns 20 sections; count matches"
+      },
+      {
+        "command": "npx tsc --noEmit (from work-hq/)",
+        "result": "PASS — no TypeScript errors"
+      },
+      {
+        "command": "npm run build (from work-hq/)",
+        "result": "PASS — client 41.58 kB / server 64.53 kB onboarding bundles; both environments built clean"
+      }
+    ]
+  },
+  "adrRefs": [
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-007",
+  "userStory": "As a user who bootstrapped my profile via Glean, I want to review every section the assistant wrote and correct any errors before locking it in, so that my AI context is accurate and human-verified before it seeds my OS files.",
+  "acceptanceCriteria": [
+    {
+      "text": "When `context/profile.md` does not yet exist, phase 4 (seeded path) shows a waiting state with a 'Refresh' button and instruction text: \"After your assistant writes context/profile.md, click Refresh or wait — this page detects the file automatically.\""
+    },
+    {
+      "text": "When `context/profile.md` exists on disk, the phase parses it on `## <heading>` boundaries and renders each section as an editable card. Each card shows the section heading, body text, and a status chip. The status chip value (Confirmed, Derived, or Unknown) is parsed from the first Confirmed/Derived/Unknown label found in the section body, defaulting to Unknown if none is found."
+    },
+    {
+      "text": "Editing a section card's body text marks the card with a visible 'edited' badge. The phase heading shows the count of edited sections (e.g. 'Review your profile · 3 sections edited'). Edited state and body text are stored in onboarding-state.json so they survive a page refresh."
+    },
+    {
+      "text": "Sections that have not been edited show no badge. A 'Confirm all' or 'Looks good' action is available to accept all sections without editing and advance to the corrections handoff (story 011) or phase 5."
+    },
+    {
+      "text": "Any mock profile data used in development or as a Storybook/test fixture represents a FICTIONAL persona — no real names, real roles, or real org data from any worked example. A comment in the mock file explicitly labels it as fictional (e.g. `// FICTIONAL PERSONA — do not replace with real data`). `grep -rn 'FICTIONAL' work-hq/src/' returns at least one match."
+    }
+  ],
+  "technicalNotes": "Add phase 4 seeded-path component (PhaseReviewCorrect) to `work-hq/src/routes/onboarding.tsx`. Profile parser: split file content on `/^## /m` boundaries; for each section, extract heading and body; scan body for first occurrence of 'Confirmed', 'Derived', or 'Unknown' to set status chip. Store edited sections as `editedSections: Record<string, { body: string; edited: boolean }>` in onboarding-state.json answers. Read profile.md via a server function (file read at request time, not import.meta.glob, since context/profile.md is gitignored and outside docs/data/). Auto-detect poll: lightweight server function `check-profile-exists` (reuse from story 009 if already created). Phase 4 rendering branches on `answers.seedingPath` — 'bootstrap' renders this component; 'manual' renders story 003's interview forms.",
+  "dependencies": [
+    "001",
+    "009"
+  ],
+  "outOfScope": "Profile corrections handoff and lock-in (story 011), the manual-path interview forms (story 003), the scaffold-files server function (story 004), writing any OS file from this phase.",
+  "verificationPlan": [
+    {
+      "command": "grep -rn 'FICTIONAL' work-hq/src/",
+      "checks": "Returns at least one match confirming a fictional-persona label is present in the mock/fixture data."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json | grep editedSections",
+      "checks": "After editing at least one card, returns a line confirming editedSections is persisted in onboarding-state.json."
+    },
+    {
+      "command": "grep -n 'profile.md' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns multiple matches confirming context/profile.md is referenced in the phase 4 parser and waiting-state detection."
+    },
+    {
+      "command": "grep -c '^## ' context/profile.md  # then count section cards rendered in phase 4",
+      "checks": "The number of section cards rendered in the Review & correct phase equals the ^##-heading count in context/profile.md (use the fictional-persona fixture if no real profile exists)."
+    }
+  ],
+  "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Waiting state: Refresh button + exact instruction text + 5-second auto-poll when profile.md absent",
+        "evidence": "onboarding.tsx:1089-1131 — profileContent===null branch renders instruction text 'After your assistant writes context/profile.md, click Refresh or wait — this page detects the file automatically.' (assembled from JSX with inline code element, matches AC verbatim). Button label is 'Refresh' (line 1107). Auto-poll: setInterval(..., 5000) at lines 1057-1070, runs while loading===false && profileContent===null, calls checkProfileExists then readProfile on detection. 'Continue without reviewing' escape hatch at lines 1118-1128 calls saveNow()+next()."
+      },
+      {
+        "ac": "AC2 — Profile parsed on ## boundaries; each section rendered as editable card with heading, body, and status chip (Confirmed/Derived/Unknown, default Unknown)",
+        "evidence": "parseProfileSections (lines 927-940): splits on /^## /m, slices preamble, extracts heading (up to first newline) and body. detectStatus (lines 908-921): indexOf search for all three labels, sorts by position, returns first match or 'Unknown'. SectionCard (lines 977-1018): renders heading in h3, body in textarea, StatusChip. Programmatic run against context/profile.md (fictional fixture): 20 sections parsed, statuses correctly assigned — 16 Confirmed, 3 Derived, 1 Unknown. Section with no label defaults to Unknown (confirmed by test with 'No status section')."
+      },
+      {
+        "ac": "AC3 — Edited badge visible; phase heading shows count; editedSections persists to onboarding-state.json",
+        "evidence": "SectionCard line 1001-1006: badge renders only when isEdited===true. onChange (lines 1160-1165): isNowEdited = newBody !== section.body — only marks edited when text differs from original. phaseSubtitle (lines 262-267 in OnboardingPage): 'Review your profile · N section(s) edited' when editedCount>0. onboarding-state.json inspected: 'editedSections': {'Executive summary': {'body': '...corrected...', 'edited': true}} — confirms disk persistence. Programmatic test: isNowEdited true after change, false if reverted."
+      },
+      {
+        "ac": "AC4 — Unedited sections show no badge; Confirm all / Looks good button advances to phase 5",
+        "evidence": "isEdited = saved?.edited ?? false (line 1152) — unedited sections not in editedSections default to false, badge block skips. Button label (line 1182): editedCount===0 ? 'Looks good' : 'Confirm all'. onClick (lines 1176-1179): saveNow() then next() — immediately flushes state to disk and advances phase. Both zero-edit and nonzero-edit paths confirmed by code reading same handler."
+      },
+      {
+        "ac": "AC5 — Fictional persona fixture with explicit FICTIONAL comment; grep returns at least one match",
+        "evidence": "ran: grep -rn 'FICTIONAL' work-hq/src/ → work-hq/src/__fixtures__/fictional-profile.ts:1: // FICTIONAL PERSONA — do not replace with real data. Fixture uses Morgan Reyes at Acme Corp (fictional org). No real names, roles, or org data present."
+      }
+    ],
+    "commandsRun": [
+      "grep -rn 'FICTIONAL' work-hq/src/ → PASS — match at fictional-profile.ts:1",
+      "grep -n 'profile.md' work-hq/src/routes/onboarding.tsx → PASS — 14 matches across server call, instruction text, parser comments, JSDoc",
+      "git check-ignore -v context/profile.md → PASS — .gitignore:3:context/profile.md matched",
+      "git ls-files context/profile.md → PASS — no output (file not tracked)",
+      "git status --short context/profile.md → PASS — no output (fully gitignored, not shown as untracked)",
+      "grep -c '^## ' context/profile.md → PASS — 20",
+      "grep -c '^## ' work-hq/src/__fixtures__/fictional-profile.ts → PASS — 20 (fixture heading count matches disk file)",
+      "node --input-type=module (parser test) → PASS — 20 sections, Confirmed/Derived/Unknown correctly assigned, default Unknown for label-free section; isNowEdited logic correct",
+      "cat docs/data/local/onboarding-state.json (python parse) → PASS — phase:4, seedingPath:'bootstrap', editedSections count:1, 'Executive summary':{body:...,edited:true}",
+      "cd work-hq && npx tsc --noEmit → PASS — no TypeScript errors",
+      "cd work-hq && npm run build → PASS — built in 317ms, onboarding server bundle 64.53kB",
+      "git diff d479171~1..d479171 --stat → confirms 4 files touched (stories/010.json, fictional-profile.ts, onboarding.tsx, read-profile.ts)",
+      "secrets scan on full diff → PASS — no passwords, tokens, API keys, or credentials found",
+      "schema/migration scan → N/A — no SQL, prisma, or migration files in diff"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — grep for password/secret/token/api_key/DATABASE_URL/jwt/bearer returned no matches in the implementation diff. Migration check: N/A — no database schema changes; onboarding-state.json is a local gitignored JSON file, not a schema-managed store. context/profile.md gitignore: PASS — git check-ignore -v returns .gitignore:3 match; git ls-files returns empty (not tracked); git status shows file as invisible (fully ignored).",
+    "riskNotes": "detectStatus uses raw indexOf (case-sensitive) — works correctly for the **Confirmed**/**Derived**/**Unknown** label convention used in the fixture and expected profile format. A profile section body that happens to contain the word 'Confirmed' in free-text prose could yield an unexpected status chip. This is a known design trade-off, not a bug for this story. The readProfile server resolves '../context/profile.md' relative to process.cwd() — correct when TanStack Start runs from work-hq/; would break if CWD changes. This is the same pattern used by check-profile-exists (story 009), so no regression. hideNextButton was widened from '(phase===4 && seedingPath===manual) || phase===5' to 'phase===4 || phase===5' — safe because nextDisabled at phase 3 prevents advancing without a seedingPath, so phase 4 always has a non-empty seedingPath.",
+    "recommendedFollowUps": "The editedSections state persists the original parsed body as the comparison baseline (section.body from parseProfileSections on the content at first load). If the user refreshes the page without having made edits, and then edits a section, the isNowEdited comparison uses the freshly-parsed body — which is correct. However if profile.md itself changes between page loads, any previously saved edits in onboarding-state.json may appear as 'edited' when they are no longer edits relative to the new file. This edge case is out of scope for story 010 but worth noting for story 011 (corrections handoff). PhaseFourManual (story 003 manual path): confirmed unmodified by diff inspection — no lines from PhaseFourManual body appear in the +/- lines of the implementation commit.",
+    "fixRequests": []
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "id": "008",
+  "featureId": "f-onboarding",
+  "title": "Health screen \u2014 onboarding tile wired to real state",
+  "owner": "ui-dev",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified live against dev server; all three tile states confirmed by server-rendered HTML; loader freshness confirmed without server restart.",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "8c2a3b1",
+    "filesTouched": [
+      "work-hq/src/routes/_app.health.tsx"
+    ],
+    "notes": "Added route loader calling loadOnboarding(); added OnboardingTile component with three states (not-started, in-progress, complete); removed mock.onboardingSeed dependency from the tile. All other Health tiles remain on mock data per out-of-scope clause. Story owner is ui-dev — implemented at explicit user request.",
+    "verificationRun": "grep AC1 PASS (line 10 match); tsc --noEmit PASS; prettier --check PASS; onboarding-state.json read confirmed with 1 completedPhase present"
+  },
+  "adrRefs": [
+    "ADR-P6-002",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user checking my OS health, I want the Health screen's onboarding tile to show real completion progress from my saved onboarding state, so that I can see at a glance which phases are done and whether setup is complete.",
+  "acceptanceCriteria": [
+    {
+      "text": "The Health screen's onboarding tile reads `docs/data/local/onboarding-state.json` (not mock data). `grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx` returns a match."
+    },
+    {
+      "text": "When `docs/data/local/onboarding-state.json` does not exist or `completedPhases` is an empty array, the tile displays \"Onboarding not started\" and shows a visible link or button to `/onboarding`."
+    },
+    {
+      "text": "When `completedPhases` has between 1 and 5 entries, the tile displays the count as \"N of 6 phases complete\" (e.g. \"3 of 6 phases complete\")."
+    },
+    {
+      "text": "When `completedPhases` contains all 6 phases, the tile displays a \"Complete\" state including the `updatedAt` date from the state file."
+    },
+    {
+      "text": "Completing a new phase in the wizard then navigating to the Health screen (without a manual page reload) shows an updated phase count \u2014 confirming Vite's file-watch / HMR behaviour reflects the updated state file."
+    }
+  ],
+  "technicalNotes": "Wire the Health route's onboarding tile to the same server function or import.meta.glob loader used in story 001 for loading onboarding-state.json. Depends on story 001 for the state file shape and the load endpoint. All other Health screen tiles remain on mock data per D8 scope \u2014 do not change them. See ADR-P6-002 \u00a7C for the Work-HQ-native JSON entity read pattern (docs/data/local/ is gitignored; the loader must handle file-not-found gracefully).",
+  "dependencies": [
+    "001"
+  ],
+  "outOfScope": "Other Health screen tiles, ritual-output history trend panels (OQ-004 resolution \u2014 deferred), any changes to the wizard itself.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx",
+      "checks": "Returns a match confirming the Health route reads from onboarding-state.json, not a mock constant."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json",
+      "checks": "After completing all 6 wizard phases, completedPhases shows 6 entries and the Health tile displays the Complete state with the updatedAt date."
+    }
+  ],
+  "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Health tile reads onboarding-state.json (not mock data); grep returns a match",
+        "evidence": "Command: `grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx` → line 10: `// Reads docs/data/local/onboarding-state.json on every navigation.` File inspection: line 6 imports `loadOnboarding` from `@/server/load-onboarding`; line 11 sets `loader: async () => loadOnboarding()`. load-onboarding.ts line 24 resolves path as `resolve(process.cwd(), '../docs/data/local/onboarding-state.json')`. No mock data path exists in the health route for the onboarding tile."
+      },
+      {
+        "ac": "AC2 — No file or empty completedPhases → 'Onboarding not started' + visible link to /onboarding",
+        "evidence": "No-file test: renamed onboarding-state.json, curled http://localhost:4174/health — server-rendered HTML contains `<p class=\"text-sm text-muted-foreground\">Onboarding not started</p><a href=\"/onboarding\" class=\"...\">Start onboarding →</a>`. Empty-array test: wrote `completedPhases: []` to state file, curled /health — python3 check confirmed `has not started: True` and `has /onboarding link: True`. Code path: `const completedCount = state?.completedPhases.length ?? 0;` — null state or empty array both yield completedCount=0, which routes to the not-started branch."
+      },
+      {
+        "ac": "AC3 — 1–5 phases → tile displays 'N of 6 phases complete'",
+        "evidence": "State (b) test with completedPhases:[1] (original file): server-rendered HTML contains `<p class=\"text-2xl font-medium\">1<!-- --> of 6</p><p class=\"text-xs text-muted-foreground\">phases complete</p>`. AC5 test with completedPhases:[1,2,3]: HTML contains `<p class=\"text-2xl font-medium\">3<!-- --> of 6</p><p class=\"text-xs text-muted-foreground\">phases complete</p>`. The words 'N of 6' and 'phases complete' are visually adjacent in the tile — together they render the AC-required phrase 'N of 6 phases complete'. Ring SVG strokeDashoffset verified mathematically: for 3/6=50%, offset=175.929*(1-0.5)=87.965 matches rendered value 87.96459430051421."
+      },
+      {
+        "ac": "AC4 — all 6 phases → 'Complete' + updatedAt date from state file",
+        "evidence": "State (c) test: wrote completedPhases:[1,2,3,4,5,6], updatedAt:'2026-07-05T08:00:00.000Z'. Curled /health — python3 confirmed `has Complete: True`, `has updatedAt date: True`. Raw HTML extract: `<p class=\"text-2xl font-medium\">Complete</p><p class=\"text-xs text-muted-foreground\">7/5/2026</p>`. Date '7/5/2026' = new Date('2026-07-05T08:00:00.000Z').toLocaleDateString() in the server locale. Code path: completedCount>=6 branch (line 218); `state?.updatedAt` is always truthy per Zod schema (z.string() required)."
+      },
+      {
+        "ac": "AC5 — Loader re-runs on navigation; phase count updates without hard page reload",
+        "evidence": "Baseline curl with completedPhases:[1] → tile shows '1 of 6'. File updated in-place to completedPhases:[1,2,3] while server running. Immediate curl (no server restart, no browser reload) → OnboardingTile HTML shows '3 of 6 / phases complete'. Mechanism: TanStack Router's `loader: async () => loadOnboarding()` on the route definition has no `staleTime` override, so the default staleTime:0 applies — the loader is considered immediately stale and re-executes on every navigation to /health. The server function reads the file via `readFileSync` on each invocation."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx → PASS — line 10 match",
+      "cat docs/data/local/onboarding-state.json → PASS — valid JSON, keys: phase, answers, completedPhases:[1], updatedAt",
+      "npx tsc --noEmit (in work-hq/) → PASS — exit 0, no type errors",
+      "npx prettier --check src/routes/_app.health.tsx (in work-hq/) → PASS — 'All matched files use Prettier code style!'",
+      "curl http://localhost:4174/health (state: no file) → PASS — 'Onboarding not started' + href=/onboarding confirmed in server-rendered HTML",
+      "curl http://localhost:4174/health (state: completedPhases:[]) → PASS — 'not started' and /onboarding link confirmed",
+      "curl http://localhost:4174/health (state: completedPhases:[1]) → PASS — '1 of 6' + 'phases complete' confirmed",
+      "curl http://localhost:4174/health (state: completedPhases:[1,2,3]) → PASS — '3 of 6' + 'phases complete' confirmed",
+      "curl http://localhost:4174/health (state: completedPhases:[1,2,3,4,5,6]) → PASS — 'Complete' + '7/5/2026' confirmed",
+      "AC5 loader freshness: file changed 1-phase→3-phase while server running, immediate curl → PASS — tile reflected new count without server restart",
+      "secrets scan (grep SECRET|API_KEY|TOKEN|DATABASE_URL|eyJ|-----BEGIN on both touched files) → PASS — no secrets found"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no hardcoded credentials, tokens, API keys, private key material, or JWT strings in any touched file. Migration check: N/A — no database schema changes; persistence is local filesystem only (gitignored docs/data/local/). The load-onboarding server function is read-only; no write path in story 008.",
+    "riskNotes": "1. The in-progress state renders 'N of 6' and 'phases complete' as two separate paragraph elements (different font sizes), not a single concatenated string. The AC text says 'N of 6 phases complete' — all words are present and visually adjacent. This is a layout decision, not a content deviation. 2. The `completedCount >= 6` guard does not validate that the 6 entries are the distinct values [1,2,3,4,5,6]; a file with completedPhases:[1,1,1,1,1,1] would render Complete. The Zod schema (min(1).max(6)) does not enforce uniqueness. This is a pre-existing concern in load-onboarding.ts, not introduced by this story. 3. The AC5 mechanism is TanStack Router's loader re-execution on navigation, not Vite HMR. The AC text mentions 'Vite file-watch/HMR' as an explanatory aside; the observable behavior (phase count updates on navigation without hard reload) is satisfied by the loader pattern.",
+    "recommendedFollowUps": "1. Consider adding uniqueness validation to the `completedPhases` Zod schema in load-onboarding.ts (e.g., `.refine(arr => new Set(arr).size === arr.length)`) so that duplicate phase entries cannot incorrectly trigger the Complete state. Pin to next story touching load-onboarding.ts. 2. The schema for `onboardingStateSchema` is duplicated verbatim in both save-onboarding.ts and load-onboarding.ts (follow-up from story 001 QA). Story 008 does not exacerbate this (it only imports the type, not the schema). Still outstanding as a pin for the next story touching server functions.",
+    "fixRequests": []
+  }
+}

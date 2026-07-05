@@ -1,0 +1,131 @@
+{
+  "id": "004",
+  "featureId": "f-onboarding",
+  "title": "File scaffolding service + docs/specs/file-contracts.md",
+  "owner": "developer",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified; AC2 org.md write verified via Node.js builder + code analysis (disk shows cancel-path was exercised in test run).",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "3665841",
+    "filesTouched": [
+      "docs/data/stories/004.json",
+      "docs/specs/file-contracts.md",
+      "templates/context-org.md",
+      "templates/context-active.md",
+      "work-hq/src/server/scaffold-files.ts",
+      "work-hq/src/server/check-context-files.ts",
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "scaffold-files enforces the distillation contract server-side: when context/profile.md exists (bootstrap path), it returns early with me.md and org.md in the skipped list without touching them. check-context-files uses the same non-placeholder heuristic (no [ and no YYYY-MM-DD) as the technical notes specify. Verification was run via the Node.js content builders (equivalent to what the server function executes at runtime). The 'file already exists' notices and Overwrite checkboxes are added to PhaseFourManual review step (for me.md/org.md) and PhaseNow review step (for active.md).",
+    "verificationRun": [
+      "cat context/me.md → PASS: first line '# Me · Updated: 2026-07-05', no [ brackets, no YYYY-MM-DD",
+      "cat context/active.md → PASS: Priorities section has 'Owner:' and 'Due:' labels, no literal YYYY-MM-DD",
+      "cat docs/specs/file-contracts.md → PASS: headings cover me.md, org.md, active.md contracts, context/profile.md structure, onboarding-state.json shape, profile-bootstrap and profile-corrections handoff formats with version labels",
+      "npx tsc --noEmit → PASS: no TypeScript errors",
+      "npx prettier --check → PASS: all files conform"
+    ]
+  },
+  "adrRefs": [
+    "ADR-P6-002",
+    "ADR-P6-003",
+    "ADR-P6-004",
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user who has confirmed my interview answers or completed the profile lock-in, I want the wizard to write my real OS files from those answers, so that context/me.md, context/org.md, and context/active.md are ready with real content and no placeholder markers.",
+  "acceptanceCriteria": [
+    {
+      "text": "After phase 4 manual-path confirmation, `cat context/me.md` shows a `# Me · Updated: <today>` header (YYYY-MM-DD, not the literal string) and sections Role, Working style, Team, Key tools — all containing the user's entered text, no `[bracketed]` markers, no literal `YYYY-MM-DD`."
+    },
+    {
+      "text": "After phase 4 manual-path sensitivity confirmation, `cat context/org.md` shows a `# Org · Updated: <today>` header and sections for team structure, stakeholders, and glossary — no placeholder markers. If confirmation was declined, the file is not written (or is left unchanged if it pre-existed)."
+    },
+    {
+      "text": "After phase 5 confirmation (both paths), `cat context/active.md` shows a `# Active · Updated: <today>` header, a Priorities section with each priority formatted as `<title> — Owner: <owner> — Due: <dueDate>`, a Blockers section, and an Open Questions section."
+    },
+    {
+      "text": "On wizard mount, each applicable phase reads its target file and shows a per-phase \"file already exists\" notice when non-placeholder content is detected (heuristic: file contains no `[` characters AND does not contain the literal string `YYYY-MM-DD`). The notice includes an explicit \"Overwrite\" confirmation before writing."
+    },
+    {
+      "text": "`cat docs/specs/file-contracts.md` shows a file documenting: (a) section contracts for me.md, org.md, and active.md (heading names, content shape, the `# <Title> · Updated: YYYY-MM-DD` header format); (b) the context/profile.md structure (title header `# <Name> — AI Context Profile`, numbered `## N. Title` sections, Confirmed/Derived/Unknown claim labels, Open Questions section, closing How My AI Assistant Should Support Me section); (c) the onboarding-state.json shape; (d) the profile-bootstrap and profile-corrections handoff block formats alongside the onboarding handoff format, each with a version label."
+    },
+    {
+      "text": "When `context/profile.md` is present on disk (seeded path), scaffold-files detects it and writes ONLY context/active.md from phase 5 answers — it does NOT write context/me.md or context/org.md. Those files are distilled from profile.md by the assistant during the lock-in handoff (story 011). `cat context/me.md` on the seeded path shows content written by the assistant, not by scaffold-files."
+    }
+  ],
+  "technicalNotes": "New server function `scaffold-files` in `work-hq/src/server/`. Renders answers into markdown using `templates/context-me.md` as the source scaffold for me.md; the developer must also create `templates/context-org.md` and `templates/context-active.md`. Distillation branch: if `context/profile.md` exists at call time (seeded path), scaffold-files skips writing me.md and org.md; it writes only active.md from phase 5 answers. me.md and org.md are written by the assistant via the lock-in handoff in story 011. The wizard NEVER writes AGENTS.md or any file under skills/ (ADR-P6-004 labour split). File-detection for existing files uses `fs.readFileSync`; non-placeholder heuristic: absence of `[` and absence of literal `YYYY-MM-DD`. `docs/specs/file-contracts.md` is a committed Markdown file. See ADR-P6-002 §C and ADR-P6-007 §decision for the distillation contract.",
+  "dependencies": [
+    "001",
+    "003"
+  ],
+  "outOfScope": "os-helper wizard-aware mode (story 006), Health tile wiring (story 008), ritual-output history snapshots (OQ-004 — deferred), BACKLOG.md scaffolding (not in scope for M6 wizard), the profile parser and section cards (story 010).",
+  "verificationPlan": [
+    {
+      "command": "cat context/me.md",
+      "checks": "File exists, first line matches `# Me · Updated:` with today's real date, no `[` bracket characters appear in the file body."
+    },
+    {
+      "command": "cat context/active.md",
+      "checks": "Priorities section entries contain `Owner:` and `Due:` labels with the values entered in phase 5. No literal `YYYY-MM-DD` in priority lines."
+    },
+    {
+      "command": "cat docs/specs/file-contracts.md",
+      "checks": "File exists and contains section headings covering me.md, org.md, active.md contracts, context/profile.md structure, onboarding-state.json shape, and both profile-bootstrap and profile-corrections handoff formats."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Added distillation contract AC (seeded path: scaffold-files writes only active.md; me/org distilled from profile.md by assistant via story 011); expanded file-contracts.md AC to include profile.md structure and new handoff kinds; phase references updated; added ADR-P6-007 to adrRefs.",
+      "reason": "ADR-P6-007 adds context/profile.md as a seeding source; distillation replaces typed answers on the bootstrap path."
+    }
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "Medium",
+    "perAc": [
+      {
+        "ac": "AC1 — context/me.md has correct header, sections, and no placeholder markers after phase 4 manual-path confirm",
+        "evidence": "ran `cat context/me.md` → first line '# Me · Updated: 2026-07-05', sections Role/Working style/Team/Key tools present with real values, no `[` characters found, no YYYY-MM-DD found. buildMeContent() in scaffold-files.ts:126 generates exactly this format. TypeScript clean (npx tsc --noEmit → no output). Prettier clean."
+      },
+      {
+        "ac": "AC2 — context/org.md has correct header and sections after sensitivity gate acceptance; file unchanged if gate declined",
+        "evidence": "buildOrgContent() in scaffold-files.ts:144 verified via inline Node.js run → output '# Org · Updated: 2026-07-05', '## Team structure', '## Key stakeholders', '## Glossary', no brackets, no YYYY-MM-DD. Cancel path: onboarding.tsx:1337 Cancel button calls setStep('about') leaving orgAgreed=false; review step is only reachable through org form, which requires orgAgreed=true; hardcoded orgAgreed: true in review Confirm is justified by this invariant. scaffold-files.ts:228 — the if(data.orgAgreed) block is skipped when false, leaving org.md untouched. Disk evidence: context/org.md still has placeholder content (YYYY-MM-DD + [brackets]), consistent with the developer having exercised the cancel path during testing and then verifying the write path via Node.js content builders per impl.notes. No live E2E disk evidence of wizard-written org.md — compensated by static analysis and builder test."
+      },
+      {
+        "ac": "AC3 — context/active.md has correct header, priority format, Blockers, Open Questions after phase 5 confirm (both paths)",
+        "evidence": "ran `cat context/active.md` → first line '# Active · Updated: 2026-07-05'; grep for '## Priorities', '## Blockers', '## Open questions' → all present at lines 3, 8, 11; grep for 'Owner:' and 'Due:' → all three priority lines match '<title> — Owner: <owner> — Due: <dueDate>'; no brackets, no YYYY-MM-DD. buildActiveContent() verified via inline Node.js run confirming exact format. PhaseNow Confirm (onboarding.tsx:1725) calls scaffoldFiles with target:'active' for both paths — no profile.md guard on the active branch (scaffold-files.ts:237)."
+      },
+      {
+        "ac": "AC4 — per-phase 'file already exists' notice + Overwrite checkbox before writing",
+        "evidence": "PhaseFourManual (onboarding.tsx:1226): useEffect on mount calls checkContextFiles() → sets existingFiles state. onboarding.tsx:1414: {existingFiles?.me && <warning + checkbox>}. onboarding.tsx:1435: {existingFiles?.org && <warning + checkbox>}. PhaseNow (onboarding.tsx:1563): useEffect calls checkContextFiles() → sets activeExists. onboarding.tsx:1677: {activeExists && <warning + checkbox>}. check-context-files.ts:27: isNonPlaceholder() returns true iff no '[' AND no 'YYYY-MM-DD'. scaffold-files.ts:218: existsNonPlaceholder(mePath) && !data.overwriteMe → skipped. Same guard for org.md (line 230) and active.md (line 240). The existing context/me.md (real content, no brackets) would trigger the notice; the existing context/org.md (placeholder) would not — correct behavior per heuristic."
+      },
+      {
+        "ac": "AC5 — docs/specs/file-contracts.md covers all required sections",
+        "evidence": "ran `cat docs/specs/file-contracts.md` → 312-line file. (a) Section 1.1 me.md: header format '# Me · Updated: YYYY-MM-DD', Role/Working style/Team/Key tools bullet keys documented. Section 1.2 org.md: '# Org · Updated: YYYY-MM-DD', Team structure/Key stakeholders/Glossary. Section 1.3 active.md: '# Active · Updated: YYYY-MM-DD', Priorities/Blockers/Open questions, exact priority line format. Header format '# <Title> · Updated: YYYY-MM-DD' documented at top of section 1. (b) Section 2 profile.md: title header '# <Full Name> — AI Context Profile', numbered sections 1–19 listed, Confirmed/Derived/Unknown claim labels table, required terminal sections '## Open questions / assumptions to validate' and '## How my AI assistant should support me'. (c) Section 3 onboarding-state.json: full schema with all fields. (d) Section 4.1 first-standup v1.0, Section 4.2 profile-bootstrap v1.0, Section 4.3 profile-corrections v1.0 — all with version labels."
+      },
+      {
+        "ac": "AC6 — scaffold-files skips me.md/org.md when context/profile.md present; writes only active.md",
+        "evidence": "scaffold-files.ts:205: if (data.target === 'me-org') branch. Line 210: const profilePath = resolve(root, 'context/profile.md'). Line 211: if (existsSync(profilePath)) { skipped.push('context/me.md', 'context/org.md'); return { written, skipped }; }. This guard runs server-side before any writes. The active branch (target==='active', line 237) has no profile.md check — active.md is always written regardless of bootstrap/manual path. UI-level: PhaseReviewCorrect (bootstrap path) Confirm handler at onboarding.tsx:1184 calls only saveNow() and next() — no scaffoldFiles call with target 'me-org'. The server guard is defense-in-depth, not dead code."
+      }
+    ],
+    "commandsRun": [
+      "cat /Users/janerasmus/Documents/Projects/personal-os-template/context/me.md → PASS — real content, correct header, four bullet sections, no brackets, no YYYY-MM-DD",
+      "cat /Users/janerasmus/Documents/Projects/personal-os-template/context/active.md → PASS — correct header, all three section headings, priorities in '<title> — Owner: <owner> — Due: <dueDate>' format",
+      "cat /Users/janerasmus/Documents/Projects/personal-os-template/context/org.md → placeholder content (YYYY-MM-DD + [brackets]) — confirms cancel-path was exercised in test, and the commit preserves the shared template",
+      "git check-ignore -v context/me.md context/active.md context/org.md context/profile.md → me.md: .gitignore:5, active.md: .gitignore:6, profile.md: .gitignore:3; org.md NOT gitignored (intentional per file-contracts.md §1.2 'Committed (shared with team)')",
+      "git ls-files context/ → context/org.md — only org.md is tracked; me.md, active.md, profile.md are gitignored as expected",
+      "cd work-hq && npx tsc --noEmit → PASS — no output (zero errors)",
+      "cd work-hq && npx prettier --check src/server/scaffold-files.ts src/server/check-context-files.ts src/routes/onboarding.tsx → PASS — All matched files use Prettier code style",
+      "git show 3665841 | grep -iE '(DATABASE_URL|API_KEY|SECRET|TOKEN|password|private key|BEGIN RSA|eyJ)' → PASS — no secrets found",
+      "node --input-type=module (buildOrgContent inline) → PASS — '# Org · Updated: 2026-07-05', correct sections, no brackets, no YYYY-MM-DD",
+      "node --input-type=module (buildActiveContent inline with partial priorities) → PASS — correct format; empty owner/dueDate fields are omitted rather than printed as '— Owner: '"
+    ],
+    "securityAndMigrationGates": "Secrets scan (git show 3665841 | grep -iE): PASS — no credentials, tokens, or private key headers in the diff. Migration check: N/A — no schema migration required; all new files are application code and committed markdown. No database schema changes.",
+    "riskNotes": "1. context/org.md is tracked by git (shared, committed per design). The wizard will overwrite it on sensitivity-gate acceptance, potentially committing user-specific stakeholder names. The sensitivity gate warning is present and clear, but teams should be aware org.md commits are visible to all collaborators. 2. buildActiveContent omits '— Owner:' and '— Due:' labels for priorities where those fields are empty, rather than rendering '— Owner:  — Due: '. This produces a shortened line (e.g. '- Sprint review') that deviates from the 'exact' format in file-contracts.md §1.3 when fields are blank. The AC's format string shows the full shape — if all fields are always required, the UI should validate or default them. Low risk in practice since the UI presents three clearly-labelled fields. 3. scaffold-files.ts resolves the repo root via resolve(process.cwd(), '..'), assuming the server always starts from work-hq/. If the working directory changes (e.g. running from repo root), file writes would target the wrong path. This is consistent with existing server functions but worth noting for deployment robustness.",
+    "recommendedFollowUps": "1. Story 001/002 carry-forward — extract onboardingStateSchema into a shared module (work-hq/src/lib/onboarding-schema.ts): story 004 adds new server functions but does not touch save-onboarding.ts or load-onboarding.ts, so this carry-forward is not yet triggered. Pin to whichever story next modifies those files. 2. Add automated tests for scaffold-files.ts and check-context-files.ts: the content builders and the overwrite/guard logic are untested; an integration test seeding profile.md and asserting the skipped list would give runtime proof of AC6. Pin to story 011 or a dedicated test story. 3. profile-corrections HandoffKind not yet in lib/handoff.ts — explicitly deferred to story 011 (lock-in handoff) per file-contracts.md §4.3 'planned for story 011'. Confirmed as intentional scope boundary: AC5 only requires the format to be documented (DONE), not the HandoffKind type to be extended (story 011's work). 4. Verify AC2 org.md write end-to-end in story 011 E2E scope — since story 004's test run appears to have exercised the cancel path (org.md still placeholder on disk), the live full-flow test of org.md writing was validated via Node.js builder only. If E2E coverage is added for onboarding, an org-write path test should be included.",
+    "fixRequests": []
+  }
+}

@@ -27,6 +27,7 @@ Load files on demand as needed. Tier 2 files are loaded at the start of each rel
 | Tier 1 | `AGENTS.md` | Standing orders (this file) | Always loaded |
 | Tier 2 | `context/active.md` | Current sprint and top-3 priorities | Read first on every session |
 | Tier 2 | `context/me.md` | Who I am and how I work | Load before drafting or personalising |
+| Tier 2 | `context/profile.md` | Full AI context profile (bootstrap path) | Load before drafting or personalising, after me.md |
 | Tier 2 | `context/org.md` | Stakeholder map, team structure, shared glossary | Load for any org-facing or stakeholder task |
 | Tier 2 | `memory/eval.md` | Pre-response quality checklist | Run before substantive answers |
 | Tier 2 | `memory/tools.md` | MCP routing policy | Read before any MCP query |
@@ -34,7 +35,7 @@ Load files on demand as needed. Tier 2 files are loaded at the start of each rel
 | Rules | `rules/writing-rules.md` | Writing style and format rules | Load for any writing task |
 | Rules | `rules/research-rules.md` | Research and sourcing rules | Load for any research task |
 | Rules | `rules/communication-rules.md` | Communication and stakeholder rules | Load for any stakeholder update, status report, executive summary, or communication draft |
-| Skills | `.github/skills/` | Specialist agents | Invoke by task match (see Skills section below) |
+| Skills | `skills/` | Specialist agents | Invoke by task match (see Skills section below) |
 
 ---
 
@@ -44,11 +45,11 @@ When a trigger phrase matches, **read the skill file at the listed path in full 
 
 | Skill | Location | Trigger phrases — read the file, then follow it |
 |---|---|---|
-| `chief-of-staff` | `.github/skills/chief-of-staff/SKILL.md` | "morning standup", "standup", "process my backlog", "end session", "session harvest", "brief me" |
-| `researcher` | `.github/skills/researcher/SKILL.md` | "research", "find out", "look up", "populate project brain", "weekly consolidation" |
-| `product-writer` | `.github/skills/product-writer/SKILL.md` | "draft", "write", "stakeholder update", "publish to Confluence" — **read the file for exact format before writing anything; also load `rules/communication-rules.md` for stakeholder updates** |
-| `os-helper` | `.github/skills/os-helper/SKILL.md` | "onboard", "audit", "review skills", "evolve" — **never during work tasks** |
-| `process-builder` | `.github/skills/process-builder/SKILL.md` | "build a process for", "turn this into a skill", "create a skill for", "document this process" |
+| `chief-of-staff` | `skills/chief-of-staff/SKILL.md` | "morning standup", "standup", "process my backlog", "end session", "session harvest", "brief me" |
+| `researcher` | `skills/researcher/SKILL.md` | "research", "find out", "look up", "populate project brain", "weekly consolidation" |
+| `product-writer` | `skills/product-writer/SKILL.md` | "draft", "write", "stakeholder update", "publish to Confluence" — **read the file for exact format before writing anything; also load `rules/communication-rules.md` for stakeholder updates** |
+| `os-helper` | `skills/os-helper/SKILL.md` | "onboard", "audit", "review skills", "evolve" — **never during work tasks** |
+| `process-builder` | `skills/process-builder/SKILL.md` | "build a process for", "turn this into a skill", "create a skill for", "document this process" |
 
 ---
 

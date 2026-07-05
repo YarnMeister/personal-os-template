@@ -1,0 +1,111 @@
+{
+  "id": "003",
+  "featureId": "f-onboarding",
+  "title": "Manual-path interview forms (phase 4) + Right-now phase for all paths (phase 5)",
+  "owner": "ui-dev",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified via SSR checks, code inspection, and manual migration test; normalizeAnswers() confirmed working.",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — About-you form (role/workstyle/team/keyTools) renders only on manual path; bootstrap path skips interview forms",
+        "evidence": "SSR curl with seedingPath='bootstrap': Role/Working style/Your immediate team/Key tools fields absent, 'Review your bootstrapped profile' placeholder present, global Next button visible. SSR curl with seedingPath='manual': all four About-you fields present (Role, Working style in one line, Your immediate team, Key tools), placeholder absent, global Next button absent. Code: PhaseFour branches at line 841 on answers.seedingPath === 'bootstrap' returning placeholder card; otherwise delegates to PhaseFourManual (line 858). The Review & correct section cards are explicitly out of scope for story 003 (outOfScope field and AC parenthetical '(story 010)')."
+      },
+      {
+        "ac": "AC2 — Sensitivity-check panel shows exact phrase; Cancel leaves org answers unchanged",
+        "evidence": "grep -n 'personnel data' onboarding.tsx → line 963 (comment) and line 976 (rendered UI text). Rendered text: 'no personnel data, unreleased roadmap items, or commercial terms' inside <strong> tag, matching AC quoted phrase exactly. Cancel button (line 989-995): onClick={() => setStep('about')} — only local sub-step navigation, no set() call, no answers mutation. Debounced save fires with unchanged answers state. Org form (stakeholders, glossary) only appears after orgAgreed===true, so Cancel from the sensitivity panel cannot have exposed or modified org fields."
+      },
+      {
+        "ac": "AC3 — Phase 4 review card shows About-you + Your-org answers; Confirm saves and advances to phase 5",
+        "evidence": "Code lines 1060-1103: review step renders ReviewRow components for role, workstyle, team, keyTools, stakeholders, glossary. Confirm button (line 1084-1093): onClick calls saveNow() then next(). saveNow() (lines 202-212) cancels debounce timer and calls void saveOnboarding({data: {phase, answers, completedPhases, updatedAt}}). 'Go back' link (line 1094-1100) calls setStep('org')."
+      },
+      {
+        "ac": "AC4 — Phase 5 priorities persisted as objects with title/owner/dueDate; not plain strings",
+        "evidence": "cat docs/data/local/onboarding-state.json → priorities array contains 3 objects each with keys title, owner, dueDate (confirmed). SSR hydration payload (phase=5, seedingPath=manual): priorities:[$R[18]={title:'Launch product discovery sprint',owner:'Alex Smith',dueDate:'2026-07-15'},$R[19]={...},$R[20]={...}] — object format confirmed in loader data. normalizeAnswers() migration test: wrote flat-string priorities ['Launch product discovery sprint','Reduce stakeholder report time','Align on Q3 OKRs'] to state file; SSR hydration shows migrated output priorities=[{title:'Launch product discovery sprint',owner:'',dueDate:''},...] — flat strings correctly promoted to objects with empty owner/dueDate."
+      },
+      {
+        "ac": "AC5 — Phase 5 captures blockers and optional open-questions; ends with review card; Confirm advances to phase 6",
+        "evidence": "Code lines 1197-1213: blockers textarea (label 'Anything blocking you right now?') and openQuestions textarea (label 'Open questions (optional)'). SSR with phase=5 manual: both textareas rendered with saved values. Review step (lines 1228-1274): ReviewRow for Blockers, conditional ReviewRow for openQuestions, three priority summary blocks showing title/owner/dueDate. Confirm button (lines 1254-1264): saveNow() then next(). Global nav: hideNextButton===true for phase===5 (line 234-235) confirmed — Back button present, Next phase absent in SSR output."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'personnel data' work-hq/src/routes/onboarding.tsx → PASS — lines 963 (comment) and 976 (rendered text) match",
+      "cat docs/data/local/onboarding-state.json → PASS — priorities are 3 objects with title/owner/dueDate keys; team, keyTools, openQuestions, blockers all present",
+      "npx tsc --noEmit (from work-hq/) → PASS — no output, no TypeScript errors",
+      "npm run build (from work-hq/) → PASS — builds clean; onboarding server bundle 55.95 kB",
+      "curl http://localhost:3779/onboarding (seedingPath=manual, phase=5) → PASS — SSR renders 3 priority cards with title/owner/dueDate inputs; blockers and open-questions textareas present; global Next button absent; hydration data confirms priorities as objects",
+      "curl http://localhost:3779/onboarding (seedingPath=bootstrap, phase=4) → PASS — About-you form fields absent; placeholder card present; global Next button visible",
+      "curl http://localhost:3779/onboarding (seedingPath=manual, phase=4) → PASS — About-you form fields present; global Next button absent; Continue button present",
+      "normalizeAnswers() migration test: wrote flat-string priorities to state file, reloaded SSR → PASS — hydration data shows migrated objects {title:string, owner:'', dueDate:''}"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — git diff c5db4f2 shows no credentials, API keys, tokens, or private key material. Migration check: N/A — no database schema changes; docs/data/local/ is gitignored (confirmed in .gitignore) so onboarding-state.json is never committed.",
+    "riskNotes": "saveNow() uses 'void saveOnboarding(...)' (fire-and-forget). The debounce is cancelled and a write is triggered immediately before next() is called, but the disk write is not awaited. In normal local operation the save completes before the user can interact with the next phase. Silent failure on disk error would mean the phase advances without persisting data. This is consistent with the existing ADR-P6-003 pattern used throughout the wizard. CSRF middleware warning on server startup is pre-existing (not introduced by story 003) and applies to all server functions.",
+    "recommendedFollowUps": "1. Story 009 follow-up 'Remove dead PhaseAbout from onboarding.tsx' is RESOLVED — story 003's rewrite removed it; grep confirms PhaseAbout is absent from the file. 2. Story 001/002 follow-up: extract onboardingStateSchema into a shared module — story 003 does not touch server files so this carry-forward is not triggered here; pin to whichever story next modifies save-onboarding.ts or load-onboarding.ts. 3. The sensitivity-check UI phrase uses 'no ... or' phrasing ('no personnel data, unreleased roadmap items, or commercial terms') which matches the AC's quoted phrase exactly but differs slightly from AGENTS.md (which omits 'no' prefix and 'or' conjunction). AC is satisfied as written; if strict AGENTS.md fidelity is desired, address in a future cleanup story.",
+    "fixRequests": []
+  },
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "c5db4f2",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "docs/data/stories/003.json"
+    ],
+    "notes": "Phase 4 manual path uses internal sub-steps ('about' → 'org' → 'review') managed by local state in PhaseFourManual. The sensitivity-check gate (orgAgreed state) resets on phase navigation away. The global Next button is hidden via hideNextButton when phase===4 && seedingPath==='manual' or phase===5 — both phases use an internal Confirm action that calls saveNow() then next(). saveNow cancels the debounce timer and writes immediately. normalizeAnswers() migrates old flat-string priorities from previous sessions. Bootstrap path shows a placeholder card (story 010 will replace). PhaseAbout was dead code in the pre-existing file and was removed during the rewrite.",
+    "verificationRun": [
+      { "command": "cat docs/data/local/onboarding-state.json", "result": "PASS — JSON shows priorities as array of objects each with title/owner/dueDate keys; team (string), keyTools (array), openQuestions (string) also present" },
+      { "command": "grep -n 'personnel data' work-hq/src/routes/onboarding.tsx", "result": "PASS — lines 958 and 971 match; line 971 is the rendered UI text inside the sensitivity-check panel" },
+      { "command": "npx tsc --noEmit", "result": "PASS — no TypeScript errors" },
+      { "command": "npm run build", "result": "PASS — client and server build clean; onboarding bundle 37.15 kB client / 55.95 kB server" },
+      { "command": "curl http://localhost:3779/onboarding (SSR check)", "result": "PASS — SSR renders phase 5 'Right now' correctly; three priority cards with Title/Owner/Due date sub-fields visible; hydration data shows priorities as objects with title/owner/dueDate; global Next button absent from nav (hideNextButton=true for phase 5)" }
+    ]
+  },
+  "adrRefs": [
+    "ADR-P6-003",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user who chose the manual seeding path or as any user reaching phase 5, I want the wizard to collect my org context via interview forms and my current priorities via a shared form, so that context/me.md, context/org.md, and context/active.md can be scaffolded accurately.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 4 (manual path) shows the About-you form with four fields: role, working style, team (free-text describing immediate team and headcount, new field), and key tools (list including which AI assistant and 3\u20134 enterprise tools, new field). These forms render only when `onboarding-state.json` shows `seedingPath: 'manual'`; seeded-path users see the Review & correct section cards (story 010) instead and the interview forms are skipped entirely."
+    },
+    {
+      "text": "Phase 4 (manual path) shows the Your-org form (stakeholders, glossary) behind a sensitivity-check confirmation panel displaying the exact phrase \"no personnel data, unreleased roadmap items, or commercial terms\" before saving org answers to disk. Clicking Cancel leaves onboarding-state.json org answers unchanged."
+    },
+    {
+      "text": "Phase 4 (manual path) ends with a review summary card showing all About-you and Your-org answers, with a 'Confirm' action and a 'Go back' link. Confirm triggers save-onboarding and advances to phase 5."
+    },
+    {
+      "text": "Phase 5 (both paths) captures each of the three priorities as an object with three sub-fields: title, owner (named person or role), and due date. After saving, `cat docs/data/local/onboarding-state.json` shows each priority as an object with keys title, owner, dueDate \u2014 not a plain string."
+    },
+    {
+      "text": "Phase 5 also captures a blockers field and an optional open-questions field. Phase 5 ends with a review summary card; Confirm triggers save-onboarding and advances to phase 6."
+    }
+  ],
+  "technicalNotes": "Edit phase 4 and phase 5 components in `work-hq/src/routes/onboarding.tsx`. Phase 4 branches on `answers.seedingPath` read from onboarding-state.json (loaded on mount by story 001): value 'manual' \u2192 render About-you + Your-org forms; value 'bootstrap' \u2192 render is owned by story 010 (section cards). Extend the `Answers` type: add `team: string`, `keyTools: string[]` for phase 4 manual fields; change `priorities` from `[string, string, string]` to `Array<{ title: string; owner: string; dueDate: string }>` (3 entries); add `openQuestions: string`. Sensitivity-check wording must match the exact language in `AGENTS.md` \u00a7Sensitivity check standing order. Review summary cards: read state, display labelled list, Confirm calls save-onboarding then next().",
+  "dependencies": [
+    "001",
+    "009"
+  ],
+  "outOfScope": "Writing to context/*.md files (story 004), file-exists overwrite detection on second run (story 004), bootstrap-path section cards (story 010), state persistence infrastructure (story 001), wire-assistant phase (story 005).",
+  "verificationPlan": [
+    {
+      "command": "cat docs/data/local/onboarding-state.json",
+      "checks": "After completing phase 5, JSON shows answers with team (string), keyTools (array), and priorities as an array of objects each with title/owner/dueDate keys."
+    },
+    {
+      "command": "grep -n 'personnel data' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a line number match \u2014 confirms the sensitivity-check phrase is present in the phase 4 manual-path component."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Revised scope to MANUAL path of phase 4 and both-paths phase 5 (Right now); seeded-path users skip the interview forms; phase numbers updated throughout; deps updated to include story 009.",
+      "reason": "ADR-P6-007 adds Glean-bootstrap seeding path and reorders wizard phases per amended ADR-P6-004."
+    }
+  ]
+}
