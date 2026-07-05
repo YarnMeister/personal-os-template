@@ -1,0 +1,48 @@
+{
+  "id": "008",
+  "featureId": "f-onboarding",
+  "title": "Health screen \u2014 onboarding tile wired to real state",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-002",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user checking my OS health, I want the Health screen's onboarding tile to show real completion progress from my saved onboarding state, so that I can see at a glance which phases are done and whether setup is complete.",
+  "acceptanceCriteria": [
+    {
+      "text": "The Health screen's onboarding tile reads `docs/data/local/onboarding-state.json` (not mock data). `grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx` returns a match."
+    },
+    {
+      "text": "When `docs/data/local/onboarding-state.json` does not exist or `completedPhases` is an empty array, the tile displays \"Onboarding not started\" and shows a visible link or button to `/onboarding`."
+    },
+    {
+      "text": "When `completedPhases` has between 1 and 5 entries, the tile displays the count as \"N of 6 phases complete\" (e.g. \"3 of 6 phases complete\")."
+    },
+    {
+      "text": "When `completedPhases` contains all 6 phases, the tile displays a \"Complete\" state including the `updatedAt` date from the state file."
+    },
+    {
+      "text": "Completing a new phase in the wizard then navigating to the Health screen (without a manual page reload) shows an updated phase count \u2014 confirming Vite's file-watch / HMR behaviour reflects the updated state file."
+    }
+  ],
+  "technicalNotes": "Wire the Health route's onboarding tile to the same server function or import.meta.glob loader used in story 001 for loading onboarding-state.json. Depends on story 001 for the state file shape and the load endpoint. All other Health screen tiles remain on mock data per D8 scope \u2014 do not change them. See ADR-P6-002 \u00a7C for the Work-HQ-native JSON entity read pattern (docs/data/local/ is gitignored; the loader must handle file-not-found gracefully).",
+  "dependencies": [
+    "001"
+  ],
+  "outOfScope": "Other Health screen tiles, ritual-output history trend panels (OQ-004 resolution \u2014 deferred), any changes to the wizard itself.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'onboarding-state' work-hq/src/routes/_app.health.tsx",
+      "checks": "Returns a match confirming the Health route reads from onboarding-state.json, not a mock constant."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json",
+      "checks": "After completing all 6 wizard phases, completedPhases shows 6 entries and the Health tile displays the Complete state with the updatedAt date."
+    }
+  ],
+  "revisionLog": []
+}
