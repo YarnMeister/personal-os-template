@@ -3,9 +3,9 @@
   "featureId": "f-onboarding",
   "title": "Completion handoff block + os-helper wizard-aware mode",
   "owner": "developer",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; no 'initialize' in rendered content; handoff kind 'onboarding' correct; SKILL.md wizard-aware subsection covers Signals A/B/C; phase-6 useEffect confirmed; file-contracts.md §4.1 stale — deferred follow-up, not a blocker.",
   "impl": {
     "branch": "feat/onboarding",
     "commit": "2e2408c",
@@ -65,5 +65,49 @@
       "change": "Added AC5: os-helper gains the profile-corrections handoff contract (apply corrections, distil me/org/active with sensitivity gate); updated technicalNotes to cover both handoff types; added ADR-P6-007 to adrRefs.",
       "reason": "ADR-P6-007 adds a profile-corrections handoff kind that os-helper must handle."
     }
-  ]
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "Medium",
+    "perAc": [
+      {
+        "ac": "AC1 — Phase 6 copy states files are ALREADY WRITTEN; 'initialize' absent; no write instruction in phase 6 content or handoff block",
+        "evidence": "Read PhaseFirst (onboarding.tsx:2195-2240). Rendered h3: 'Your OS is ready.' Rendered p: 'Your context files are written and your assistant already has everything it needs.' HandoffDock sections: label 'Scaffolded files' lists the three files; label 'Ask' says '(a) Verify these files are in place and contain real content — confirm each is present. (b) Run my first \"morning standup\".' — no 'initialize', no instruction to write any file. Ran `grep -n 'initialize' work-hq/src/routes/onboarding.tsx` → single match on line 2202, which is in the JSDoc comment ('no use of the word \"initialize\"') — not rendered content. JSDoc comment is not page content; exclusion is satisfied."
+      },
+      {
+        "ac": "AC2 — Collect & Copy first line is exactly `## Work HQ handoff · onboarding · <YYYY-MM-DD>`; lists context/me.md, context/org.md, context/active.md; two-part ask (verify + standup)",
+        "evidence": "Ran `grep -n 'Work HQ handoff · onboarding' work-hq/src/routes/onboarding.tsx` → line 2217 (AC2 comment confirming spec). PhaseFirst at line 2218-2236: HandoffDock spec = {kind: 'onboarding', sections: [{label:'Scaffolded files', body:['context/me.md','context/org.md','context/active.md']}, {label:'Ask', body:'(a) Verify...\\n(b) Run my first \"morning standup\".'}]}. Read HandoffDock.tsx:20 — `buildHandoff(spec)` called via useMemo. Read handoff.ts:26 — `const header = \\`## Work HQ handoff · ${kind} · ${today()}\\`` → first line is `## Work HQ handoff · onboarding · 2026-07-05`. The three file entries are rendered as markdown list items via the array-body path (handoff.ts:36). Both sections pass the filter (non-empty body). Two-part ask is present. No 'initialize', no write instruction."
+      },
+      {
+        "ac": "AC3 — skills/os-helper/SKILL.md Mode 1 has 'Work HQ handoff' subsection; Signal A (onboarding header in chat) and Signal B (all phases in state file) both skip interview and run Gap Scan",
+        "evidence": "Ran `grep -n 'Work HQ handoff' skills/os-helper/SKILL.md` → lines 45 ('### Work HQ handoff — wizard-aware early exit'), 51 (Signal A block header text), 63 (Signal C block header text). Read SKILL.md lines 45-71 in full. Signal A (lines 49-53): 'When the user's message contains a block whose first line matches `## Work HQ handoff · onboarding` (any date suffix)' → Action: 'Skip the interview rounds. Run the Gap Scan (Step 2)…'. The pattern '(any date suffix)' covers both the bare header and the dated header matching AC3's '(or its bare header line)' requirement. Signal B (lines 55-59): 'Read docs/data/local/onboarding-state.json. If completedPhases contains all of [1, 2, 3, 4, 5, 6]' → same action. Both Signals skip Steps 1–3 and run Gap Scan. Line 71: 'If any of signals A, B, or C are present, do not proceed to Step 1 below.' This is the early-exit branch structure required by the AC."
+      },
+      {
+        "ac": "AC4 — After reaching Phase 6, completedPhases in onboarding-state.json contains values 1 through 6",
+        "evidence": "Read onboarding.tsx lines 223-227: useEffect(() => { if (phase === 6) { setCompletedPhases((prev) => (prev.includes(6) ? prev : [...prev, 6])); } }, [phase]); — marks phase 6 complete immediately when phase becomes 6. Read next() at lines 256-262: adds current phase to completedPhases before advancing (lines 258-260). Phase 4 and 5 use saveNow()+next() via Confirm buttons — confirmed by `grep -n 'saveNow.*next\\|next.*saveNow' work-hq/src/routes/onboarding.tsx`. The debounced save (lines 199-217, dependency [phase, answers, completedPhases]) persists the updated completedPhases after the useEffect fires. TypeScript: `cd work-hq && npx tsc --noEmit` → PASS (no output). Build: `npm run build` → PASS (✓ built in 354ms, no errors, onboarding server bundle 79.76 kB). Live browser verification of completedPhases=[1,2,3,4,5,6] in state file was not performed — no headless browser harness available. Code path is deterministic and unambiguous; confidence is Medium rather than High on this basis."
+      },
+      {
+        "ac": "AC5 — skills/os-helper/SKILL.md handles profile-corrections handoff: applies edits to profile.md, distils me/org/active with sensitivity gate; grep returns match",
+        "evidence": "Ran `grep -n 'profile-corrections' skills/os-helper/SKILL.md` → lines 61 (Signal C heading), 63 (first-line match pattern). Read SKILL.md Signal C (lines 61-70): (1) 'Apply the edited sections from the handoff block to context/profile.md — write the file and confirm when done.' (2) 'Run the first-person conversion…' (OQ-005 follow-up content). (3) 'Distil context/me.md, context/org.md (sensitivity gate: **no personnel data, unreleased roadmap items, or commercial terms** in the committed org.md), and context/active.md seeds from the updated profile.' (4) 'Confirm each file is written.' All four AC5 requirements are present: applies edits, distils me/org/active, sensitivity gate on org.md, grep returns match."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'Work HQ handoff · onboarding' work-hq/src/routes/onboarding.tsx → PASS — line 2217 match",
+      "grep -n 'Work HQ handoff' skills/os-helper/SKILL.md → PASS — lines 45, 51, 63",
+      "grep -n 'profile-corrections' skills/os-helper/SKILL.md → PASS — lines 61, 63",
+      "grep -n 'initialize' work-hq/src/routes/onboarding.tsx → PASS — single match on line 2202 (JSDoc comment only, not rendered content)",
+      "cat docs/data/local/onboarding-state.json → shows phase:4, completedPhases:[1,2,3] — user has not yet navigated to phase 6 in the test run; AC4 verified by code analysis only",
+      "cd work-hq && npx tsc --noEmit → PASS — exit 0, no type errors",
+      "cd work-hq && npm run build → PASS — ✓ built in 354ms, onboarding server bundle 79.76 kB, no errors",
+      "git show 2e2408c --stat → PASS — 5 files: docs/data/stories/006.json, skills/REGISTRY.md, skills/os-helper/SKILL.md, work-hq/src/lib/handoff.ts, work-hq/src/routes/onboarding.tsx (285 insertions, 28 deletions)",
+      "git show 2e2408c | grep -iE '(DATABASE_URL|API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE.?KEY|BEGIN RSA|eyJ)' → PASS — no secrets found",
+      "Read HandoffDock.tsx → confirms useMemo(() => buildHandoff(spec), [spec]) + navigator.clipboard.writeText(markdown) on copy",
+      "Read handoff.ts → confirms 'onboarding' is in HandoffKind union (line 11); header template generates correct first line",
+      "Sanity check — other 10 stories: 001-005 and 007-011 all show status:'Done', qa:'Approved' — feature closure confirmed"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — `git show 2e2408c | grep -iE '(DATABASE_URL|API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE.?KEY|BEGIN RSA|eyJ)'` returned no output. No credentials, tokens, API keys, or private key material in the diff. Migration check: N/A — no database schema changes. Only files modified are TypeScript source, SKILL.md, REGISTRY.md, and story JSON. No .gitignore changes.",
+    "riskNotes": "1. AC4 live verification not possible: the current onboarding-state.json shows phase=4 and completedPhases=[1,2,3], meaning the test environment has not driven the wizard to phase 6. AC4 is verified entirely by static code analysis. The useEffect (lines 223-227) is correct and the TypeScript/build checks pass, but runtime evidence of completedPhases=[1,2,3,4,5,6] in the state file is absent. 2. AC2 useMemo timing: HandoffDock builds the handoff markdown via useMemo([spec]), meaning today() is evaluated at component mount time, not at the moment the user clicks Collect & Copy. If the user leaves the phase-6 screen open across midnight, the date in the copied block would be the previous day. This is a pre-existing limitation of HandoffDock used identically across all other screens (today, backlog, wrap-up, questions) and is outside story 006's scope to fix. 3. docs/specs/file-contracts.md §4.1 is now out of sync: it still documents the OLD 'first-standup' kind with an 'initialize' ask, while the implementation emits kind 'onboarding' with a verify-and-standup ask. This is a documentation drift issue. Story 006's ACs and verificationPlan do NOT include a requirement to update file-contracts.md, so this is a deferred follow-up, not a blocker. See recommendedFollowUps for details. 4. Story 011 pinned three follow-ups to story 006: scaffold-files integration test, org.md E2E write full-flow, and profile.md change-between-loads edge case. Story 006's ACs cover none of these. Since story 006 is the last story in f-onboarding, these require new maintenance story creation — they cannot be resolved within this feature.",
+    "recommendedFollowUps": "1. REQUIRES NEW STORY: Update docs/specs/file-contracts.md §4.1 to reflect the production handoff — rename from 'first-standup' to 'onboarding', update the kind value, replace 'initialize' ask with the verify+standup ask. The spec is now materially wrong and will mislead future maintainers. Suggest a maintenance story under a new feature or the next milestone. 2. REQUIRES NEW STORY: scaffold-files integration test (pinned from story 004 QA, carried forward by story 011): write a test that seeds context/profile.md and asserts scaffold-files returns me.md/org.md in the skipped list. No existing story owns this. 3. REQUIRES NEW STORY: org.md E2E write full-flow (pinned from story 004 QA, carried forward by story 011): live wizard run through the manual path to phase 5 Confirm, asserting org.md is written to disk. No existing story owns this. 4. REQUIRES NEW STORY: profile.md change-between-loads edge case (pinned from story 010 QA, carried forward by story 011): if profile.md changes between wizard sessions, previously saved editedSections entries may appear as 'edited' relative to a stale baseline. No existing story owns this. 5. FUTURE: consider extracting buildHandoff's today() call into the onCopy handler (or a ref) in HandoffDock so the date is captured at copy time rather than render time — this closes the midnight edge case. Applies to all screens using HandoffDock, not just onboarding.",
+    "fixRequests": []
+  }
 }

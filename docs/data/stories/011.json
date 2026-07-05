@@ -3,9 +3,9 @@
   "featureId": "f-onboarding",
   "title": "Profile corrections handoff + lock-in (profile-corrections block, AGENTS.md routing-table row)",
   "owner": "developer",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; build clean; security gates pass; 1 carry-forward follow-up to story 006.",
   "impl": {
     "branch": "feat/onboarding",
     "commit": "a345fc5",
@@ -87,5 +87,46 @@
       "change": "Lock-in flow incorporates the production follow-up prompt (first-person conversion) from the bootstrap template.",
       "reason": "OQ-005 resolved \u2014 production prompt package includes a tested first-person conversion step for self-service onboarding."
     }
-  ]
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 \u2014 Phase 4 Collect & Copy emits correct header, only edited sections, and full lock-in ask",
+        "evidence": "onboarding.tsx line 585: header = '## Work HQ handoff \u00b7 profile-corrections \u00b7 ${today}' where today = new Date().toISOString().slice(0,10). Lines 587-589: editedEntries filtered to v.edited === true only. Lines 594-603: askText covers apply corrections to profile.md, first-person conversion (per revisionLog OQ-005), distil me.md/org.md (sensitivity gate: no personnel data, unreleased roadmap items, or commercial terms in the committed org.md)/active.md, confirm each file written. ProfileCorrectionsDock wired into PhaseReviewCorrect review state at line 1303-1308. npm run build \u2192 PASS (2 passes, no errors, onboarding chunk: 105.18 kB)."
+      },
+      {
+        "ac": "AC2 \u2014 Zero-edited case emits 'No corrections \u2014 all sections accepted as is' with lock-in ask still present",
+        "evidence": "onboarding.tsx lines 606-613: editedEntries.length === 0 branch produces literal string 'No corrections \u2014 all sections accepted as is' (em-dash verified by character comparison: exact match). askText appended in both branches. python3 character-comparison confirms exact match to AC2 text."
+      },
+      {
+        "ac": "AC3 \u2014 AGENTS.md gains routing-table row for context/profile.md with when-to-load 'Load before drafting or personalising, after me.md'",
+        "evidence": "grep 'context/profile.md' AGENTS.md \u2192 '| Tier 2 | `context/profile.md` | Full AI context profile (bootstrap path) | Load before drafting or personalising, after me.md |'. Row is positioned after me.md and before org.md in the table (confirmed by AGENTS.md line 30 reading). Table format (Tier|File|Purpose|When to load) consistent with all existing rows. git show a345fc5 -- AGENTS.md confirms row was added by the story 011 commit, not by the wizard. Commit also corrected skills paths from .github/skills/ to skills/ \u2014 out-of-scope incidental fix, non-blocking."
+      },
+      {
+        "ac": "AC4 \u2014 context/profile.md is gitignored and will never be committed",
+        "evidence": "grep 'context/profile.md' .gitignore \u2192 'context/profile.md' (line 3 of .gitignore). git ls-files context/profile.md \u2192 no output (not tracked). Pre-existing as of story 011 commit (diff shows no .gitignore change), consistent with impl notes."
+      },
+      {
+        "ac": "AC5 \u2014 cat context/me.md shows '# Me \u00b7 Updated: <today>' header with no [bracketed] placeholders",
+        "evidence": "context/me.md line 1: '# Me \u00b7 Updated: 2026-07-05' (today's date). grep '[' context/me.md \u2192 no matches. File contains real content (Role, Working style, Team, Key tools) with no placeholder brackets. Note: the outOfScope explicitly excludes AI execution of distillation; the Ask text in the handoff correctly instructs the AI to write me.md; the file-on-disk satisfies the AC's literal assertion. Provenance (produced specifically from the profile-corrections handoff vs. scaffold-files) cannot be automated \u2014 treated as manual acceptance evidence consistent with today's dev verification run. Carried as risk note."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'profile-corrections' work-hq/src/routes/onboarding.tsx \u2192 PASS \u2014 6 matches on lines 571, 584, 585, 619, 648, 1303",
+      "grep 'context/profile.md' .gitignore \u2192 PASS \u2014 matched line 3",
+      "grep 'context/profile.md' AGENTS.md \u2192 PASS \u2014 matched full routing-table row",
+      "cd work-hq && npm run build \u2192 PASS \u2014 client built in 544ms, server in 330ms, no errors",
+      "git ls-files context/profile.md \u2192 PASS (empty output \u2014 file not tracked)",
+      "git show a345fc5 --stat \u2192 PASS \u2014 confirmed 4 files, 199 insertions",
+      "git diff HEAD~1..HEAD \u2014 secrets scan \u2192 PASS \u2014 no API_KEY/SECRET/TOKEN/DATABASE_URL/private key matches",
+      "grep '[' context/me.md \u2192 PASS \u2014 no bracketed placeholders",
+      "python3 em-dash character comparison for AC2 zero-edits text \u2192 PASS \u2014 exact match"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS \u2014 no hardcoded credentials, tokens, or private keys in diff. Migration check: N/A \u2014 no schema or database changes. context/profile.md confirmed gitignored (line 3 of .gitignore); git ls-files confirms it is not tracked.",
+    "riskNotes": "1. Header format drift: buildProfileCorrectionsMarkdown duplicates the '## Work HQ handoff \u00b7 <kind> \u00b7 <date>' header string from buildHandoff. If the format evolves, it must be updated in two places. Low immediate risk (format is stable) but worth tracking. 2. TypeScript does not guard the 'profile-corrections' literal in buildProfileCorrectionsMarkdown against typos \u2014 the function does not accept a HandoffKind parameter, so the union type extension in handoff.ts does not catch a potential mismatch. The kind string is a static literal defined once and the build passes, so practical risk is low. 3. AC5 provenance: context/me.md has the correct format (header + no placeholders) but whether it was produced specifically from the profile-corrections handoff cannot be proven by automated QA. The story's outOfScope explicitly excludes AI execution. This is treated as a manual acceptance check attested by the developer's verification run.",
+    "recommendedFollowUps": "1. Story 006 (os-helper wizard-aware mode, next in dependency chain): carry forward story 004's scaffold-files automated test follow-up \u2014 an integration test seeding profile.md and asserting the skipped write list was pinned to story 011 or a dedicated test story; reassign to story 006 or open a new test story. 2. Story 006: carry forward story 004's org.md E2E write follow-up \u2014 the live full-flow test of org.md writing via the bootstrap path was not covered by story 011's scope; story 006 is the next opportunity to verify this end-to-end. 3. Story 006: carry forward story 010's profile.md change-between-loads edge case \u2014 if profile.md changes between page loads, previously saved edits in onboarding-state.json may appear as 'edited' relative to a stale baseline; not addressed by story 011 and out of scope here. 4. Future handoff format story: consider extracting the header format string as a shared constant in handoff.ts to eliminate drift risk between buildHandoff and buildProfileCorrectionsMarkdown.",
+    "fixRequests": []
+  }
 }

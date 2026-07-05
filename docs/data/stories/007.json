@@ -3,9 +3,9 @@
   "featureId": "f-onboarding",
   "title": "README AI-executable runbook",
   "owner": "pm",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified by grep commands; ordered runbook, Copilot note, no-Node fallback, package.json explanation, and AI framing all present and correct.",
   "adrRefs": [
     "ADR-P6-004",
     "ADR-P6-006"
@@ -42,6 +42,47 @@
       "checks": "Returns a match confirming the AI-assistant-executable framing appears before the numbered steps."
     }
   ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Numbered, copy-runnable steps in exact order (Node ≥ 20, npm install --prefix work-hq, npm run onboard) each on its own numbered line with no implicit inter-step dependency",
+        "evidence": "ran `grep -n 'npm install --prefix work-hq' README.md` → line 34: '2. **Install Work HQ dependencies:** `npm install --prefix work-hq`'; diff confirms lines 33-35 carry the three steps in order: (1) `node --version` / install LTS, (2) `npm install --prefix work-hq`, (3) `npm run onboard`; step 1 says 'before continuing' making the dependency explicit; ran `grep -n 'npm run onboard' README.md` → line 35 confirmed"
+      },
+      {
+        "ac": "AC2 — README explicitly states as-is configuration assumes GitHub Copilot in VS Code native chat",
+        "evidence": "ran `grep -n 'assumes GitHub Copilot\\|as-is configuration assumes' README.md` → line 27: 'The as-is configuration assumes GitHub Copilot in the VS Code native chat. If you use a different assistant, your AI can adapt the steps to match your tool.' Satisfies OQ-003 resolution verbatim."
+      },
+      {
+        "ac": "AC3 — Chat-only os-helper 'onboard me' path documented as no-Node fallback",
+        "evidence": "ran `grep -n 'onboard me\\|no-Node\\|without Node' README.md` → line 37: '> **No-Node fallback.** If you don't have Node.js, open this folder in VS Code and say **\"onboard me\"** to your assistant. The `os-helper` skill runs a chat-only onboarding — no install required.' Cross-checked: `grep -n 'onboard me' skills/os-helper/SKILL.md` → line 24 confirms 'onboard me' is an explicit trigger in the skill file — no mismatch."
+      },
+      {
+        "ac": "AC4 — One explanatory line stating repo-root package.json exists solely to launch Work HQ and OS works without it",
+        "evidence": "ran `grep -n 'package.json' README.md` → line 39: '**About `package.json`:** The repo-root `package.json` exists solely to launch the Work HQ and run the onboarding wizard — the OS itself is plain markdown files and works without it.' Single match, satisfies 'one line' requirement."
+      },
+      {
+        "ac": "AC5 — AI-assistant-executable framing ('point your AI assistant at this README and say: set this up for me') appears before the numbered steps",
+        "evidence": "ran `grep -n 'set this up for me\\|point your AI' README.md` → line 25: 'Point your AI assistant at this README and say: **\"set this up for me\"**'; numbered steps begin at line 33 — framing is 8 lines before the runbook."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'npm install --prefix work-hq' README.md → PASS — line 34 match",
+      "grep -n 'set this up for me\\|point your AI' README.md → PASS — line 25 match",
+      "grep -n 'assumes GitHub Copilot\\|as-is configuration assumes' README.md → PASS — line 27 match",
+      "grep -n 'onboard me\\|no-Node\\|without Node' README.md → PASS — line 37 match",
+      "grep -n 'package.json' README.md → PASS — line 39 match (single match)",
+      "grep -n 'npm run onboard' README.md → PASS — line 35 match",
+      "grep -n 'onboard me' skills/os-helper/SKILL.md → PASS — line 24 confirms trigger",
+      "git show 4db0a0b -- README.md → PASS — diff inspected; only files touched are README.md and docs/data/stories/007.json",
+      "ls skills/ → PASS — skills/ directory exists at repo root confirming path corrections are factually accurate"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — diff contains no credentials, tokens, API keys, database URLs, or private key material. Migration check: N/A — documentation-only change, no schema modifications.",
+    "riskNotes": "The two path corrections in the same commit (.github/skills/ → skills/ in the How It Works diagram and Directory Map) are factually correct: the skills/ directory exists at the repo root and the .github/skills/ files are deleted per git status. These corrections touch no AC-responsible content and do not affect any acceptance criterion. The npm run onboard script exists in the root package.json ('onboard': 'npm --prefix work-hq run onboard'), confirming the runbook step is not a dead reference.",
+    "recommendedFollowUps": "The work-hq/ onboard script target should be smoke-tested in a future story to confirm the end-to-end path from 'npm run onboard' to the wizard launching works for a net-new clone — this is explicitly out of scope for story 007 but is the next integration risk in the runbook.",
+    "fixRequests": []
+  },
   "revisionLog": [],
   "impl": {
     "branch": "feat/onboarding",

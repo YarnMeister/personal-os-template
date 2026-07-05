@@ -3,9 +3,9 @@
   "featureId": "f-onboarding",
   "title": "Orientation phase rewrite \u2014 real OS model + retire onboarding.html",
   "owner": "ui-dev",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified: real three-tier model in monospace, old path names absent, trigger phrases highlighted, privacy note above fold, onboarding.html gone.",
   "adrRefs": [
     "ADR-P6-004"
   ],
@@ -41,6 +41,43 @@
       "checks": "Returns no matches \u2014 old invented path names are absent from the onboarding route file."
     }
   ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Three-tier model with exact file/folder names in monospace; no missing tier",
+        "evidence": "onboarding.tsx lines 232-254: tiers array defines Tier 1 [AGENTS.md, CLAUDE.md], Tier 2 [context/me.md, context/org.md, context/active.md, memory/], Tier 3 [projects/, areas/, BACKLOG.md]. Lines 295-300: each file rendered as <code className=\"...font-mono...\">. All three tiers present."
+      },
+      {
+        "ac": "AC2 — grep -rn '/state|/decisions|/archive' onboarding.tsx returns zero matches",
+        "evidence": "ran `grep -rn '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx` → exit code 1, zero output. Also confirmed visually: PhaseWire (lines 454-544) and PhaseFirst (lines 546-581) contain none of the old path names."
+      },
+      {
+        "ac": "AC3 — Three daily trigger phrases in highlighted/monospace text in Phase 1",
+        "evidence": "onboarding.tsx line 256: triggers = [\"morning standup\", \"process my backlog\", \"end session\"]. Lines 313-319: each rendered as <code className=\"...font-mono text-sm text-primary...\"> with primary-tinted background border. All three present in Phase 1 only."
+      },
+      {
+        "ac": "AC4 — Privacy/offline note visible in Phase 1 without scrolling at 1280px wide",
+        "evidence": "onboarding.tsx lines 268-278: note reads 'Your data stays local and works offline. Nothing is sent to any server we operate... runs from your own files with no internet required.' Covers both 'data stays local' and 'works offline'. DOM position: 2nd element in PhaseOrientation after a 3-line intro paragraph. Developer comment at line 268 flags intent. Cumulative height from page top to note bottom estimated ~430px, well within any viewport height at 1280px wide. Assessed via static DOM analysis — no browser runtime available; confidence remains High given early DOM position and explicit code comment."
+      },
+      {
+        "ac": "AC5 — ls onboarding.html || echo gone outputs 'gone'",
+        "evidence": "ran `ls onboarding.html || echo gone` from repo root → output: 'gone'. File is absent from the working tree."
+      }
+    ],
+    "commandsRun": [
+      "ls onboarding.html || echo gone → PASS — output: 'gone'",
+      "grep -rn '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx → PASS — exit 1, zero matches",
+      "grep -n '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx (verification plan variant) → PASS — exit 1, zero matches",
+      "npm run build (work-hq/) → PASS — built in 252ms, no errors",
+      "secrets scan grep (DATABASE_URL|API_KEY|SECRET|TOKEN|PRIVATE_KEY|JWT patterns) on onboarding.tsx → PASS — only match is user-facing advisory text in PhaseOrg warning against storing secrets"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — one grep hit is instructional UI text in PhaseOrg ('Don't put secrets, salaries, or NDA content here'), not a credential. No API keys, tokens, JWT strings, or private key headers present. Migration check: N/A — story explicitly scopes out server functions and state changes; no schema changes introduced.",
+    "riskNotes": "AC4's above-the-fold property is verified by static DOM position analysis only; no browser runtime was available to render at exactly 1280px wide. The evidence is strong (note is 2nd DOM element in component, developer comment at line 268 asserts intent, estimated rendered height ~430px before note bottom), but a Playwright snapshot at 1280x800 would give runtime certainty. Story 001's recommended follow-up about extracting onboardingStateSchema into a shared module remains unresolved — story 002 touches no server functions, so it is not the correct owner.",
+    "recommendedFollowUps": "1. Add a Playwright visual snapshot of PhaseOrientation at 1280x800 to give runtime proof of AC4's above-the-fold property — pin to whichever story next adds e2e coverage for the onboarding route. 2. Story 001 follow-up: extract onboardingStateSchema into a shared module (work-hq/src/lib/onboarding-schema.ts) — pin to the next story that touches save-onboarding.ts or load-onboarding.ts.",
+    "fixRequests": []
+  },
   "revisionLog": [],
   "impl": {
     "branch": "feat/onboarding",
