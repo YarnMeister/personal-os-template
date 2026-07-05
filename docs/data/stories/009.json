@@ -1,0 +1,61 @@
+{
+  "id": "009",
+  "featureId": "f-onboarding",
+  "title": "Seed-your-profile phase (phase 3) \u2014 path choice, bootstrap prompt, and profile-bootstrap handoff",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-007"
+  ],
+  "epicSource": "ADR-P6-007",
+  "userStory": "As a user setting up my Personal OS, I want to choose between bootstrapping my profile via Glean and completing it manually, so that I get rich, research-grounded context when Glean is available and a clear manual fallback when it is not.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 3 presents two clearly labelled options: 'Bootstrap with Glean' and 'Set up manually'. The user's selection is persisted in onboarding-state.json under key `seedingPath` with value `'bootstrap'` or `'manual'`. `cat docs/data/local/onboarding-state.json | grep seedingPath` returns one of these values after the choice is made."
+    },
+    {
+      "text": "The 'Bootstrap with Glean' option is visually disabled and displays the note \"Complete assistant wiring in phase 2 first\" when `completedPhases` in onboarding-state.json does not include phase 2 (per story 005 AC6). The option becomes active only after phase 2 is marked complete."
+    },
+    {
+      "text": "Selecting 'Bootstrap with Glean' displays the master-prompt block from `templates/bootstrap-profile-prompt.md` (Personal OS wrapper + master prompt) with the user's full name and work email substituted for the [FULL_NAME] and [WORK_EMAIL] placeholders \u2014 the phase asks for both before the prompt is shown. The prompt block is delivered via Collect & Copy with handoff kind 'profile-bootstrap'."
+    },
+    {
+      "text": "After the bootstrap Collect & Copy block is shown, a waiting/refresh area appears with instruction text stating that the user should return after their assistant has written context/profile.md, and either a 'Refresh' button or an auto-detect poll (every 5 seconds) transitions the phase to the waiting-resolved state when context/profile.md appears on disk."
+    },
+    {
+      "text": "Selecting 'Set up manually' records `seedingPath: 'manual'` in onboarding-state.json and enables the 'Next phase' button, advancing to phase 4 with the manual interview forms (story 003)."
+    },
+    {
+      "text": "`templates/bootstrap-profile-prompt.md` is committed and carries the production prompt text supplied via OQ-005 (resolved): `grep -c 'FULL_NAME' templates/bootstrap-profile-prompt.md` returns at least 2, and no reconstruction/placeholder-pending marker appears in the file."
+    }
+  ],
+  "technicalNotes": "Add phase 3 component (PhaseSeeding) to `work-hq/src/routes/onboarding.tsx`. Read `templates/bootstrap-profile-prompt.md` server-side to render the prompt with name substitution; expose via a server function or static import. `seedingPath` is stored in `answers` in onboarding-state.json (story 001). Profile auto-detect polls for `context/profile.md` existence via a lightweight server function (e.g. `check-profile-exists`). The template file `templates/bootstrap-profile-prompt.md` is authored by the implementer \u2014 this story describes the required structure; the implementer creates the file. Do NOT use real profile data from the worked example; any structural mock data used in development must use a fictional persona.",
+  "dependencies": [
+    "001",
+    "005"
+  ],
+  "outOfScope": "The Review & correct section cards (story 010), profile corrections handoff (story 011), the manual interview forms content (story 003), creating the actual prompt text (pending OQ-005).",
+  "verificationPlan": [
+    {
+      "command": "cat docs/data/local/onboarding-state.json | grep seedingPath",
+      "checks": "Returns a line containing 'bootstrap' or 'manual' confirming the path choice is persisted."
+    },
+    {
+      "command": "grep -n 'profile-bootstrap' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match confirming the bootstrap handoff kind is wired in the phase 3 component."
+    },
+    {
+      "command": "grep -c 'FULL_NAME' templates/bootstrap-profile-prompt.md",
+      "checks": "Returns at least 2, confirming the production prompt with FULL_NAME placeholders is present (AC6). Note: the original entry here checked for a reconstruction marker — that was stale; AC6 was revised when OQ-005 resolved and the production prompt was committed."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "AC3 now requires both [FULL_NAME] and [WORK_EMAIL] substitution; AC6 flipped from reconstruction-marker to production-text requirement.",
+      "reason": "OQ-005 resolved \u2014 the production bootstrap prompt was supplied and captured in templates/bootstrap-profile-prompt.md."
+    }
+  ]
+}

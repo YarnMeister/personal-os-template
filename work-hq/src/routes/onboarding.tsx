@@ -1,11 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Copy,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { HandoffDock } from "@/components/work-hq/HandoffDock";
 import { cn } from "@/lib/utils";
 import { loadOnboarding } from "@/server/load-onboarding";
 import { saveOnboarding } from "@/server/save-onboarding";
+import { checkProfileExists } from "@/server/check-profile-exists";
+import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Onboarding · Work HQ" }] }),
@@ -25,6 +34,12 @@ type Answers = {
   assistant: "copilot" | "other";
   otherAssistant: string;
   checks: { installed: boolean; contextOpen: boolean; testedPaste: boolean };
+  /** AC1/AC5: 'bootstrap' | 'manual' | '' — empty means no path chosen yet */
+  seedingPath: "bootstrap" | "manual" | "";
+  /** AC3: full name collected before generating the bootstrap prompt */
+  fullName: string;
+  /** AC3: work email collected before generating the bootstrap prompt */
+  workEmail: string;
 };
 
 const emptyAnswers: Answers = {
@@ -37,12 +52,15 @@ const emptyAnswers: Answers = {
   assistant: "copilot",
   otherAssistant: "",
   checks: { installed: false, contextOpen: false, testedPaste: false },
+  seedingPath: "",
+  fullName: "",
+  workEmail: "",
 };
 
 const phases = [
   { n: 1, title: "Orientation", subtitle: "How your Personal OS works" },
   { n: 2, title: "Wire your assistant", subtitle: "Verify the bridge" },
-  { n: 3, title: "About you", subtitle: "Role and workstyle" },
+  { n: 3, title: "Seed your profile", subtitle: "Choose your setup path" },
   { n: 4, title: "Your org", subtitle: "Stakeholders and glossary" },
   { n: 5, title: "Right now", subtitle: "Top-3 priorities & blockers" },
   { n: 6, title: "First standup", subtitle: "Celebrate + hand off" },
@@ -134,7 +152,9 @@ function OnboardingPage() {
   // Phase 2 requires all three checkboxes before advancing (AC6: ensures
   // phase 2 is only added to completedPhases once wiring is confirmed).
   const allWireChecks = Object.values(answers.checks).every(Boolean);
-  const nextDisabled = phase === 2 && !allWireChecks;
+  // Phase 3 requires a seeding path to be chosen before advancing (AC1/AC5).
+  const nextDisabled =
+    (phase === 2 && !allWireChecks) || (phase === 3 && !answers.seedingPath);
 
   const next = () => {
     // Mark the current phase as completed before advancing.
@@ -196,7 +216,13 @@ function OnboardingPage() {
         <div className="mt-10">
           {phase === 1 && <PhaseOrientation />}
           {phase === 2 && <PhaseWire answers={answers} set={set} />}
-          {phase === 3 && <PhaseAbout answers={answers} set={set} />}
+          {phase === 3 && (
+            <PhaseSeeding
+              answers={answers}
+              set={set}
+              completedPhases={completedPhases}
+            />
+          )}
           {phase === 4 && <PhaseOrg answers={answers} set={set} />}
           {phase === 5 && <PhaseNow answers={answers} set={set} />}
           {phase === 6 && <PhaseFirst answers={answers} />}
@@ -347,6 +373,359 @@ function PhaseOrientation() {
           your assistant to the right files automatically.
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ----- PhaseSeeding (phase 3) — story 009 ----- */
+
+/**
+ * Renders a raw-content Collect & Copy block for the bootstrap prompt.
+ * Visually matches HandoffDock but accepts arbitrary text rather than a
+ * structured HandoffSpec, because the bootstrap prompt is a full markdown
+ * document authored in templates/bootstrap-profile-prompt.md.
+ */
+function BootstrapCopyBlock({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = () => {
+    void navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-[0_0_40px_-20px_var(--primary)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-semibold text-foreground">
+            Bootstrap prompt ready
+          </h4>
+          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+            profile-bootstrap · ~{content.length.toLocaleString()} chars
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCopy}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold shadow-[0_0_24px_-6px_var(--primary)] transition-all",
+            copied
+              ? "bg-fresh text-primary-foreground"
+              : "bg-primary text-primary-foreground hover:brightness-110",
+          )}
+        >
+          {copied ? (
+            <>
+              <Check className="size-4" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="size-4" /> Collect &amp; Copy
+            </>
+          )}
+          <kbd className="ml-1 rounded bg-white/20 px-1 font-mono text-[10px]">
+            ⌘C
+          </kbd>
+        </button>
+      </div>
+
+      <pre className="relative mt-4 max-h-56 overflow-auto rounded-lg border border-border/60 bg-background/60 p-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
+        <code className="text-primary">{content.split("\n")[0]}</code>
+        {"\n"}
+        {content.split("\n").slice(1).join("\n")}
+      </pre>
+
+      <p className="mt-3 text-center text-[10px] text-muted-foreground">
+        {copied ? "✓ On your clipboard. " : ""}
+        Paste into your Glean-connected AI assistant to generate your profile.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * PhaseSeeding — phase 3 of the onboarding wizard (story 009).
+ *
+ * Presents two paths:
+ *  - Bootstrap with Glean (requires phase 2 complete; collects name + email;
+ *    shows the substituted bootstrap prompt via Collect & Copy; then polls for
+ *    context/profile.md every 5 s)
+ *  - Set up manually (records seedingPath: 'manual'; enables Next phase)
+ */
+function PhaseSeeding({
+  answers,
+  set,
+  completedPhases,
+}: {
+  answers: Answers;
+  set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
+  completedPhases: number[];
+}) {
+  // AC2: Bootstrap is only active when phase 2 is marked complete.
+  const phase2Done = completedPhases.includes(2);
+
+  // Local UI state — not persisted (prompt content is derived from the template).
+  const [promptContent, setPromptContent] = useState<string | null>(null);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptError, setPromptError] = useState(false);
+  const [profileDetected, setProfileDetected] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // AC4: Auto-poll context/profile.md every 5 s once the prompt has been shown.
+  useEffect(() => {
+    if (!promptContent || profileDetected) return;
+    const id = setInterval(() => {
+      void checkProfileExists().then(({ exists }) => {
+        if (exists) setProfileDetected(true);
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [promptContent, profileDetected]);
+
+  const handleRefresh = () => {
+    setChecking(true);
+    void checkProfileExists().then(({ exists }) => {
+      setChecking(false);
+      if (exists) setProfileDetected(true);
+    });
+  };
+
+  // AC3: Fetch and substitute the bootstrap prompt template.
+  const handleGetPrompt = () => {
+    if (!answers.fullName.trim() || !answers.workEmail.trim()) return;
+    setPromptLoading(true);
+    setPromptError(false);
+    void readBootstrapPrompt({
+      data: {
+        fullName: answers.fullName.trim(),
+        workEmail: answers.workEmail.trim(),
+      },
+    })
+      .then(({ content }) => {
+        setPromptContent(content);
+        setPromptLoading(false);
+      })
+      .catch(() => {
+        setPromptError(true);
+        setPromptLoading(false);
+      });
+  };
+
+  // ── Path choice screen ──
+  if (!answers.seedingPath) {
+    return (
+      <div className="space-y-4">
+        <p className="text-base leading-relaxed text-muted-foreground">
+          Your profile seeds your assistant with context about who you are and
+          how you work. Choose how you want to create it.
+        </p>
+
+        {/* Bootstrap with Glean card (AC2: disabled when phase 2 not complete) */}
+        <button
+          type="button"
+          disabled={!phase2Done}
+          onClick={() => set("seedingPath", "bootstrap")}
+          className={cn(
+            "group w-full rounded-xl border p-5 text-left transition",
+            phase2Done
+              ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              : "cursor-not-allowed border-border bg-muted/30 opacity-60",
+          )}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles
+                className={cn(
+                  "size-5",
+                  phase2Done ? "text-primary" : "text-muted-foreground",
+                )}
+              />
+              <span
+                className={cn(
+                  "text-sm font-semibold",
+                  phase2Done ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                Bootstrap with Glean
+              </span>
+            </div>
+            {phase2Done && (
+              <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                Recommended
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {phase2Done
+              ? "Use your enterprise data to generate a rich AI context profile in one step."
+              : "Complete assistant wiring in phase 2 first"}
+          </p>
+        </button>
+
+        {/* Set up manually card (AC5) */}
+        <button
+          type="button"
+          onClick={() => set("seedingPath", "manual")}
+          className="group w-full rounded-xl border border-border bg-card p-5 text-left transition hover:border-foreground/30 hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <span className="text-sm font-semibold text-foreground">
+            Set up manually
+          </span>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Skip bootstrapping and fill in your profile step-by-step in the next
+            phase.
+          </p>
+        </button>
+      </div>
+    );
+  }
+
+  // ── Manual path (AC5) ──
+  if (answers.seedingPath === "manual") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2">
+            <Check className="size-5 text-fresh" />
+            <span className="text-sm font-semibold text-foreground">
+              Manual setup selected
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You'll fill in your profile step-by-step in the next phase. Click{" "}
+            <strong>Next phase</strong> to continue.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => set("seedingPath", "")}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Change selection
+        </button>
+      </div>
+    );
+  }
+
+  // ── Bootstrap path ──
+
+  // Step 1: Collect name + email (AC3)
+  if (!promptContent) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Your name and work email are substituted into the bootstrap prompt so
+          Glean can identify the right person.
+        </p>
+
+        <Field label="Your full name">
+          <input
+            value={answers.fullName}
+            onChange={(e) => set("fullName", e.target.value)}
+            placeholder="Alex Smith"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <Field label="Your work email">
+          <input
+            type="email"
+            value={answers.workEmail}
+            onChange={(e) => set("workEmail", e.target.value)}
+            placeholder="alex.smith@company.com"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        {promptError && (
+          <p className="text-sm text-destructive">
+            Could not load the bootstrap template. Check that
+            templates/bootstrap-profile-prompt.md exists.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleGetPrompt}
+          disabled={
+            promptLoading ||
+            !answers.fullName.trim() ||
+            !answers.workEmail.trim()
+          }
+          className={cn(
+            "flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition-all",
+            promptLoading ||
+              !answers.fullName.trim() ||
+              !answers.workEmail.trim()
+              ? "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
+              : "bg-primary text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110",
+          )}
+        >
+          {promptLoading ? "Loading…" : "Get my bootstrap prompt"}
+          {!promptLoading && <ArrowRight className="size-4" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => set("seedingPath", "")}
+          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Change selection
+        </button>
+      </div>
+    );
+  }
+
+  // Step 2: Show prompt + waiting area (AC3 + AC4)
+  return (
+    <div className="space-y-6">
+      {/* AC3: Collect & Copy block with handoff kind 'profile-bootstrap' */}
+      <BootstrapCopyBlock content={promptContent} />
+
+      {/* AC4: Waiting / refresh area */}
+      {profileDetected ? (
+        <div className="rounded-xl border border-fresh/40 bg-fresh/5 p-5">
+          <div className="flex items-center gap-2">
+            <Check className="size-5 text-fresh" />
+            <span className="text-sm font-semibold text-foreground">
+              Profile detected
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <code className="font-mono text-xs text-foreground">
+              context/profile.md
+            </code>{" "}
+            is ready. Click <strong>Next phase</strong> to continue.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Waiting for your assistant
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Paste the prompt above into your Glean-connected assistant and wait
+            for it to write{" "}
+            <code className="font-mono text-xs text-foreground">
+              context/profile.md
+            </code>
+            . Return here once it confirms the file is written.
+          </p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={checking}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-4", checking && "animate-spin")} />
+            {checking ? "Checking…" : "Refresh now"}
+          </button>
+          <p className="text-[10px] text-muted-foreground">
+            Auto-checking every 5 seconds in the background.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
