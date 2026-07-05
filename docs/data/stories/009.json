@@ -4,16 +4,70 @@
   "title": "Seed-your-profile phase (phase 3) \u2014 path choice, bootstrap prompt, and profile-bootstrap handoff",
   "owner": "ui-dev",
   "status": "In Review",
-  "qa": "none",
-  "qaNote": "",
+  "qa": "Needs Changes",
+  "qaNote": "AC6 fix applied: templates/bootstrap-profile-prompt.md committed in cd0a075. git ls-files now returns the path.",
+  "qaReport": {
+    "verdict": "Needs Changes",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Phase 3 presents 'Bootstrap with Glean' and 'Set up manually'; seedingPath persisted in onboarding-state.json as 'bootstrap' or 'manual'.",
+        "evidence": "SSR output (curl http://localhost:3777/onboarding, state phase=3 completedPhases=[1] seedingPath=''): both button labels present in HTML. grep seedingPath docs/data/local/onboarding-state.json → '\"seedingPath\": \"manual\"'. Answers type at onboarding.tsx:38 declares seedingPath: 'bootstrap' | 'manual' | ''. Debounced saveOnboarding fires on every state change (onboarding.tsx:134). VERIFIED."
+      },
+      {
+        "ac": "AC2 — 'Bootstrap with Glean' visually disabled with note 'Complete assistant wiring in phase 2 first' when phase 2 not in completedPhases; becomes active when phase 2 complete.",
+        "evidence": "SSR test 1 — state set to phase=3 completedPhases=[1]: curl http://localhost:3777/onboarding returned button with disabled=\"\" attribute, class includes 'cursor-not-allowed border-border bg-muted/30 opacity-60', description text exactly 'Complete assistant wiring in phase 2 first'. SSR test 2 — state set to completedPhases=[1,2]: button has no disabled attribute, shows 'Recommended' badge and description 'Use your enterprise data...'. Code: phase2Done = completedPhases.includes(2) at onboarding.tsx:466; disabled={!phase2Done} at line 527. VERIFIED."
+      },
+      {
+        "ac": "AC3 — Bootstrap path collects fullName + workEmail before showing prompt; [FULL_NAME] and [WORK_EMAIL] substituted; Collect & Copy block with handoff kind 'profile-bootstrap'.",
+        "evidence": "Code: fullName/workEmail Fields rendered before handleGetPrompt button (onboarding.tsx:623-675); button disabled until both fields non-empty. readBootstrapPrompt server fn (read-bootstrap-prompt.ts:28-30): raw.replace(/[FULL_NAME]/g, data.fullName).replace(/[WORK_EMAIL]/g, data.workEmail). Node.js direct test: 0 remaining [FULL_NAME] and [WORK_EMAIL] placeholders after substitution; 3 × 'Alex Smith', 2 × email substituted. BootstrapCopyBlock label shows 'profile-bootstrap · ~... chars' (onboarding.tsx:405). 'profile-bootstrap' in HandoffKind union (handoff.ts:9). VERIFIED."
+      },
+      {
+        "ac": "AC4 — Waiting/refresh area after prompt shown; instruction text; 5-second auto-poll or Refresh button transitions to waiting-resolved state when context/profile.md appears.",
+        "evidence": "Code: useEffect at onboarding.tsx:476-484 sets setInterval(..., 5000) when promptContent truthy and !profileDetected; clears on cleanup/when profileDetected true. 'Auto-checking every 5 seconds in the background.' text at onboarding.tsx:725. 'Refresh now' button calls handleRefresh (immediate checkProfileExists call). Path resolution verified: resolve('/…/work-hq', '../context/profile.md') = '/…/context/profile.md'; Node.js existsSync test returned false without file, true after creating it, false after removing it. Waiting-resolved state renders 'Profile detected' panel when profileDetected=true (onboarding.tsx:688-702). VERIFIED."
+      },
+      {
+        "ac": "AC5 — 'Set up manually' records seedingPath: 'manual'; enables 'Next phase' button; advances to phase 4.",
+        "evidence": "SSR test — state set to phase=3 completedPhases=[1,2] seedingPath='manual': HTML contains 'Manual setup selected' panel and 'Change selection' button; 'cursor-not-allowed opacity-50' absent from Next phase button (button is enabled). Code: nextDisabled = (phase===3 && !answers.seedingPath) → false when seedingPath='manual'. onClick({seedingPath,'manual'}) at onboarding.tsx:569; phase advances to 4 (PhaseOrg) on next() call. VERIFIED."
+      },
+      {
+        "ac": "AC6 — templates/bootstrap-profile-prompt.md is committed and carries production prompt; grep -c 'FULL_NAME' returns >= 2; no reconstruction/placeholder-pending marker.",
+        "evidence": "grep -c 'FULL_NAME' templates/bootstrap-profile-prompt.md → 3 (PASS, >=2). grep -i 'reconstruction|placeholder-pending|TODO|FIXME' → no matches; OQ-005 header note is a resolved-reference credit, not a pending marker (PASS). HOWEVER: git ls-files templates/bootstrap-profile-prompt.md → empty output. git status shows '?? templates/bootstrap-profile-prompt.md' (untracked). The file has NEVER been committed. git log --follow -- templates/bootstrap-profile-prompt.md → no history. The 'is committed' clause of AC6 FAILS. A fresh repo clone would have no template file, causing readBootstrapPrompt readFileSync to throw ENOENT. MISSING."
+      }
+    ],
+    "commandsRun": [
+      "grep seedingPath docs/data/local/onboarding-state.json → PASS — '\"seedingPath\": \"manual\"'",
+      "grep -n 'profile-bootstrap' work-hq/src/routes/onboarding.tsx → PASS — lines 405, 683",
+      "grep -n 'profile-bootstrap' work-hq/src/lib/handoff.ts → PASS — line 9 (HandoffKind union)",
+      "grep -c 'FULL_NAME' templates/bootstrap-profile-prompt.md → PASS — 3",
+      "grep -i 'reconstruction|placeholder-pending|OQ-005|TODO|FIXME' templates/bootstrap-profile-prompt.md → PASS — OQ-005 match is resolved-reference credit only",
+      "npx tsc --noEmit (work-hq/) → PASS — no output (no errors)",
+      "npm run build (work-hq/) → PASS — check-profile-exists and read-bootstrap-prompt appear in server bundle",
+      "git ls-files templates/bootstrap-profile-prompt.md → FAIL — empty (file untracked)",
+      "git status -- templates/ → FAIL — '?? templates/bootstrap-profile-prompt.md'",
+      "curl -sL http://localhost:3777/onboarding (state: phase=3, completedPhases=[1], seedingPath='') → PASS — Bootstrap button disabled with correct note text; Set up manually button enabled; Next phase button disabled",
+      "curl -sL http://localhost:3777/onboarding (state: phase=3, completedPhases=[1,2], seedingPath='') → PASS — Bootstrap button active with Recommended badge; correct description",
+      "curl -sL http://localhost:3777/onboarding (state: phase=3, completedPhases=[1,2], seedingPath='manual') → PASS — Manual setup selected panel shown; Next phase button enabled",
+      "node path-resolution check for check-profile-exists → PASS — resolves to /…/context/profile.md; existsSync returns false without file, true with file",
+      "node substitution test for readBootstrapPrompt → PASS — 0 remaining [FULL_NAME]/[WORK_EMAIL] after substitution; 3 × fullName, 2 × email substituted"
+    ],
+    "securityAndMigrationGates": "Secrets scan: no DATABASE_URL, API_KEY, SECRET, TOKEN, passwords, or private key headers found in any of the four implementation files or the template. Migration check: N/A — project is markdown-only with no database schema. PASS.",
+    "riskNotes": "1. PhaseAbout function (onboarding.tsx:733) is defined but never called — dead code left from the replaced placeholder phase 3. Harmless but clutters the file. 2. ADR-P6-007 decision text says the Collect & Copy block should emit '## Work HQ handoff · profile-bootstrap · <date>' as a header prepended to the copied content; the BootstrapCopyBlock implementation copies the raw substituted template without this header. The AC text ('Collect & Copy with handoff kind profile-bootstrap') is satisfied by the label and HandoffKind type, but the ADR-level format is not followed. Story 010/011 may assume this header is present for parsing — flagging for awareness. 3. readBootstrapPrompt uses readFileSync (synchronous I/O on the SSR thread). For a one-time bootstrap call this is acceptable, but noted.",
+    "recommendedFollowUps": "1. Remove dead PhaseAbout function from onboarding.tsx (pin to story 010 or a cleanup story). 2. Clarify with ADR-P6-007 owner whether BootstrapCopyBlock content should prepend '## Work HQ handoff · profile-bootstrap · <date>' to match ADR decision wording — story 010 (Review & correct) may depend on this if it parses the handoff output.",
+    "fixRequests": [
+      "AC6 — 'is committed': git add templates/bootstrap-profile-prompt.md and commit it. The file exists on disk with correct production content (grep-c FULL_NAME = 3, no reconstruction markers) but has never been committed (git ls-files returns empty; git status shows ??). Any fresh repo clone would have no template file, causing readBootstrapPrompt's readFileSync call to throw ENOENT when a user selects the Bootstrap with Glean path. Required action: commit the file in a new commit on feat/onboarding."
+    ]
+  },
   "impl": {
     "branch": "feat/onboarding",
-    "commit": "e4714d1",
+    "commit": "cd0a075",
+    "priorCommits": ["e4714d1", "c813898"],
     "filesTouched": [
       "work-hq/src/routes/onboarding.tsx",
       "work-hq/src/lib/handoff.ts",
       "work-hq/src/server/check-profile-exists.ts",
       "work-hq/src/server/read-bootstrap-prompt.ts",
+      "templates/bootstrap-profile-prompt.md",
       "docs/data/stories/009.json"
     ],
     "notes": "PhaseSeeding replaces the placeholder 'About you' phase 3. BootstrapCopyBlock is an inline copy component (raw-content, not buildHandoff) because the bootstrap prompt is a full markdown document, not a structured handoff. The 'profile-bootstrap' kind string appears in the BootstrapCopyBlock label and in handoff.ts HandoffKind union. Polling is 5-second setInterval cleared on component unmount or when profileDetected becomes true. verificationPlan[2] was corrected from the stale reconstruction-marker check to the AC6-compliant FULL_NAME count check — QA should note that `grep -i 'OQ-005' templates/bootstrap-profile-prompt.md` WILL find a line (the file header cites OQ-005 as a resolved reference), but this is NOT a pending reconstruction marker; AC6 is satisfied.",
