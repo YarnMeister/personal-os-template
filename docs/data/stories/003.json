@@ -3,9 +3,25 @@
   "featureId": "f-onboarding",
   "title": "Manual-path interview forms (phase 4) + Right-now phase for all paths (phase 5)",
   "owner": "ui-dev",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "c5db4f2",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "docs/data/stories/003.json"
+    ],
+    "notes": "Phase 4 manual path uses internal sub-steps ('about' → 'org' → 'review') managed by local state in PhaseFourManual. The sensitivity-check gate (orgAgreed state) resets on phase navigation away. The global Next button is hidden via hideNextButton when phase===4 && seedingPath==='manual' or phase===5 — both phases use an internal Confirm action that calls saveNow() then next(). saveNow cancels the debounce timer and writes immediately. normalizeAnswers() migrates old flat-string priorities from previous sessions. Bootstrap path shows a placeholder card (story 010 will replace). PhaseAbout was dead code in the pre-existing file and was removed during the rewrite.",
+    "verificationRun": [
+      { "command": "cat docs/data/local/onboarding-state.json", "result": "PASS — JSON shows priorities as array of objects each with title/owner/dueDate keys; team (string), keyTools (array), openQuestions (string) also present" },
+      { "command": "grep -n 'personnel data' work-hq/src/routes/onboarding.tsx", "result": "PASS — lines 958 and 971 match; line 971 is the rendered UI text inside the sensitivity-check panel" },
+      { "command": "npx tsc --noEmit", "result": "PASS — no TypeScript errors" },
+      { "command": "npm run build", "result": "PASS — client and server build clean; onboarding bundle 37.15 kB client / 55.95 kB server" },
+      { "command": "curl http://localhost:3779/onboarding (SSR check)", "result": "PASS — SSR renders phase 5 'Right now' correctly; three priority cards with Title/Owner/Due date sub-fields visible; hydration data shows priorities as objects with title/owner/dueDate; global Next button absent from nav (hideNextButton=true for phase 5)" }
+    ]
+  },
   "adrRefs": [
     "ADR-P6-003",
     "ADR-P6-004"
