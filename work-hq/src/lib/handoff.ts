@@ -6,7 +6,8 @@ export type HandoffKind =
   | "process-backlog"
   | "gather-answers"
   | "first-standup"
-  | "profile-bootstrap";
+  | "profile-bootstrap"
+  | "profile-corrections";
 
 export type HandoffSection = { label: string; body: string | string[] };
 

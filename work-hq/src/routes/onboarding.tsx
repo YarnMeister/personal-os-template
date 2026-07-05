@@ -568,6 +568,131 @@ function BootstrapCopyBlock({ content }: { content: string }) {
 }
 
 /**
+ * Build the profile-corrections handoff block markdown (§4.3 file-contracts.md).
+ *
+ * - Only sections with `edited: true` are included in the body.
+ * - When no sections were edited, the body states "No corrections — all sections
+ *   accepted as is" as required by story 011 AC2.
+ * - The Ask always appears, covering: apply corrections → first-person conversion
+ *   → distil me/org/active (sensitivity gate per AGENTS.md §Sensitivity check).
+ */
+function buildProfileCorrectionsMarkdown(
+  editedSections: Answers["editedSections"],
+  fullName: string,
+): string {
+  const today = new Date().toISOString().slice(0, 10);
+  // The kind string "profile-corrections" must appear in this file for AC verification.
+  const header = `## Work HQ handoff · profile-corrections · ${today}`;
+
+  const editedEntries = Object.entries(editedSections).filter(
+    ([, v]) => v.edited,
+  );
+
+  const nameRef = fullName.trim() ? ` for ${fullName.trim()}` : "";
+
+  // The sensitivity gate phrase must match AGENTS.md §Sensitivity check exactly.
+  const askText =
+    `Apply the corrections above to context/profile.md (write the file, confirm when done). ` +
+    `Then run the first-person conversion: rewrite the corrected profile as a polished ` +
+    `first-person assistant context document${nameRef} — preserve all strong evidence, ` +
+    `keep uncertain items marked as "Needs my confirmation", rewrite in a professional ` +
+    `self-description tone, keep the structure assistant-friendly, and add a final section ` +
+    `called "What I want my AI assistant to optimize for". Save the converted profile back ` +
+    `to context/profile.md. Then distil context/me.md, context/org.md (sensitivity gate: ` +
+    `no personnel data, unreleased roadmap items, or commercial terms in the committed ` +
+    `org.md), and context/active.md seeds from the updated profile. Confirm each file is written.`;
+
+  const body =
+    editedEntries.length === 0
+      ? `No corrections — all sections accepted as is\n\n**Ask**\n${askText}`
+      : editedEntries
+          .map(
+            ([heading, { body: sectionBody }]) =>
+              `**${heading}**\n${sectionBody.trim()}`,
+          )
+          .join("\n\n") + `\n\n**Ask**\n${askText}`;
+
+  return `${header}\n\n${body}\n`;
+}
+
+/**
+ * Collect & Copy block for the profile-corrections handoff (story 011 AC1/AC2).
+ * Visually matches HandoffDock; markdown is built via buildProfileCorrectionsMarkdown.
+ */
+function ProfileCorrectionsDock({
+  editedSections,
+  editedCount,
+  fullName,
+}: {
+  editedSections: Answers["editedSections"];
+  editedCount: number;
+  fullName: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const markdown = buildProfileCorrectionsMarkdown(editedSections, fullName);
+
+  const onCopy = () => {
+    void navigator.clipboard.writeText(markdown);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-[0_0_40px_-20px_var(--primary)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-semibold text-foreground">
+            Profile corrections handoff
+          </h4>
+          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+            profile-corrections ·{" "}
+            {editedCount === 0
+              ? "no edits"
+              : `${editedCount} section${editedCount === 1 ? "" : "s"} edited`}{" "}
+            · ~{markdown.length.toLocaleString()} chars
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCopy}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold shadow-[0_0_24px_-6px_var(--primary)] transition-all",
+            copied
+              ? "bg-fresh text-primary-foreground"
+              : "bg-primary text-primary-foreground hover:brightness-110",
+          )}
+        >
+          {copied ? (
+            <>
+              <Check className="size-4" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="size-4" /> Collect &amp; Copy
+            </>
+          )}
+          <kbd className="ml-1 rounded bg-white/20 px-1 font-mono text-[10px]">
+            ⌘C
+          </kbd>
+        </button>
+      </div>
+
+      <pre className="relative mt-4 max-h-56 overflow-auto rounded-lg border border-border/60 bg-background/60 p-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
+        <code className="text-primary">{markdown.split("\n")[0]}</code>
+        {"\n"}
+        {markdown.split("\n").slice(1).join("\n")}
+      </pre>
+
+      <p className="mt-3 text-center text-[10px] text-muted-foreground">
+        {copied ? "✓ On your clipboard. " : ""}
+        Paste into your AI assistant to apply corrections and lock in your
+        context files.
+      </p>
+    </div>
+  );
+}
+
+/**
  * PhaseSeeding — phase 3 of the onboarding wizard (story 009).
  *
  * Presents two paths:
@@ -1174,6 +1299,13 @@ function PhaseReviewCorrect({
           />
         );
       })}
+
+      {/* story 011 AC1/AC2: Collect & Copy block for the profile-corrections handoff. */}
+      <ProfileCorrectionsDock
+        editedSections={answers.editedSections}
+        editedCount={editedCount}
+        fullName={answers.fullName}
+      />
 
       {/* AC4: internal Confirm action — no global Next button for phase 4. */}
       <div className="flex items-center gap-4 pt-2">

@@ -1,0 +1,58 @@
+{
+  "id": "011",
+  "featureId": "f-onboarding",
+  "title": "Profile corrections handoff + lock-in (profile-corrections block, AGENTS.md routing-table row)",
+  "owner": "developer",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-007",
+    "ADR-P6-003"
+  ],
+  "epicSource": "ADR-P6-007",
+  "userStory": "As a user who has reviewed my profile sections, I want a corrections handoff block that sends only my edits back to the assistant, so that the assistant applies them and distils my OS files without me re-sending unchanged content.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 4 (seeded path) Collect & Copy button emits a block whose first line is exactly `## Work HQ handoff \u00b7 profile-corrections \u00b7 <YYYY-MM-DD>` (today's date at copy time), followed by ONLY the edited sections (those with the 'edited' badge in story 010). The lock-in ask is included: apply corrections to context/profile.md, then distil context/me.md, context/org.md (sensitivity gate: no personnel data, unreleased roadmap items, or commercial terms in the committed org.md), and context/active.md seeds from it."
+    },
+    {
+      "text": "If zero sections were edited, the block states \"No corrections \u2014 all sections accepted as is\" (no section content is emitted) and the lock-in ask still appears."
+    },
+    {
+      "text": "`AGENTS.md` gains a routing-table row for `context/profile.md` with the when-to-load value: \"Load before drafting or personalising, after me.md\". `grep 'context/profile.md' AGENTS.md` returns a match. This row is added by the implementing agent as part of this story \u2014 not by the wizard."
+    },
+    {
+      "text": "`grep 'context/profile.md' .gitignore` returns a match \u2014 context/profile.md is gitignored and will never be committed."
+    },
+    {
+      "text": "After the assistant responds to the corrections handoff and distils me.md and org.md, `cat context/me.md` shows a `# Me \u00b7 Updated: <today>` header with no `[bracketed]` placeholders \u2014 confirming the assistant wrote the file from the profile content, not a scaffold template."
+    }
+  ],
+  "technicalNotes": "Wire the Collect & Copy button in the PhaseReviewCorrect component (story 010) to emit the profile-corrections block using the HandoffDock pattern. Block body is built from `answers.editedSections` in onboarding-state.json (story 010) \u2014 iterate over keys, include only entries where `edited: true`. Add `context/profile.md` to `.gitignore` (check it is not already covered by an existing glob pattern). Implement the AGENTS.md routing-table addition as a direct file edit (this is the only AGENTS.md change in this story). The sensitivity gate wording in the lock-in ask must match the exact phrase from `AGENTS.md` \u00a7Sensitivity check standing order. The lock-in ask also directs the assistant to apply the follow-up first-person conversion prompt from templates/bootstrap-profile-prompt.md (rewrites the corrected profile as polished first-person assistant context with a closing 'What I want my AI assistant to optimize for' section) before distilling me/org/active.",
+  "dependencies": [
+    "010"
+  ],
+  "outOfScope": "The actual AI execution of distillation (the wizard cannot read the chat), the scaffold-files function writing active.md from phase 5 answers (story 004), os-helper handling of the profile-corrections handoff kind (story 006), Health tile (story 008).",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'profile-corrections' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match confirming the corrections handoff kind is wired in the phase 4 seeded-path Collect & Copy."
+    },
+    {
+      "command": "grep 'context/profile.md' .gitignore",
+      "checks": "Returns a match confirming context/profile.md is explicitly gitignored."
+    },
+    {
+      "command": "grep 'context/profile.md' AGENTS.md",
+      "checks": "Returns a match confirming the new routing-table row for context/profile.md is present in AGENTS.md."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Lock-in flow incorporates the production follow-up prompt (first-person conversion) from the bootstrap template.",
+      "reason": "OQ-005 resolved \u2014 production prompt package includes a tested first-person conversion step for self-service onboarding."
+    }
+  ]
+}
