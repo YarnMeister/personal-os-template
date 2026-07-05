@@ -1,0 +1,45 @@
+{
+  "id": "002",
+  "featureId": "f-onboarding",
+  "title": "Orientation phase rewrite \u2014 real OS model + retire onboarding.html",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a new user running the wizard for the first time, I want the Orientation phase to teach me the real Personal OS file model, so that I understand the correct tier structure before answering any questions.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 1 displays the three-tier model with exact file/folder names in monospace: Tier 1 (AGENTS.md, CLAUDE.md), Tier 2 (context/me.md, context/org.md, context/active.md, memory/), Tier 3 (projects/, areas/, BACKLOG.md). No tier is missing."
+    },
+    {
+      "text": "`grep -rn '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx` returns zero matches \u2014 the old invented tier names are absent from the entire onboarding route."
+    },
+    {
+      "text": "The three daily trigger phrases appear as highlighted or monospace text in Phase 1: \"morning standup\", \"process my backlog\", \"end session\"."
+    },
+    {
+      "text": "A privacy/offline note \u2014 stating that the user's data stays local and the OS works offline \u2014 is visible in Phase 1 without scrolling on a 1280px-wide viewport."
+    },
+    {
+      "text": "`ls onboarding.html || echo gone` run from the repo root outputs \"gone\" \u2014 the file has been deleted."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseOrientation` in `work-hq/src/routes/onboarding.tsx`. Source the tier model from the routing table in AGENTS.md (Tier 1/2/3 rows). Absorb the narrative from `onboarding.html` (constitution concept, three daily triggers, privacy note) as teach-first cards; this phase collects no user input. Delete `onboarding.html` from the repo root. No server functions or state changes in this story.",
+  "dependencies": [],
+  "outOfScope": "State persistence (story 001), any changes to phases 2\u20136, file scaffolding (story 004), the verification prompt wording in phase 5 (story 005).",
+  "verificationPlan": [
+    {
+      "command": "ls onboarding.html || echo gone",
+      "checks": "Outputs \"gone\" \u2014 file no longer exists at the repo root."
+    },
+    {
+      "command": "grep -n '/state\\|/decisions\\|/archive' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns no matches \u2014 old invented path names are absent from the onboarding route file."
+    }
+  ],
+  "revisionLog": []
+}

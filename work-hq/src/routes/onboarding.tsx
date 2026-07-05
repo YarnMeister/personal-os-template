@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { HandoffDock } from "@/components/work-hq/HandoffDock";
 import { cn } from "@/lib/utils";
@@ -231,38 +231,98 @@ function OnboardingPage() {
 function PhaseOrientation() {
   const tiers = [
     {
-      name: "Active (state/)",
-      desc: "Priorities, backlog, blockers. Read every session. Must stay fresh (<2d).",
+      n: "Tier 1",
+      label: "Constitution",
+      badge: "Always loaded",
+      desc: "The standing orders for every session. Routes to everything else.",
+      files: ["AGENTS.md", "CLAUDE.md"],
     },
     {
-      name: "Reference (decisions/, learnings/)",
-      desc: "Grows slowly. The AI cites this to explain 'why' behind current work.",
+      n: "Tier 2",
+      label: "Living context",
+      badge: "On demand",
+      desc: "Read at the start of a relevant session: who you are, what you're working on, what the assistant has learned.",
+      files: ["context/me.md", "context/org.md", "context/active.md", "memory/"],
     },
     {
-      name: "Archive (archive/)",
-      desc: "Cold storage for old rituals and superseded decisions. Read on demand.",
+      n: "Tier 3",
+      label: "Deep files",
+      badge: "When you name it",
+      desc: "Project and area brains opened only when you mention them by name.",
+      files: ["projects/", "areas/", "BACKLOG.md"],
     },
   ];
+
+  const triggers = ["morning standup", "process my backlog", "end session"];
+
   return (
     <div className="space-y-6">
-      <p className="text-lg leading-relaxed text-muted-foreground text-pretty">
-        Work HQ doesn't talk to your AI. It prepares clean handoffs that you
-        paste in. Your Personal OS is just markdown files — organized into three
-        tiers so the AI knows what to always read vs. read on demand.
+      <p className="text-base leading-relaxed text-muted-foreground">
+        Your Personal OS is plain markdown files — no code, no servers. One
+        file,{" "}
+        <code className="font-mono text-foreground">AGENTS.md</code>, acts as
+        your AI's constitution: always loaded, always routing to everything
+        else.
       </p>
-      <div className="space-y-3">
+
+      {/* Privacy / offline note — visible without scrolling */}
+      <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Your data stays local and works offline.
+          </span>{" "}
+          Nothing is sent to any server we operate. Every ritual — standup,
+          backlog, session harvest — runs from your own files with no internet
+          required.
+        </p>
+      </div>
+
+      {/* Three-tier model with exact file/folder names */}
+      <div className="space-y-2">
         {tiers.map((t) => (
-          <div
-            key={t.name}
-            className="flex items-start gap-4 rounded-xl border border-border bg-card p-4"
-          >
-            <FileText className="mt-0.5 size-5 text-primary shrink-0" />
-            <div>
-              <p className="font-mono text-sm font-semibold">{t.name}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{t.desc}</p>
+          <div key={t.n} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t.n} · {t.label}
+              </p>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                {t.badge}
+              </span>
+            </div>
+            <p className="mb-2 text-xs text-muted-foreground">{t.desc}</p>
+            <div className="flex flex-wrap gap-1">
+              {t.files.map((f) => (
+                <code
+                  key={f}
+                  className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
+                >
+                  {f}
+                </code>
+              ))}
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Daily trigger phrases */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Three phrases run your whole day
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {triggers.map((phrase) => (
+            <code
+              key={phrase}
+              className="rounded-md border border-primary/20 bg-primary/10 px-3 py-1 font-mono text-sm text-primary"
+            >
+              {phrase}
+            </code>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Type any phrase into a fresh VS Code chat. The constitution routes
+          your assistant to the right files automatically.
+        </p>
       </div>
     </div>
   );
@@ -412,9 +472,8 @@ function PhaseWire({
       label: "I've tested pasting the verification prompt below",
     },
   ];
-  const verification = `Please read every file in /state and /decisions.
-Summarize my current top-3 priorities, top blocker,
-and the most recent accepted ADR in <5 lines.`;
+  const verification = `Please read context/active.md and memory/learnings.md.
+Summarize my current top-3 priorities and top blocker in <5 lines.`;
 
   return (
     <div className="space-y-8">
@@ -509,13 +568,13 @@ function PhaseFirst({ answers }: { answers: Answers }) {
             { label: "Blockers", body: answers.blockers },
             {
               label: "Ask",
-              body: "Please initialize my /state files from the above and confirm you understand my context.",
+              body: "Please initialize my context/ and memory/ files from the above and confirm you understand my context.",
             },
           ],
         }}
         title="First standup handoff"
         filename="first-standup.md"
-        hint="Paste into your assistant to write your initial /state files."
+        hint="Paste into your assistant to write your initial context/ files."
       />
     </div>
   );
