@@ -24,13 +24,23 @@ export const Route = createFileRoute("/onboarding")({
   component: OnboardingPage,
 });
 
+/** A single priority entry — story 003 AC4. */
+type Priority = { title: string; owner: string; dueDate: string };
+
 type Answers = {
   role: string;
   workstyle: string;
+  /** Free-text describing immediate team and headcount (story 003 AC1). */
+  team: string;
+  /** AI assistant + enterprise tools (story 003 AC1). */
+  keyTools: string[];
   stakeholders: string[];
   glossary: string;
-  priorities: [string, string, string];
+  /** Three structured priorities, each with title / owner / dueDate (story 003 AC4). */
+  priorities: [Priority, Priority, Priority];
   blockers: string;
+  /** Optional open-questions field (story 003 AC5). */
+  openQuestions: string;
   assistant: "copilot" | "other";
   otherAssistant: string;
   checks: { installed: boolean; contextOpen: boolean; testedPaste: boolean };
@@ -45,10 +55,17 @@ type Answers = {
 const emptyAnswers: Answers = {
   role: "",
   workstyle: "",
+  team: "",
+  keyTools: [""],
   stakeholders: [""],
   glossary: "",
-  priorities: ["", "", ""],
+  priorities: [
+    { title: "", owner: "", dueDate: "" },
+    { title: "", owner: "", dueDate: "" },
+    { title: "", owner: "", dueDate: "" },
+  ],
   blockers: "",
+  openQuestions: "",
   assistant: "copilot",
   otherAssistant: "",
   checks: { installed: false, contextOpen: false, testedPaste: false },
@@ -56,6 +73,34 @@ const emptyAnswers: Answers = {
   fullName: "",
   workEmail: "",
 };
+
+/**
+ * Normalise a raw answers blob loaded from disk or localStorage.
+ * Migrates the old flat-string priorities format
+ * (i.e. priorities: [string, string, string]) to the structured object format
+ * introduced in story 003.
+ */
+function normalizeAnswers(raw: unknown): Answers {
+  if (!raw || typeof raw !== "object") return emptyAnswers;
+  const a = raw as Record<string, unknown>;
+
+  const rawPriorities = a.priorities as unknown[] | undefined;
+  let priorities: [Priority, Priority, Priority] = [
+    { title: "", owner: "", dueDate: "" },
+    { title: "", owner: "", dueDate: "" },
+    { title: "", owner: "", dueDate: "" },
+  ];
+  if (Array.isArray(rawPriorities) && rawPriorities.length === 3) {
+    const migrated = rawPriorities.map((p) =>
+      typeof p === "string"
+        ? { title: p, owner: "", dueDate: "" }
+        : (p as Priority),
+    );
+    priorities = migrated as [Priority, Priority, Priority];
+  }
+
+  return { ...emptyAnswers, ...(raw as Partial<Answers>), priorities };
+}
 
 const phases = [
   { n: 1, title: "Orientation", subtitle: "How your Personal OS works" },
@@ -96,13 +141,13 @@ function OnboardingPage() {
   });
 
   const [answers, setAnswers] = useState<Answers>(() => {
-    if (savedState) return savedState.answers as Answers;
+    if (savedState) return normalizeAnswers(savedState.answers);
     try {
       const raw =
         typeof window !== "undefined"
           ? window.localStorage.getItem(LS_ANSWERS)
           : null;
-      if (raw != null) return JSON.parse(raw) as Answers;
+      if (raw != null) return normalizeAnswers(JSON.parse(raw));
     } catch {
       /* noop */
     }
@@ -149,6 +194,23 @@ function OnboardingPage() {
   const set = <K extends keyof Answers>(k: K, v: Answers[K]) =>
     setAnswers((a) => ({ ...a, [k]: v }));
 
+  /**
+   * Immediately flush current state to disk, cancelling any pending debounce.
+   * Called by phase review Confirm actions to guarantee persistence before
+   * the phase advances.
+   */
+  const saveNow = () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    void saveOnboarding({
+      data: {
+        phase,
+        answers,
+        completedPhases,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  };
+
   // Phase 2 requires all three checkboxes before advancing (AC6: ensures
   // phase 2 is only added to completedPhases once wiring is confirmed).
   const allWireChecks = Object.values(answers.checks).every(Boolean);
@@ -165,6 +227,12 @@ function OnboardingPage() {
   };
 
   const back = () => setPhase((p) => Math.max(1, p - 1));
+
+  // Phase 4 (manual path) and phase 5 manage their own Confirm action that
+  // saves + advances — the global Next button is hidden for those cases so
+  // the review card's Confirm is the only way to advance.
+  const hideNextButton =
+    (phase === 4 && answers.seedingPath === "manual") || phase === 5;
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground">
@@ -223,8 +291,22 @@ function OnboardingPage() {
               completedPhases={completedPhases}
             />
           )}
-          {phase === 4 && <PhaseOrg answers={answers} set={set} />}
-          {phase === 5 && <PhaseNow answers={answers} set={set} />}
+          {phase === 4 && (
+            <PhaseFour
+              answers={answers}
+              set={set}
+              next={next}
+              saveNow={saveNow}
+            />
+          )}
+          {phase === 5 && (
+            <PhaseNow
+              answers={answers}
+              set={set}
+              next={next}
+              saveNow={saveNow}
+            />
+          )}
           {phase === 6 && <PhaseFirst answers={answers} />}
         </div>
 
@@ -236,7 +318,14 @@ function OnboardingPage() {
           >
             <ArrowLeft className="size-4" /> Back
           </button>
-          {phase < 6 ? (
+          {phase === 6 ? (
+            <Link
+              to="/today"
+              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:brightness-110"
+            >
+              Enter Work HQ <ArrowRight className="size-4" />
+            </Link>
+          ) : !hideNextButton ? (
             <button
               onClick={next}
               disabled={nextDisabled}
@@ -254,14 +343,7 @@ function OnboardingPage() {
             >
               Next phase <ArrowRight className="size-4" />
             </button>
-          ) : (
-            <Link
-              to="/today"
-              className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:brightness-110"
-            >
-              Enter Work HQ <ArrowRight className="size-4" />
-            </Link>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -730,125 +812,480 @@ function PhaseSeeding({
   );
 }
 
-function PhaseAbout({
-  answers,
-  set,
-}: {
-  answers: Answers;
-  set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <Field label="Your role">
-        <input
-          value={answers.role}
-          onChange={(e) => set("role", e.target.value)}
-          placeholder="Product Operations Lead"
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </Field>
-      <Field label="Workstyle in one line">
-        <input
-          value={answers.workstyle}
-          onChange={(e) => set("workstyle", e.target.value)}
-          placeholder="Async-first, deep-work mornings, batched afternoons"
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </Field>
-    </div>
-  );
-}
+/* ----- PhaseFour (phase 4) — story 003 ----- */
 
-function PhaseOrg({
+/**
+ * PhaseFour — phase 4 of the onboarding wizard (story 003).
+ *
+ * Manual path (seedingPath === 'manual'):
+ *   About-you form → sensitivity check → Your-org form → review summary.
+ *   Internal Confirm action saves + advances to phase 5.
+ *   The global Next button is hidden for this path (see OnboardingPage).
+ *
+ * Bootstrap path (seedingPath === 'bootstrap'):
+ *   Placeholder — story 010 will replace with Review & correct section cards.
+ *   Global Next button remains visible so the user can advance.
+ */
+function PhaseFour({
   answers,
   set,
+  next,
+  saveNow,
 }: {
   answers: Answers;
   set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
+  next: () => void;
+  saveNow: () => void;
 }) {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-warning/25 bg-warning/5 p-4">
-        <p className="text-sm text-foreground/90">
-          <span className="font-semibold">One gentle note:</span> the OS lives
-          as plaintext markdown. Don't put secrets, salaries, or NDA content
-          here — reference by alias.
+  // Bootstrap-path placeholder (story 010 scope).
+  if (answers.seedingPath === "bootstrap") {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 space-y-2">
+        <p className="text-sm font-semibold text-foreground">
+          Review your bootstrapped profile
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Your profile review cards will appear here once your bootstrap profile
+          has been generated. Click <strong>Next phase</strong> to continue for
+          now.
         </p>
       </div>
-      <Field label="Key stakeholders">
-        <div className="space-y-2">
-          {answers.stakeholders.map((s, i) => (
-            <input
-              key={i}
-              value={s}
-              onChange={(e) => {
-                const next = [...answers.stakeholders];
-                next[i] = e.target.value;
-                set("stakeholders", next);
-              }}
-              placeholder="Sarah Chen (CTO) — decision maker"
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          ))}
+    );
+  }
+
+  // Manual path — multi-step interview form.
+  return (
+    <PhaseFourManual
+      answers={answers}
+      set={set}
+      next={next}
+      saveNow={saveNow}
+    />
+  );
+}
+
+/**
+ * Internal sub-step manager for the manual path of phase 4.
+ * Steps: 'about' → 'org' (with sensitivity gate) → 'review'.
+ */
+function PhaseFourManual({
+  answers,
+  set,
+  next,
+  saveNow,
+}: {
+  answers: Answers;
+  set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
+  next: () => void;
+  saveNow: () => void;
+}) {
+  const [step, setStep] = useState<"about" | "org" | "review">("about");
+  // Tracks whether the user has accepted the sensitivity-check gate for the
+  // org sub-step.  Resets if the component unmounts (phase navigation away).
+  const [orgAgreed, setOrgAgreed] = useState(false);
+
+  /* ── About-you step ── */
+  if (step === "about") {
+    return (
+      <div className="space-y-6">
+        <Field label="Your role">
+          <input
+            value={answers.role}
+            onChange={(e) => set("role", e.target.value)}
+            placeholder="Product Operations Lead"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <Field label="Working style in one line">
+          <input
+            value={answers.workstyle}
+            onChange={(e) => set("workstyle", e.target.value)}
+            placeholder="Async-first, deep-work mornings, batched afternoons"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <Field label="Your immediate team">
+          <textarea
+            rows={2}
+            value={answers.team}
+            onChange={(e) => set("team", e.target.value)}
+            placeholder="e.g. 4-person ProdOps team — 2 PMs, 1 analyst, 1 coordinator"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <Field label="Key tools">
+          <div className="space-y-2">
+            {answers.keyTools.map((t, i) => (
+              <input
+                key={i}
+                value={t}
+                onChange={(e) => {
+                  const updated = [...answers.keyTools];
+                  updated[i] = e.target.value;
+                  set("keyTools", updated);
+                }}
+                placeholder={
+                  i === 0
+                    ? "AI assistant — e.g. GitHub Copilot"
+                    : "Tool — e.g. Jira, Confluence, Slack"
+                }
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => set("keyTools", [...answers.keyTools, ""])}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              + Add tool
+            </button>
+          </div>
+        </Field>
+
+        <button
+          type="button"
+          onClick={() => setStep("org")}
+          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+        >
+          Continue <ArrowRight className="size-4" />
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Org step (sensitivity gate → org form) ── */
+  if (step === "org") {
+    // Sensitivity-check confirmation panel (AC2).
+    // The exact phrase from AGENTS.md §Sensitivity check standing order must
+    // appear here: "no personnel data, unreleased roadmap items, or commercial terms".
+    if (!orgAgreed) {
+      return (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-warning/30 bg-warning/5 p-6 space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Before you continue
+            </p>
+            <p className="text-sm leading-relaxed text-foreground/90">
+              Your Personal OS lives as plaintext markdown that may sync to
+              GitHub. Please confirm the stakeholder and glossary information
+              you enter contains{" "}
+              <strong>
+                no personnel data, unreleased roadmap items, or commercial terms
+              </strong>
+              . Reference sensitive individuals by role or alias rather than by
+              name or salary.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setOrgAgreed(true)}
+                className="rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+              >
+                Understood — continue
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("about")}
+                className="rounded-full border border-border px-5 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Org form shown after sensitivity confirmation (AC2).
+    return (
+      <div className="space-y-6">
+        <Field label="Key stakeholders">
+          <div className="space-y-2">
+            {answers.stakeholders.map((s, i) => (
+              <input
+                key={i}
+                value={s}
+                onChange={(e) => {
+                  const updated = [...answers.stakeholders];
+                  updated[i] = e.target.value;
+                  set("stakeholders", updated);
+                }}
+                placeholder="Sarah Chen (CTO) — decision maker"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => set("stakeholders", [...answers.stakeholders, ""])}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              + Add stakeholder
+            </button>
+          </div>
+        </Field>
+
+        <Field label="Team glossary (acronyms, project codenames)">
+          <textarea
+            rows={3}
+            value={answers.glossary}
+            onChange={(e) => set("glossary", e.target.value)}
+            placeholder={"TP = Team Platform\nAtlas = the new billing system"}
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+          />
+        </Field>
+
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => set("stakeholders", [...answers.stakeholders, ""])}
-            className="text-xs font-medium text-primary hover:underline"
+            type="button"
+            onClick={() => setStep("review")}
+            className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
           >
-            + Add stakeholder
+            Review answers <ArrowRight className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep("about")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            ← Back to About you
           </button>
         </div>
-      </Field>
-      <Field label="Team glossary (acronyms, project codenames)">
-        <textarea
-          rows={3}
-          value={answers.glossary}
-          onChange={(e) => set("glossary", e.target.value)}
-          placeholder="TP = Team Platform&#10;Atlas = the new billing system"
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+      </div>
+    );
+  }
+
+  /* ── Review step (AC3) ── */
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Review your answers. Click <strong>Confirm</strong> to save and move to
+        phase 5.
+      </p>
+
+      <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
+        <ReviewRow label="Role" value={answers.role || "—"} />
+        <ReviewRow label="Working style" value={answers.workstyle || "—"} />
+        <ReviewRow label="Team" value={answers.team || "—"} />
+        <ReviewRow
+          label="Key tools"
+          value={answers.keyTools.filter(Boolean).join(", ") || "—"}
         />
-      </Field>
+        <ReviewRow
+          label="Stakeholders"
+          value={answers.stakeholders.filter(Boolean).join("\n") || "—"}
+        />
+        <ReviewRow label="Glossary" value={answers.glossary || "—"} />
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            saveNow();
+            next();
+          }}
+          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+        >
+          Confirm <ArrowRight className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setStep("org")}
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Go back
+        </button>
+      </div>
     </div>
   );
 }
 
+/* ----- PhaseNow (phase 5) — story 003 ----- */
+
+/**
+ * PhaseNow — phase 5 of the onboarding wizard (story 003).
+ *
+ * Captures three structured priorities (title / owner / dueDate), a blockers
+ * field, and an optional open-questions field.  Ends with a review summary
+ * card; Confirm saves + advances to phase 6.
+ * The global Next button is hidden for this phase (see OnboardingPage).
+ */
 function PhaseNow({
   answers,
   set,
+  next,
+  saveNow,
 }: {
   answers: Answers;
   set: <K extends keyof Answers>(k: K, v: Answers[K]) => void;
+  next: () => void;
+  saveNow: () => void;
 }) {
-  return (
-    <div className="space-y-6">
-      <Field label="Your top 3 priorities right now">
-        <div className="space-y-2">
+  const [step, setStep] = useState<"form" | "review">("form");
+
+  const exampleTitles = [
+    "Launch product discovery sprint",
+    "Reduce stakeholder report time",
+    "Align on Q3 OKRs",
+  ];
+
+  /* ── Form step ── */
+  if (step === "form") {
+    return (
+      <div className="space-y-8">
+        <div className="space-y-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Your top 3 priorities right now
+          </p>
           {answers.priorities.map((p, i) => (
-            <input
+            <div
               key={i}
-              value={p}
-              onChange={(e) => {
-                const next = [...answers.priorities] as [
-                  string,
-                  string,
-                  string,
-                ];
-                next[i] = e.target.value;
-                set("priorities", next);
-              }}
-              placeholder={`${i + 1}.`}
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-            />
+              className="rounded-xl border border-border bg-card p-4 space-y-3"
+            >
+              <p className="text-xs font-semibold text-muted-foreground">
+                Priority {i + 1}
+              </p>
+              <Field label="Title">
+                <input
+                  value={p.title}
+                  onChange={(e) => {
+                    const updated = [
+                      ...answers.priorities,
+                    ] as typeof answers.priorities;
+                    updated[i] = { ...updated[i], title: e.target.value };
+                    set("priorities", updated);
+                  }}
+                  placeholder={`e.g. ${exampleTitles[i]}`}
+                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </Field>
+              <Field label="Owner (named person or role)">
+                <input
+                  value={p.owner}
+                  onChange={(e) => {
+                    const updated = [
+                      ...answers.priorities,
+                    ] as typeof answers.priorities;
+                    updated[i] = { ...updated[i], owner: e.target.value };
+                    set("priorities", updated);
+                  }}
+                  placeholder="e.g. Alex Smith or Product team"
+                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </Field>
+              <Field label="Due date">
+                <input
+                  type="date"
+                  value={p.dueDate}
+                  onChange={(e) => {
+                    const updated = [
+                      ...answers.priorities,
+                    ] as typeof answers.priorities;
+                    updated[i] = { ...updated[i], dueDate: e.target.value };
+                    set("priorities", updated);
+                  }}
+                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </Field>
+            </div>
           ))}
         </div>
-      </Field>
-      <Field label="Anything blocking you today?">
-        <textarea
-          rows={3}
-          value={answers.blockers}
-          onChange={(e) => set("blockers", e.target.value)}
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </Field>
+
+        <Field label="Anything blocking you right now?">
+          <textarea
+            rows={3}
+            value={answers.blockers}
+            onChange={(e) => set("blockers", e.target.value)}
+            placeholder="e.g. Waiting on legal sign-off for the vendor contract"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <Field label="Open questions (optional)">
+          <textarea
+            rows={2}
+            value={answers.openQuestions}
+            onChange={(e) => set("openQuestions", e.target.value)}
+            placeholder="e.g. Should we move the retrospective to Thursday?"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </Field>
+
+        <button
+          type="button"
+          onClick={() => setStep("review")}
+          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+        >
+          Review answers <ArrowRight className="size-4" />
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Review step (AC5) ── */
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Review your priorities. Click <strong>Confirm</strong> to save and move
+        to phase 6.
+      </p>
+
+      <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
+        {answers.priorities.map((p, i) => (
+          <div key={i} className="p-4 space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Priority {i + 1}
+            </p>
+            <p className="text-sm text-foreground">{p.title || "—"}</p>
+            <p className="text-xs text-muted-foreground">
+              Owner: {p.owner || "—"} · Due: {p.dueDate || "—"}
+            </p>
+          </div>
+        ))}
+        <ReviewRow label="Blockers" value={answers.blockers || "—"} />
+        {answers.openQuestions && (
+          <ReviewRow label="Open questions" value={answers.openQuestions} />
+        )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            saveNow();
+            next();
+          }}
+          className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
+        >
+          Confirm <ArrowRight className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setStep("form")}
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Go back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ----- Shared helpers ----- */
+
+/** Labelled row for review summary cards. */
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-4 p-4">
+      <span className="w-28 shrink-0 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm text-foreground whitespace-pre-wrap">
+        {value}
+      </span>
     </div>
   );
 }
@@ -880,7 +1317,7 @@ function PhaseWire({
   }> = [
     {
       key: "installed",
-      label: "I’ve enabled chat.useAgentsMdFile in VS Code Settings",
+      label: "I've enabled chat.useAgentsMdFile in VS Code Settings",
     },
     {
       key: "contextOpen",
@@ -888,7 +1325,7 @@ function PhaseWire({
     },
     {
       key: "testedPaste",
-      label: "I’ve sent the verification prompt and my assistant responded",
+      label: "I've sent the verification prompt and my assistant responded",
     },
   ];
 
@@ -907,7 +1344,7 @@ function PhaseWire({
     },
     {
       key: "testedPaste",
-      label: "I’ve sent the verification prompt and my assistant responded",
+      label: "I've sent the verification prompt and my assistant responded",
     },
   ];
 
@@ -1115,6 +1552,12 @@ function PhaseWire({
 }
 
 function PhaseFirst({ answers }: { answers: Answers }) {
+  // Format each priority as a single readable line for the handoff.
+  const priorityLines = answers.priorities.map(
+    (p, i) =>
+      `${i + 1}. ${p.title || "(untitled)"}${p.owner ? ` — ${p.owner}` : ""}${p.dueDate ? ` by ${p.dueDate}` : ""}`,
+  );
+
   return (
     <div className="space-y-8">
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center">
@@ -1133,10 +1576,15 @@ function PhaseFirst({ answers }: { answers: Answers }) {
           sections: [
             { label: "Role", body: answers.role },
             { label: "Workstyle", body: answers.workstyle },
+            { label: "Team", body: answers.team },
+            { label: "Key tools", body: answers.keyTools.filter(Boolean) },
             { label: "Stakeholders", body: answers.stakeholders },
             { label: "Glossary", body: answers.glossary },
-            { label: "Top 3 priorities", body: [...answers.priorities] },
+            { label: "Top 3 priorities", body: priorityLines },
             { label: "Blockers", body: answers.blockers },
+            ...(answers.openQuestions
+              ? [{ label: "Open questions", body: answers.openQuestions }]
+              : []),
             {
               label: "Ask",
               body: "Please initialize my context/ and memory/ files from the above and confirm you understand my context.",

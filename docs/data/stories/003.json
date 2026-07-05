@@ -1,0 +1,55 @@
+{
+  "id": "003",
+  "featureId": "f-onboarding",
+  "title": "Manual-path interview forms (phase 4) + Right-now phase for all paths (phase 5)",
+  "owner": "ui-dev",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-003",
+    "ADR-P6-004"
+  ],
+  "epicSource": "ADR-P6-004",
+  "userStory": "As a user who chose the manual seeding path or as any user reaching phase 5, I want the wizard to collect my org context via interview forms and my current priorities via a shared form, so that context/me.md, context/org.md, and context/active.md can be scaffolded accurately.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 4 (manual path) shows the About-you form with four fields: role, working style, team (free-text describing immediate team and headcount, new field), and key tools (list including which AI assistant and 3\u20134 enterprise tools, new field). These forms render only when `onboarding-state.json` shows `seedingPath: 'manual'`; seeded-path users see the Review & correct section cards (story 010) instead and the interview forms are skipped entirely."
+    },
+    {
+      "text": "Phase 4 (manual path) shows the Your-org form (stakeholders, glossary) behind a sensitivity-check confirmation panel displaying the exact phrase \"no personnel data, unreleased roadmap items, or commercial terms\" before saving org answers to disk. Clicking Cancel leaves onboarding-state.json org answers unchanged."
+    },
+    {
+      "text": "Phase 4 (manual path) ends with a review summary card showing all About-you and Your-org answers, with a 'Confirm' action and a 'Go back' link. Confirm triggers save-onboarding and advances to phase 5."
+    },
+    {
+      "text": "Phase 5 (both paths) captures each of the three priorities as an object with three sub-fields: title, owner (named person or role), and due date. After saving, `cat docs/data/local/onboarding-state.json` shows each priority as an object with keys title, owner, dueDate \u2014 not a plain string."
+    },
+    {
+      "text": "Phase 5 also captures a blockers field and an optional open-questions field. Phase 5 ends with a review summary card; Confirm triggers save-onboarding and advances to phase 6."
+    }
+  ],
+  "technicalNotes": "Edit phase 4 and phase 5 components in `work-hq/src/routes/onboarding.tsx`. Phase 4 branches on `answers.seedingPath` read from onboarding-state.json (loaded on mount by story 001): value 'manual' \u2192 render About-you + Your-org forms; value 'bootstrap' \u2192 render is owned by story 010 (section cards). Extend the `Answers` type: add `team: string`, `keyTools: string[]` for phase 4 manual fields; change `priorities` from `[string, string, string]` to `Array<{ title: string; owner: string; dueDate: string }>` (3 entries); add `openQuestions: string`. Sensitivity-check wording must match the exact language in `AGENTS.md` \u00a7Sensitivity check standing order. Review summary cards: read state, display labelled list, Confirm calls save-onboarding then next().",
+  "dependencies": [
+    "001",
+    "009"
+  ],
+  "outOfScope": "Writing to context/*.md files (story 004), file-exists overwrite detection on second run (story 004), bootstrap-path section cards (story 010), state persistence infrastructure (story 001), wire-assistant phase (story 005).",
+  "verificationPlan": [
+    {
+      "command": "cat docs/data/local/onboarding-state.json",
+      "checks": "After completing phase 5, JSON shows answers with team (string), keyTools (array), and priorities as an array of objects each with title/owner/dueDate keys."
+    },
+    {
+      "command": "grep -n 'personnel data' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a line number match \u2014 confirms the sensitivity-check phrase is present in the phase 4 manual-path component."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-05",
+      "change": "Revised scope to MANUAL path of phase 4 and both-paths phase 5 (Right now); seeded-path users skip the interview forms; phase numbers updated throughout; deps updated to include story 009.",
+      "reason": "ADR-P6-007 adds Glean-bootstrap seeding path and reorders wizard phases per amended ADR-P6-004."
+    }
+  ]
+}
