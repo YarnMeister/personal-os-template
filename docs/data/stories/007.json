@@ -1,0 +1,46 @@
+{
+  "id": "007",
+  "featureId": "f-onboarding",
+  "title": "README AI-executable runbook",
+  "owner": "pm",
+  "status": "In Progress",
+  "qa": "none",
+  "qaNote": "",
+  "adrRefs": [
+    "ADR-P6-004",
+    "ADR-P6-006"
+  ],
+  "epicSource": "ADR-P6-006",
+  "userStory": "As a non-technical user setting up the Personal OS, I want to show the README to my AI assistant and say 'set this up for me', so that the assistant runs every prerequisite step and opens the wizard without me needing to know npm commands.",
+  "acceptanceCriteria": [
+    {
+      "text": "The README's setup section contains numbered, copy-runnable steps in this exact order: (1) check/install Node.js \u2265 20, (2) `npm install --prefix work-hq`, (3) `npm run onboard` \u2014 with each step on its own numbered line and no inter-step dependency left implicit. Verified by: `grep -n 'npm install --prefix work-hq' README.md` returns a match."
+    },
+    {
+      "text": "The README explicitly states that the as-is configuration assumes GitHub Copilot in the VS Code native chat. `grep -n 'assumes GitHub Copilot\\|as-is configuration assumes' README.md` returns a match."
+    },
+    {
+      "text": "The README documents the chat-only os-helper Butler path as the no-Node fallback with this instruction or equivalent: 'If you don't have Node.js, open this folder in VS Code and say \"onboard me\" to your assistant.' `grep -n 'onboard me\\|no-Node\\|without Node' README.md` returns a match."
+    },
+    {
+      "text": "The README contains one line explaining that the repo-root `package.json` exists solely to launch the Work HQ and that the OS works without it. `grep -n 'package.json' README.md` returns a match on that explanatory line."
+    },
+    {
+      "text": "The setup section is framed as AI-assistant-executable: an explicit instruction such as 'point your AI assistant at this README and say: set this up for me' appears before the numbered steps."
+    }
+  ],
+  "technicalNotes": "Edit `README.md` at the repo root. This is a documentation-only story \u2014 no app code, no skill changes. Framing: lead the setup section with the AI-assistant invocation line. Ordered steps must be copy-runnable commands (not prose descriptions). Copilot assumption note and adaptation guidance per OQ-003 resolution. No-Node fallback documents the os-helper 'onboard me' trigger per ADR-P6-004 consequences.",
+  "dependencies": [],
+  "outOfScope": "Root package.json creation or modification (implementation concern), Work HQ app code changes, skill file edits, any other README section beyond the setup/onboarding section.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'npm install --prefix work-hq' README.md",
+      "checks": "Returns a match confirming the exact install command is present in the README runbook."
+    },
+    {
+      "command": "grep -n 'set this up for me\\|point your AI' README.md",
+      "checks": "Returns a match confirming the AI-assistant-executable framing appears before the numbered steps."
+    }
+  ],
+  "revisionLog": []
+}

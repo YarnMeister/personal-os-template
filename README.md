@@ -15,8 +15,28 @@ AGENTS.md (always loaded)
 ├── context/org.md         ← stakeholder map and shared glossary
 ├── memory/eval.md         ← pre-response quality checklist
 ├── memory/learnings.md    ← patterns the AI has accumulated
-└── .github/skills/        ← specialist agents (chief-of-staff, researcher, …)
+└── skills/        ← specialist agents (chief-of-staff, researcher, …)
 ```
+
+---
+
+## Setting Up — Ask Your AI Assistant
+
+Point your AI assistant at this README and say: **"set this up for me"** — the assistant will run every prerequisite step and open the onboarding wizard on your behalf.
+
+The as-is configuration assumes GitHub Copilot in the VS Code native chat. If you use a different assistant, your AI can adapt the steps to match your tool.
+
+### Runbook
+
+Follow these steps in order. Each command is copy-runnable; your AI assistant can execute them for you.
+
+1. **Check or install Node.js ≥ 20.** Run `node --version` to check. If Node is not installed, download and install the LTS release from [nodejs.org](https://nodejs.org) before continuing.
+2. **Install Work HQ dependencies:** `npm install --prefix work-hq`
+3. **Launch the onboarding wizard:** `npm run onboard`
+
+> **No-Node fallback.** If you don't have Node.js, open this folder in VS Code and say **"onboard me"** to your assistant. The `os-helper` skill runs a chat-only onboarding — no install required. The full wizard is an enhancement; the OS works without it.
+
+**About `package.json`:** The repo-root `package.json` exists solely to launch the Work HQ and run the onboarding wizard — the OS itself is plain markdown files and works without it.
 
 ---
 
@@ -79,7 +99,7 @@ personal-os/
 ├── areas/<name>.md               # Tier 3 standing responsibilities [personal, gitignored]
 ├── knowledge/this-week.md        # Weekly consolidated reference [personal, gitignored]
 │
-├── .github/skills/
+├── skills/
 │   ├── REGISTRY.md               # Skill catalogue with versions [shared]
 │   ├── chief-of-staff/SKILL.md   # Daily orchestration skill [shared]
 │   ├── researcher/SKILL.md       # Research and consolidation skill [shared]
