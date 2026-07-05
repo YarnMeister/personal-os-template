@@ -3,7 +3,7 @@
   "featureId": "f-onboarding",
   "title": "README AI-executable runbook",
   "owner": "pm",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "",
   "adrRefs": [
@@ -42,5 +42,35 @@
       "checks": "Returns a match confirming the AI-assistant-executable framing appears before the numbered steps."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "feat/onboarding",
+    "commit": "4db0a0b",
+    "filesTouched": [
+      "README.md"
+    ],
+    "notes": "Documentation-only story. Added the 'Setting Up — Ask Your AI Assistant' section to README.md immediately before the existing 'Quick Start' section. The section contains: (1) AI-assistant-executable framing ('point your AI assistant at this README and say: set this up for me'); (2) Copilot assumption statement ('as-is configuration assumes GitHub Copilot in the VS Code native chat'); (3) numbered runbook with Node ≥ 20 check, npm install --prefix work-hq, and npm run onboard; (4) no-Node fallback with 'onboard me' trigger; (5) explanatory line about repo-root package.json. The diff also contains two pre-existing working-tree corrections (.github/skills/ → skills/) in the How It Works diagram and Directory Map sections that were already modified before this story began — they are factually correct and included in the same commit.",
+    "verificationRun": [
+      {
+        "command": "grep -n 'npm install --prefix work-hq' README.md",
+        "result": "PASS — line 34: 2. **Install Work HQ dependencies:** `npm install --prefix work-hq`"
+      },
+      {
+        "command": "grep -n 'set this up for me\\|point your AI' README.md",
+        "result": "PASS — line 25: Point your AI assistant at this README and say: **\"set this up for me\"**"
+      },
+      {
+        "command": "grep -n 'assumes GitHub Copilot\\|as-is configuration assumes' README.md",
+        "result": "PASS — line 27: The as-is configuration assumes GitHub Copilot in the VS Code native chat."
+      },
+      {
+        "command": "grep -n 'onboard me\\|no-Node\\|without Node' README.md",
+        "result": "PASS — line 37: No-Node fallback with 'onboard me' trigger documented."
+      },
+      {
+        "command": "grep -n 'package.json' README.md",
+        "result": "PASS — line 39: explanatory note about repo-root package.json present."
+      }
+    ]
+  }
 }
