@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "Consistency and honesty fixes",
   "owner": "developer",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": [],
@@ -63,5 +63,30 @@
       "change": "Added AC7: check-handshake.ts header comment must correctly state detected: true (not detected: false) for malformed-JSON case, per ADR-P6-008 existence-only rule. Added AC8: phase-2 locked verification state Check icon must carry aria-hidden={true} and confirmation text must be screen-reader-complete without relying on the visual ✓ character.",
       "reason": "Story 015 QA follow-ups #1 and #2 — QA approved 015 but flagged the misleading server comment and the locked-state icon a11y gap as outside 015 AC scope; pre-implementation scope additions to 017."
     }
-  ]
+  ],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "0e35ebb5dcdf8947c86562885b67e7991db67408",
+    "filesTouched": [
+      "work-hq/src/routes/_app.tsx",
+      "work-hq/src/components/work-hq/AppSidebar.tsx",
+      "work-hq/src/routes/onboarding.tsx",
+      "work-hq/src/components/work-hq/RitualLayout.tsx",
+      "work-hq/src/server/check-handshake.ts"
+    ],
+    "notes": "AC1: _app.tsx route now loads loadOnboarding() and passes onboardingState to AppSidebar; AppSidebar derives onbPhase/onbComplete from onboarding-state.json (null → phase 1, complete when completedPhases includes 6), mock.onboardingSeed removed. AC2: the six top-rail dots are replaced with a labeled <nav> stepper — completed phases are back-nav <button>s (setPhase), the current phase carries aria-current='step', future phases are aria-disabled locked spans; every step exposes its phase title via aria-label + sr-only text; 24px (size-6) hit targets satisfy SC 2.5.8. AC3: profileDetected added to Answers/emptyAnswers/normalizeAnswers (coerced === true for legacy backward compat); PhaseSeeding seeds local state from answers.profileDetected and persists via set('profileDetected', true) on poll or manual refresh detection (debounced save writes it to disk); phase-4 renders cards on reload because the detected file is read by readProfile so the waiting state is not re-shown. AC4: RitualLayout's hardcoded 'Saved to LocalStorage · just now' removed (option a) — the ritual routes use mock state so no truthful savedAt exists. AC5: AutosaveField first.current mount guard verified intact (no change needed — AC only requires it remain; component untouched to preserve minimal diff). AC6: RoleCombobox trigger carries aria-label='Your role', KeyToolsCombobox trigger carries aria-label='Key tools'. AC7: check-handshake.ts header comment corrected to detected: true per ADR-P6-008 existence-only rule. AC8: PhaseWire locked verification Check icon carries aria-hidden={true}; an sr-only 'Verified:' prefix makes the confirmation screen-reader-complete without relying on the ✓ glyph.",
+    "verificationRun": [
+      "npx tsc --noEmit → PASS (exit 0)",
+      "npm run --prefix work-hq build → PASS (exit 0, built in ~450ms)",
+      "grep onboardingSeed AppSidebar.tsx → no match (PASS)",
+      "grep 'Saved to LocalStorage|just now' RitualLayout.tsx → no match (PASS)",
+      "grep 'labeledStep|stepButton' onboarding.tsx → match (PASS)",
+      "grep profileDetected onboarding.tsx → match, saved via set() (PASS)",
+      "grep first.current AutosaveField.tsx → match on early-return guard (PASS)",
+      "grep 'aria-label' onboarding.tsx → role + key-tools trigger matches (PASS)",
+      "grep 'detected: true' check-handshake.ts → match in corrected comment (PASS)",
+      "grep aria-hidden + sr-only in PhaseWire locked block → match (PASS)",
+      "prettier --check touched files → onboarding.tsx has 2 pre-existing (identical at HEAD) eslint-disable indent warnings only; all story lines clean"
+    ]
+  }
 }

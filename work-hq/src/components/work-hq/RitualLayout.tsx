@@ -27,9 +27,6 @@ export function RitualLayout({
           <h1 className="text-lg font-medium text-foreground">{title}</h1>
           {status}
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground">
-          Saved to LocalStorage · just now
-        </span>
       </header>
 
       <section className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-2">

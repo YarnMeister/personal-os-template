@@ -128,6 +128,13 @@ type Answers = {
   /** AC3: work email collected before generating the bootstrap prompt */
   workEmail: string;
   /**
+   * Story 017 AC3 (file-contracts §3.1): true once the phase-3
+   * `checkProfileExists` poll finds context/profile.md. Persisted so phase 4
+   * renders section cards immediately on reload without re-showing the waiting
+   * state. Backward compatible — legacy state lacking it defaults to false.
+   */
+  profileDetected: boolean;
+  /**
    * Story 010 + story 013 (ADR-P6-009): review state from the Review & correct
    * phase.  Keys are section headings from context/profile.md.
    * - `body` + `edited` — the section-level raw-edit escape hatch (story 010):
@@ -163,6 +170,7 @@ const emptyAnswers: Answers = {
   seedingPath: "",
   fullName: "",
   workEmail: "",
+  profileDetected: false,
   editedSections: {},
 };
 
@@ -331,6 +339,10 @@ function normalizeAnswers(raw: unknown): Answers {
   const team = normalizeTeam(a.team);
   const stakeholders = normalizeStakeholders(a.stakeholders);
 
+  // Story 017 AC3: coerce profileDetected to a boolean; legacy state lacking
+  // it (or carrying a non-boolean) falls back to false with no data loss.
+  const profileDetected = a.profileDetected === true;
+
   return {
     ...emptyAnswers,
     ...(raw as Partial<Answers>),
@@ -339,6 +351,7 @@ function normalizeAnswers(raw: unknown): Answers {
     workstyle,
     team,
     stakeholders,
+    profileDetected,
   };
 }
 
@@ -519,17 +532,66 @@ function OnboardingPage() {
                 style={{ width: `${(phase / 6) * 100}%` }}
               />
             </div>
-            <div className="flex gap-1.5">
-              {phases.map((p) => (
-                <span
-                  key={p.n}
-                  className={cn(
-                    "size-1.5 rounded-full",
-                    p.n <= phase ? "bg-primary" : "bg-muted",
-                  )}
-                />
-              ))}
-            </div>
+            {/* labeledStep stepper (story 017 AC2): completed phases are
+                clickable stepButtons that navigate back via setPhase; the
+                current phase carries aria-current="step"; future phases are
+                non-interactive locked indicators. Phase titles are exposed to
+                assistive tech via aria-label + sr-only text. */}
+            <nav
+              aria-label="Onboarding progress"
+              className="flex items-center gap-1.5"
+            >
+              {phases.map((p) => {
+                const isCompleted = completedPhases.includes(p.n);
+                const isCurrent = p.n === phase;
+                const label = `Phase ${p.n} of 6: ${p.title}`;
+                const dotBase = "size-1.5 rounded-full";
+                // Completed and not the current phase → clickable back-nav.
+                if (isCompleted && !isCurrent) {
+                  return (
+                    <button
+                      key={p.n}
+                      type="button"
+                      onClick={() => setPhase(p.n)}
+                      aria-label={`${label} (completed) — go back to this phase`}
+                      className={cn(
+                        "flex size-6 items-center justify-center rounded-full transition-colors hover:bg-primary/10",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <span className={cn(dotBase, "bg-primary")} />
+                      <span className="sr-only">{label}, completed</span>
+                    </button>
+                  );
+                }
+                // Current phase → indicated, not interactive.
+                if (isCurrent) {
+                  return (
+                    <span
+                      key={p.n}
+                      aria-current="step"
+                      aria-label={`${label} (current)`}
+                      className="flex size-6 items-center justify-center rounded-full ring-1 ring-primary/50"
+                    >
+                      <span className={cn(dotBase, "bg-primary")} />
+                      <span className="sr-only">{label}, current</span>
+                    </span>
+                  );
+                }
+                // Future phase → locked, non-interactive.
+                return (
+                  <span
+                    key={p.n}
+                    aria-disabled="true"
+                    aria-label={`${label} (locked)`}
+                    className="flex size-6 items-center justify-center rounded-full"
+                  >
+                    <span className={cn(dotBase, "bg-muted")} />
+                    <span className="sr-only">{label}, locked</span>
+                  </span>
+                );
+              })}
+            </nav>
           </div>
           <Link
             to="/today"
@@ -1013,25 +1075,38 @@ function PhaseSeeding({
   const [promptContent, setPromptContent] = useState<string | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);
   const [promptError, setPromptError] = useState(false);
-  const [profileDetected, setProfileDetected] = useState(false);
+  // Story 017 AC3: seed local detection state from persisted answers so a
+  // refresh after detection keeps the confirmation without re-polling.
+  const [profileDetected, setProfileDetected] = useState(
+    () => answers.profileDetected,
+  );
   const [checking, setChecking] = useState(false);
+
+  // Story 017 AC3: mark detection both locally (drives the status UI) and in
+  // persisted answers (survives refresh; written to onboarding-state.json by
+  // the debounced save).
+  const markDetected = () => {
+    setProfileDetected(true);
+    if (!answers.profileDetected) set("profileDetected", true);
+  };
 
   // AC4: Auto-poll context/profile.md every 5 s once the prompt has been shown.
   useEffect(() => {
     if (!promptContent || profileDetected) return;
     const id = setInterval(() => {
       void checkProfileExists().then(({ exists }) => {
-        if (exists) setProfileDetected(true);
+        if (exists) markDetected();
       });
     }, 5000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptContent, profileDetected]);
 
   const handleRefresh = () => {
     setChecking(true);
     void checkProfileExists().then(({ exists }) => {
       setChecking(false);
-      if (exists) setProfileDetected(true);
+      if (exists) markDetected();
     });
   };
 
@@ -2262,6 +2337,7 @@ function RoleCombobox({
           type="button"
           role="combobox"
           aria-expanded={open}
+          aria-label="Your role"
           className={CONTROL_TRIGGER}
         >
           <span className={cn(!value && "text-muted-foreground")}>
@@ -2505,6 +2581,7 @@ function KeyToolsCombobox({
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-label="Key tools"
             className={CONTROL_TRIGGER}
           >
             <span className="text-muted-foreground">
@@ -3590,8 +3667,16 @@ function PhaseWire({
                 key={c.key}
                 className="flex items-center gap-3 rounded-lg border border-fresh/40 bg-fresh/5 p-4"
               >
-                <Check className="size-4 shrink-0 text-fresh" />
+                {/* Story 017 AC8: the ✓ icon is decorative — hidden from
+                    assistive tech so it is not announced redundantly. The
+                    verification status is conveyed textually (sr-only prefix +
+                    visible label) so it is complete without the visual mark. */}
+                <Check
+                  aria-hidden={true}
+                  className="size-4 shrink-0 text-fresh"
+                />
                 <span className="text-sm font-medium text-fresh">
+                  <span className="sr-only">Verified: </span>
                   {timeLabel
                     ? `Assistant verified at ${timeLabel}`
                     : "Assistant verified"}

@@ -15,8 +15,10 @@
  *   assistant  — the assistant name from the file, or null when absent /
  *               malformed.
  *
- * Malformed JSON is treated as detected: false, verifiedAt: null,
- * assistant: null — the route never throws.
+ * Malformed JSON is treated as detected: true, verifiedAt: null,
+ * assistant: null — under the existence-only detection rule (ADR-P6-008) the
+ * presence of handshake.json is sufficient for detection; content validity is
+ * not required. The route never throws.
  */
 
 import { createServerFn } from "@tanstack/react-start";

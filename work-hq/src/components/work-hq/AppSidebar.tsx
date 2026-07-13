@@ -3,6 +3,7 @@ import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { mock } from "@/lib/mock";
+import type { OnboardingState } from "@/server/load-onboarding";
 
 const rituals = [
   { to: "/today", label: "Today" },
@@ -15,11 +16,18 @@ const reference = [
   { to: "/questions", label: "Questions" },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({
+  onboardingState,
+}: {
+  onboardingState: OnboardingState | null;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, toggle } = useTheme();
-  const onbPhase = mock.onboardingSeed.phase;
-  const onbComplete = onbPhase >= 6;
+  // Story 017 AC1: onboarding progress is derived from onboarding-state.json
+  // (loader-injected), not from mock data. A null state means the wizard has
+  // not been started yet — show phase 1 so the Resume card invites setup.
+  const onbPhase = onboardingState?.phase ?? 1;
+  const onbComplete = (onboardingState?.completedPhases ?? []).includes(6);
 
   const NavItem = ({ to, label }: { to: string; label: string }) => {
     const active = pathname === to;
