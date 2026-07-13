@@ -4,12 +4,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Copy,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { HandoffDock } from "@/components/work-hq/HandoffDock";
+import { ActionCard } from "@/components/work-hq/ActionCard";
+import { buildHandoff } from "@/lib/handoff";
 import { cn } from "@/lib/utils";
 import { loadOnboarding } from "@/server/load-onboarding";
 import { saveOnboarding } from "@/server/save-onboarding";
@@ -513,67 +513,32 @@ function PhaseOrientation() {
 /* ----- PhaseSeeding (phase 3) — story 009 ----- */
 
 /**
- * Renders a raw-content Collect & Copy block for the bootstrap prompt.
- * Visually matches HandoffDock but accepts arbitrary text rather than a
- * structured HandoffSpec, because the bootstrap prompt is a full markdown
- * document authored in templates/bootstrap-profile-prompt.md.
+ * Renders the bootstrap prompt as an ActionCard (story 012).
+ * The raw template markdown (from templates/bootstrap-profile-prompt.md) is
+ * passed through unchanged as the clipboard payload; the human-readable step
+ * list summarises what the Glean-connected assistant will do. The optional
+ * `statusLine` surfaces the phase-3 profile-detection polling state.
  */
-function BootstrapCopyBlock({ content }: { content: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const onCopy = () => {
-    void navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
-
+function BootstrapCopyBlock({
+  content,
+  statusLine,
+}: {
+  content: string;
+  statusLine?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-[0_0_40px_-20px_var(--primary)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">
-            Bootstrap prompt ready
-          </h4>
-          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-            profile-bootstrap · ~{content.length.toLocaleString()} chars
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold shadow-[0_0_24px_-6px_var(--primary)] transition-all",
-            copied
-              ? "bg-fresh text-primary-foreground"
-              : "bg-primary text-primary-foreground hover:brightness-110",
-          )}
-        >
-          {copied ? (
-            <>
-              <Check className="size-4" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="size-4" /> Collect &amp; Copy
-            </>
-          )}
-          <kbd className="ml-1 rounded bg-white/20 px-1 font-mono text-[10px]">
-            ⌘C
-          </kbd>
-        </button>
-      </div>
-
-      <pre className="relative mt-4 max-h-56 overflow-auto rounded-lg border border-border/60 bg-background/60 p-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
-        <code className="text-primary">{content.split("\n")[0]}</code>
-        {"\n"}
-        {content.split("\n").slice(1).join("\n")}
-      </pre>
-
-      <p className="mt-3 text-center text-[10px] text-muted-foreground">
-        {copied ? "✓ On your clipboard. " : ""}
-        Paste into your Glean-connected AI assistant to generate your profile.
-      </p>
-    </div>
+    <ActionCard
+      title="Bootstrap prompt ready"
+      meta={`profile-bootstrap · ~${content.length.toLocaleString()} chars`}
+      stepList={[
+        "Research you via Glean enterprise data",
+        "Write context/profile.md in this workspace",
+        "Tell you it's ready for review here",
+      ]}
+      copyPayload={content}
+      statusLine={statusLine}
+      hint="Paste into your Glean-connected AI assistant to generate your profile."
+    />
   );
 }
 
@@ -626,8 +591,9 @@ function buildProfileCorrectionsMarkdown(
 }
 
 /**
- * Collect & Copy block for the profile-corrections handoff (story 011 AC1/AC2).
- * Visually matches HandoffDock; markdown is built via buildProfileCorrectionsMarkdown.
+ * ActionCard for the profile-corrections handoff (story 011 AC1/AC2, story 012).
+ * Markdown is built via buildProfileCorrectionsMarkdown and passed through
+ * unchanged as the clipboard payload.
  */
 function ProfileCorrectionsDock({
   editedSections,
@@ -638,67 +604,24 @@ function ProfileCorrectionsDock({
   editedCount: number;
   fullName: string;
 }) {
-  const [copied, setCopied] = useState(false);
   const markdown = buildProfileCorrectionsMarkdown(editedSections, fullName);
 
-  const onCopy = () => {
-    void navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
-
   return (
-    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-[0_0_40px_-20px_var(--primary)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">
-            Profile corrections handoff
-          </h4>
-          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-            profile-corrections ·{" "}
-            {editedCount === 0
-              ? "no edits"
-              : `${editedCount} section${editedCount === 1 ? "" : "s"} edited`}{" "}
-            · ~{markdown.length.toLocaleString()} chars
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold shadow-[0_0_24px_-6px_var(--primary)] transition-all",
-            copied
-              ? "bg-fresh text-primary-foreground"
-              : "bg-primary text-primary-foreground hover:brightness-110",
-          )}
-        >
-          {copied ? (
-            <>
-              <Check className="size-4" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="size-4" /> Collect &amp; Copy
-            </>
-          )}
-          <kbd className="ml-1 rounded bg-white/20 px-1 font-mono text-[10px]">
-            ⌘C
-          </kbd>
-        </button>
-      </div>
-
-      <pre className="relative mt-4 max-h-56 overflow-auto rounded-lg border border-border/60 bg-background/60 p-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
-        <code className="text-primary">{markdown.split("\n")[0]}</code>
-        {"\n"}
-        {markdown.split("\n").slice(1).join("\n")}
-      </pre>
-
-      <p className="mt-3 text-center text-[10px] text-muted-foreground">
-        {copied ? "✓ On your clipboard. " : ""}
-        Paste into your AI assistant to apply corrections and lock in your
-        context files.
-      </p>
-    </div>
+    <ActionCard
+      title="Profile corrections handoff"
+      meta={`profile-corrections · ${
+        editedCount === 0
+          ? "no edits"
+          : `${editedCount} section${editedCount === 1 ? "" : "s"} edited`
+      } · ~${markdown.length.toLocaleString()} chars`}
+      stepList={[
+        "Apply your corrections to context/profile.md",
+        "Rewrite it as a first-person assistant context document",
+        "Distil context/me.md, org.md, and active.md from it",
+      ]}
+      copyPayload={markdown}
+      hint="Paste into your AI assistant to apply corrections and lock in your context files."
+    />
   );
 }
 
@@ -935,55 +858,42 @@ function PhaseSeeding({
     );
   }
 
-  // Step 2: Show prompt + waiting area (AC3 + AC4)
+  // Step 2: Show prompt + polling status (AC3 + AC4)
+  // AC4: profile-detection polling is surfaced inside the ActionCard's
+  // statusLine slot — waiting state (auto-checking every 5 s, with a manual
+  // Refresh) flips to a "✓ Profile detected" confirmation once found.
+  const statusLine = profileDetected ? (
+    <div className="flex items-start gap-2 rounded-xl border border-fresh/40 bg-fresh/5 px-4 py-3">
+      <Check className="mt-0.5 size-4 shrink-0 text-fresh" />
+      <p className="text-sm text-foreground">
+        <span className="font-semibold">Profile detected</span> —{" "}
+        <code className="font-mono text-xs text-foreground">
+          context/profile.md
+        </code>{" "}
+        is ready. Click <strong>Next phase</strong> to continue.
+      </p>
+    </div>
+  ) : (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <p className="text-sm text-muted-foreground">
+        Waiting for your assistant… auto-checking every 5 s.
+      </p>
+      <button
+        type="button"
+        onClick={handleRefresh}
+        disabled={checking}
+        className="flex shrink-0 items-center gap-1.5 rounded text-sm font-medium text-primary hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        <RefreshCw className={cn("size-4", checking && "animate-spin")} />
+        {checking ? "Checking…" : "Refresh now"}
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      {/* AC3: Collect & Copy block with handoff kind 'profile-bootstrap' */}
-      <BootstrapCopyBlock content={promptContent} />
-
-      {/* AC4: Waiting / refresh area */}
-      {profileDetected ? (
-        <div className="rounded-xl border border-fresh/40 bg-fresh/5 p-5">
-          <div className="flex items-center gap-2">
-            <Check className="size-5 text-fresh" />
-            <span className="text-sm font-semibold text-foreground">
-              Profile detected
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <code className="font-mono text-xs text-foreground">
-              context/profile.md
-            </code>{" "}
-            is ready. Click <strong>Next phase</strong> to continue.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Waiting for your assistant
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Paste the prompt above into your Glean-connected assistant and wait
-            for it to write{" "}
-            <code className="font-mono text-xs text-foreground">
-              context/profile.md
-            </code>
-            . Return here once it confirms the file is written.
-          </p>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={checking}
-            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-50"
-          >
-            <RefreshCw className={cn("size-4", checking && "animate-spin")} />
-            {checking ? "Checking…" : "Refresh now"}
-          </button>
-          <p className="text-[10px] text-muted-foreground">
-            Auto-checking every 5 seconds in the background.
-          </p>
-        </div>
-      )}
+      {/* AC3: bootstrap prompt (kind 'profile-bootstrap') + polling status. */}
+      <BootstrapCopyBlock content={promptContent} statusLine={statusLine} />
     </div>
   );
 }
@@ -2202,6 +2112,24 @@ function PhaseWire({
  *    instruction to write any file and no use of the word "initialize".
  */
 function PhaseFirst({ answers: _answers }: { answers: Answers }) {
+  // AC2: kind "onboarding" → first line is "## Work HQ handoff · onboarding · <date>".
+  // Built via buildHandoff and passed through ActionCard unchanged (story 012).
+  const { markdown } = buildHandoff({
+    kind: "onboarding",
+    sections: [
+      {
+        label: "Scaffolded files",
+        body: ["context/me.md", "context/org.md", "context/active.md"],
+      },
+      {
+        label: "Ask",
+        body:
+          "(a) Verify these files are in place and contain real content — confirm each is present.\n" +
+          '(b) Run my first "morning standup".',
+      },
+    ],
+  });
+
   return (
     <div className="space-y-8">
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center">
@@ -2214,25 +2142,14 @@ function PhaseFirst({ answers: _answers }: { answers: Answers }) {
         </p>
       </div>
 
-      {/* AC2: kind "onboarding" → first line is "## Work HQ handoff · onboarding · <date>" */}
-      <HandoffDock
-        spec={{
-          kind: "onboarding",
-          sections: [
-            {
-              label: "Scaffolded files",
-              body: ["context/me.md", "context/org.md", "context/active.md"],
-            },
-            {
-              label: "Ask",
-              body:
-                "(a) Verify these files are in place and contain real content — confirm each is present.\n" +
-                '(b) Run my first "morning standup".',
-            },
-          ],
-        }}
+      <ActionCard
         title="Onboarding handoff"
-        filename="onboarding-handoff.md"
+        meta={`onboarding · ${markdown.length.toLocaleString()} chars · onboarding-handoff.md`}
+        stepList={[
+          "Verify context/me.md, org.md, and active.md are in place",
+          "Run your first morning standup",
+        ]}
+        copyPayload={markdown}
         hint="Paste into your assistant to verify your context files and run your first standup."
       />
     </div>
