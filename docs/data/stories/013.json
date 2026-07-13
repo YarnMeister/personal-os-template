@@ -3,9 +3,9 @@
   "featureId": "f-onboarding-ux",
   "title": "Phase 4 review becomes per-fact triage",
   "owner": "ui-dev",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "—",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified; 23/23 harness checks pass; tsc clean; build clean; 3 dev interpretations ruled ACCEPT.",
   "impl": {
     "branch": "f-onboarding-ux",
     "commit": "999cc1b",
@@ -85,5 +85,64 @@
       "checks": "Returns at least one match confirming the per-section escape hatch is still present."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — parseFacts function exists, parses bullets and short paragraphs",
+        "evidence": "grep -n 'parseFacts|splitFacts|factRows' onboarding.tsx → parseFacts defined at line 1163 (function parseFacts(body: string): Fact[]), called at line 1778 inside PhaseReviewCorrect. Harness ran parseFacts against fictional-profile.ts: 20 sections → 46 facts; 6 prose/table sections with body ≥200 chars correctly yield 0 facts (raw-edit fallback). No fact exceeded FACT_LENGTH_LIMIT. VP1 PASS."
+      },
+      {
+        "ac": "AC2 — Three action controls per fact; per-fact status chip defaulting to Unknown",
+        "evidence": "FactRow component onboarding.tsx:1302–1461. Accept button line 1411 with aria-pressed={accepted} (line 1414) and aria-label toggling between accept/undo-accept. Edit button line 1431 opens inline textarea (lines 1347–1390) with Save/Cancel. Remove button line 1445 transitions to struck-through state with Undo button. factStatusFor() at line 1140 calls detectStatus() on fact text, falls back to sectionStatus — defaults to 'Unknown' when no label found (line 1092). StatusChip rendered at line 1397. All three FOCUS_RING-wrapped (lines 1426, 1441, 1453). VERIFIED by static analysis."
+      },
+      {
+        "ac": "AC3 — Derived/Unknown sorted first under 'N items need your review'; Confirmed/Accepted collapsed; both visible without scrolling",
+        "evidence": "Page-level review header (onboarding.tsx:1861–1874) shows totalReview + totalSettled, both in the same sticky-area div, always visible before section cards. isSettledFact() (line 1245): accepted=settled, pending-Confirmed=settled, edited/removed=review. FactSectionCard splits reviewFacts/settledFacts (lines 1501–1502); reviewFacts render first, settledFacts in <details> 'N confirmed — click to expand' (line 1602). Section ordering: isRawEdited||reviewCount>0 sorts first (lines 1803–1807). Interpretation (a) ruling: ACCEPT (see below)."
+      },
+      {
+        "ac": "AC4 — Decisions persist; normalizeAnswers migrates legacy { body, edited } shape",
+        "evidence": "editedSections type at onboarding.tsx:98–101 includes facts?: FactDecision[]. normalizeEditedSections (lines 165–187) handles legacy entries: if Array.isArray(entry.facts) is false, facts is left undefined. normalizeFactDecision (lines 136–156) coerces enum values. python3 confirmed onboarding-state.json has legacy entry {body, edited:true} for 'Executive summary' with no facts key — normalizeEditedSections preserves body+edited and leaves facts undefined. Harness test (e): 3 assertions PASS (body preserved, edited preserved, facts===undefined, legacy section appears in handoff, zero-changes wording not emitted). grep normalizeAnswers returns line 196 (definition), 265, 271 (call sites). VP2 runtime check substituted with deterministic harness (browser not available); migration path fully verified."
+      },
+      {
+        "ac": "AC5 — Handoff rebuilt from fact decisions; header format unchanged",
+        "evidence": "buildProfileCorrectionsMarkdown (onboarding.tsx:657–711): header = '## Work HQ handoff · profile-corrections · ${today}' (line 663). Harness tests: (a) accept-all → 'No corrections — all sections accepted as is' + Ask block, header correct. (b) edit one fact → exactly one '- Drives the quarterly OKR process for the Product org' bullet (no other fact bullets). (c) remove one fact → exactly one '- **Removed:** Product operations and delivery coordination'. (d) header line exactly '## Work HQ handoff · profile-corrections · 2026-07-13'. All 23 harness assertions PASS."
+      },
+      {
+        "ac": "AC6 — 'Edit raw section' escape hatch retained per story 010",
+        "evidence": "grep -n 'Edit raw|rawEdit|rawSection|editRaw' onboarding.tsx → 4 matches: line 1469 (JSDoc), 1583 (message text inside empty-facts fallback), 1638 (button label), 1659 (JSDoc). Button at line 1632 sets rawOpen=true; when rawOpen, full-body textarea (lines 1527–1552) with rawId='raw-section-<heading>' renders. rawOpen defaults true for already-raw-edited sections (line 1499). VP3 PASS."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'parseFacts|splitFacts|factRows' onboarding.tsx → PASS — lines 1163, 1657 (doc), 1778",
+      "grep -n 'Edit raw|rawEdit|rawSection|editRaw' onboarding.tsx → PASS — lines 1469, 1583, 1638, 1659",
+      "grep -n 'normalizeAnswers' onboarding.tsx → PASS — lines 196, 265, 271",
+      "node harness.mjs (parseFacts + buildProfileCorrectionsMarkdown against fictional-profile.ts) → PASS — 23/23 assertions",
+      "python3 inspect onboarding-state.json → legacy {body,edited} entry confirmed; facts key absent as expected",
+      "work-hq/node_modules/.bin/tsc --noEmit → PASS — no output (zero errors)",
+      "npm run --prefix work-hq build → PASS — client+server built; onboarding server chunk 99.04 kB gzip 22.62 kB",
+      "secrets scan on diff (grep DATABASE_URL|API_KEY|SECRET|TOKEN|eyJ|BEGIN RSA) → PASS — no matches",
+      "git diff 999cc1b~1..999cc1b --name-only → one file: work-hq/src/routes/onboarding.tsx"
+    ],
+    "securityAndMigrationGates": "Secrets scan on all added lines of commit 999cc1b: PASS — no credentials, tokens, or private keys. The only 'migration' in the diff is a client-side JSON shape migration in normalizeEditedSections (additive optional field, no data loss). No database schema changes, no migration files required.",
+    "riskNotes": "VP2 (runtime onboarding-state.json extended shape) could not be fully observed without a live browser session in phase 4. The migration path is verified by harness and static analysis; the write path (updateFact → writeSection with facts array) is covered by static analysis of onboarding.tsx:1823–1849. Confidence remains High because parseFacts, reconcileFacts, and buildProfileCorrectionsMarkdown are pure functions with complete harness coverage. reconcileFacts matches persisted decisions by stable index id — if profile.md were regenerated mid-session, ids could drift; this is within-spec for the current story and would be guarded by the raw-edit escape hatch.",
+    "recommendedFollowUps": "ADR-P6-009 consequences note that os-helper's Signal-C handling must honour the '**Removed:**' marker (delete flagged facts from profile.md). This was flagged in the ADR as a follow-up SKILL.md note — pin to whichever story covers os-helper SKILL.md updates in f-onboarding-ux (likely story 014 or a dedicated skill story).",
+    "interpretationRulings": [
+      {
+        "flag": "(a) N-count includes edited/removed facts, not just literal non-Confirmed/non-Accepted by status alone",
+        "ruling": "ACCEPT — AC says 'N is the count of non-Confirmed/non-Accepted facts'. Edited and removed facts satisfy this: neither has decision='accepted' nor sits in the settled (Confirmed+pending) bucket. The isSettledFact() predicate (pending-Confirmed=settled, accepted=settled, all else=review) is internally consistent and produces better UX by always surfacing outstanding changes."
+      },
+      {
+        "flag": "(b) Grouping is page-level banner + per-section <details> collapsed groups, not one global confirmed group",
+        "ruling": "ACCEPT — AC requires 'Both the N items header and the Confirmed summary are visible without scrolling when facts exist in both states.' The page-level banner (onboarding.tsx:1861–1874) shows both counts (totalReview + totalSettled) simultaneously at the top of the review area, satisfying the without-scrolling constraint. Per-section grouping is a valid interpretation of 'summarized group'; the AC does not mandate a single global group."
+      },
+      {
+        "flag": "(c) Prose/table sections ≥200 chars yield 0 facts, routed to raw-edit",
+        "ruling": "ACCEPT — ADR-P6-009 Option A (chosen) specifies exactly: 'blocks at/over 200 characters are left to the raw-section escape hatch rather than force-split.' Implementation: text.length < FACT_LENGTH_LIMIT (strict less-than 200) matches 'under 200 chars' in AC1 and 'at/over 200 chars are omitted' in ADR. Harness confirmed 6 fixture sections (Executive summary, Identity and current role, Business area, Key collaborators, Derived work style, Operating cadence) correctly yield 0 facts with bodies ranging 250–315 chars."
+      }
+    ],
+    "fixRequests": []
+  }
 }
