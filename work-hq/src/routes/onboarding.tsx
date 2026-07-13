@@ -5,7 +5,9 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
+  ChevronsUpDown,
   Pencil,
+  Plus,
   RefreshCw,
   RotateCcw,
   Sparkles,
@@ -14,6 +16,27 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { ActionCard } from "@/components/work-hq/ActionCard";
+import { Badge, badgeVariants } from "@/components/ui/badge";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { buildHandoff } from "@/lib/handoff";
 import { cn } from "@/lib/utils";
 import { loadOnboarding } from "@/server/load-onboarding";
@@ -62,14 +85,32 @@ interface Fact {
 /** Persisted fact decision (onboarding-state.json, file-contracts §3.1). */
 type FactDecision = Fact;
 
+/** A structured stakeholder row — story 014 AC4. */
+type Stakeholder = { name: string; role: string; relationship: string };
+
+/** Structured team shape — size bucket + free-text descriptor — story 014 AC3. */
+type Team = { size: string; descriptor: string };
+
 type Answers = {
   role: string;
-  workstyle: string;
-  /** Free-text describing immediate team and headcount (story 003 AC1). */
-  team: string;
+  /**
+   * Working style as structured chips (story 014 AC2).  Migrated from the old
+   * flat `string` in normalizeAnswers; scaffold-files renders it back to a
+   * single comma-joined line for context/me.md.
+   */
+  workstyle: string[];
+  /**
+   * Immediate team as a size bucket + free-text descriptor (story 014 AC3).
+   * Migrated from the old flat `team: string` in normalizeAnswers.
+   */
+  team: Team;
   /** AI assistant + enterprise tools (story 003 AC1). */
   keyTools: string[];
-  stakeholders: string[];
+  /**
+   * Structured stakeholder rows (story 014 AC4).  Migrated from the old
+   * `string[]` in normalizeAnswers (each string becomes a name-only row).
+   */
+  stakeholders: Stakeholder[];
   glossary: string;
   /** Three structured priorities, each with title / owner / dueDate (story 003 AC4). */
   priorities: [Priority, Priority, Priority];
@@ -103,10 +144,10 @@ type Answers = {
 
 const emptyAnswers: Answers = {
   role: "",
-  workstyle: "",
-  team: "",
+  workstyle: [],
+  team: { size: "", descriptor: "" },
   keyTools: [""],
-  stakeholders: [""],
+  stakeholders: [{ name: "", role: "", relationship: "" }],
   glossary: "",
   priorities: [
     { title: "", owner: "", dueDate: "" },
@@ -187,11 +228,79 @@ function normalizeEditedSections(raw: unknown): Answers["editedSections"] {
 }
 
 /**
+ * Migrate the working-style field (story 014 AC2).
+ * - New shape: `string[]` — kept as-is (empty strings dropped).
+ * - Legacy shape: a flat `string` — split on commas into individual chips so a
+ *   pre-seeded CSV line ("Async-first, deep-work mornings") round-trips into
+ *   chips with no data loss.  A single non-CSV string becomes one chip.
+ */
+function normalizeWorkstyle(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.filter(
+      (x): x is string => typeof x === "string" && x.trim() !== "",
+    );
+  }
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Migrate the team field (story 014 AC3).
+ * - New shape: `{ size, descriptor }` — coerced key-by-key.
+ * - Legacy shape: a flat `string` — placed into `descriptor`, leaving `size`
+ *   empty (no data loss).
+ */
+function normalizeTeam(raw: unknown): Team {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const t = raw as Record<string, unknown>;
+    return {
+      size: typeof t.size === "string" ? t.size : "",
+      descriptor: typeof t.descriptor === "string" ? t.descriptor : "",
+    };
+  }
+  if (typeof raw === "string") {
+    return { size: "", descriptor: raw };
+  }
+  return { size: "", descriptor: "" };
+}
+
+/**
+ * Migrate the stakeholders field (story 014 AC4).
+ * - New shape: array of `{ name, role, relationship }` — coerced key-by-key.
+ * - Legacy shape: `string[]` — each string becomes a name-only row
+ *   (`{ name, role: "", relationship: "" }`), preserving every entry.
+ */
+function normalizeStakeholders(raw: unknown): Stakeholder[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s) => {
+    if (typeof s === "string") {
+      return { name: s, role: "", relationship: "" };
+    }
+    if (s && typeof s === "object") {
+      const o = s as Record<string, unknown>;
+      return {
+        name: typeof o.name === "string" ? o.name : "",
+        role: typeof o.role === "string" ? o.role : "",
+        relationship: typeof o.relationship === "string" ? o.relationship : "",
+      };
+    }
+    return { name: "", role: "", relationship: "" };
+  });
+}
+
+/**
  * Normalise a raw answers blob loaded from disk or localStorage.
  * Migrates the old flat-string priorities format
  * (i.e. priorities: [string, string, string]) to the structured object format
- * introduced in story 003, and the old `editedSections` `{ body, edited }`
- * shape to the story-013 `{ body, edited, facts? }` shape.
+ * introduced in story 003, the old `editedSections` `{ body, edited }` shape to
+ * the story-013 `{ body, edited, facts? }` shape, and the story-014 structured
+ * controls: `workstyle: string → string[]`, `team: string → { size, descriptor }`,
+ * and `stakeholders: string[] → Array<{ name, role, relationship }>`.
  */
 function normalizeAnswers(raw: unknown): Answers {
   if (!raw || typeof raw !== "object") return emptyAnswers;
@@ -215,11 +324,20 @@ function normalizeAnswers(raw: unknown): Answers {
   // Normalise editedSections, migrating the legacy { body, edited } shape.
   const editedSections = normalizeEditedSections(a.editedSections);
 
+  // Story 014 structured-control migrations (explicit keys win over the raw
+  // spread below, so legacy shapes are always upgraded without data loss).
+  const workstyle = normalizeWorkstyle(a.workstyle);
+  const team = normalizeTeam(a.team);
+  const stakeholders = normalizeStakeholders(a.stakeholders);
+
   return {
     ...emptyAnswers,
     ...(raw as Partial<Answers>),
     priorities,
     editedSections,
+    workstyle,
+    team,
+    stakeholders,
   };
 }
 
@@ -1935,6 +2053,623 @@ function PhaseReviewCorrect({
   );
 }
 
+/* ----- Structured interview controls (story 014) ----- */
+
+/** Shared trigger styling for combobox/select controls — matches text inputs. */
+const CONTROL_TRIGGER =
+  "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40";
+
+/** Pre-seeded role titles (story 014 AC1) — free entry still accepted. */
+const ROLE_OPTIONS = [
+  "Product Manager",
+  "Product Operations Lead",
+  "Program Manager",
+  "Chief of Staff",
+  "Operations Manager",
+  "Head of Product",
+  "Director of Product",
+  "Delivery Manager",
+];
+
+/** Pre-seeded working-style chips (story 014 AC2) — custom entry accepted. */
+const WORKSTYLE_OPTIONS = [
+  "async-first",
+  "deep-work mornings",
+  "meeting-heavy",
+  "batched afternoons",
+  "structured days",
+  "flex schedule",
+];
+
+/** The four team-size buckets (story 014 AC3). */
+const TEAM_SIZES = ["1–2", "3–5", "6–10", "11+"];
+
+/** Common enterprise tools seeded into the key-tools combobox (story 014). */
+const KEY_TOOL_OPTIONS = [
+  "GitHub Copilot",
+  "Jira",
+  "Confluence",
+  "Slack",
+  "Glean",
+  "Notion",
+  "Figma",
+  "GitHub",
+  "Linear",
+  "Asana",
+];
+
+/** The three stakeholder relationship kinds (story 014 AC4). */
+const RELATIONSHIPS = ["Decision maker", "Collaborator", "Informed"];
+
+/** Sentinel Select value for the phase-5 owner free-entry escape hatch (AC5). */
+const OWNER_CUSTOM = "__custom__";
+
+/**
+ * RoleCombobox — single-value combobox (shadcn Command in a Popover) seeded with
+ * common titles, with a free-entry "Create" escape hatch (story 014 AC1).
+ * Keyboard-operable: cmdk highlights the first match; Enter selects it, so a
+ * typed value that isn't in the list selects the Create row.
+ */
+function RoleCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const showCreate =
+    trimmed.length > 0 &&
+    !ROLE_OPTIONS.some((o) => o.toLowerCase() === trimmed.toLowerCase());
+
+  const commit = (v: string) => {
+    onChange(v);
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          className={CONTROL_TRIGGER}
+        >
+          <span className={cn(!value && "text-muted-foreground")}>
+            {value || "Select or type your role…"}
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+      >
+        <Command>
+          <CommandInput
+            placeholder="Search or type a role…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {trimmed ? "Press Enter to add this role." : "No roles found."}
+            </CommandEmpty>
+            <CommandGroup>
+              {ROLE_OPTIONS.map((opt) => (
+                <CommandItem key={opt} value={opt} onSelect={() => commit(opt)}>
+                  <Check
+                    className={cn(
+                      "size-4",
+                      value === opt ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {opt}
+                </CommandItem>
+              ))}
+              {showCreate && (
+                <CommandItem value={trimmed} onSelect={() => commit(trimmed)}>
+                  <Plus className="size-4" /> Create &ldquo;{trimmed}&rdquo;
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * WorkstyleChips — toggleable Badge chips for working style plus a free-entry
+ * input for custom chips (story 014 AC2).  Selected chips render filled
+ * (default variant); unselected render outline.  Each chip is a real button
+ * with aria-pressed for screen readers.
+ */
+function WorkstyleChips({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const selected = value.filter(Boolean);
+  const isSelected = (s: string) =>
+    selected.some((x) => x.toLowerCase() === s.toLowerCase());
+
+  const toggle = (s: string) =>
+    isSelected(s)
+      ? onChange(selected.filter((x) => x.toLowerCase() !== s.toLowerCase()))
+      : onChange([...selected, s]);
+
+  const addCustom = () => {
+    const t = draft.trim();
+    if (t && !isSelected(t)) onChange([...selected, t]);
+    setDraft("");
+  };
+
+  // Predefined options plus any custom-selected values not in the preset list.
+  const customSelected = selected.filter(
+    (s) => !WORKSTYLE_OPTIONS.some((o) => o.toLowerCase() === s.toLowerCase()),
+  );
+  const options = [...WORKSTYLE_OPTIONS, ...customSelected];
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="Working style"
+      >
+        {options.map((opt) => {
+          const on = isSelected(opt);
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => toggle(opt)}
+              aria-pressed={on}
+              className={cn(
+                badgeVariants({ variant: on ? "default" : "outline" }),
+                "cursor-pointer px-3 py-1.5",
+                on ? "hover:bg-primary/80" : "hover:bg-muted",
+              )}
+            >
+              {on && <Check className="mr-1 size-3" />}
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addCustom();
+            }
+          }}
+          placeholder="Add your own…"
+          aria-label="Add a custom working-style chip"
+          className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          type="button"
+          onClick={addCustom}
+          disabled={!draft.trim()}
+          className={cn(
+            "shrink-0 rounded-lg border border-border px-4 py-2.5 text-sm font-medium",
+            draft.trim()
+              ? "text-primary hover:bg-primary/10"
+              : "cursor-not-allowed text-muted-foreground opacity-60",
+            FOCUS_RING,
+          )}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * TeamControl — a size Select (four buckets) plus a free-text descriptor input
+ * (story 014 AC3).  Persists as `{ size, descriptor }`.
+ */
+function TeamControl({
+  value,
+  onChange,
+}: {
+  value: Team;
+  onChange: (v: Team) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <label
+          htmlFor="team-size"
+          className="text-xs font-medium text-muted-foreground"
+        >
+          Team size
+        </label>
+        <Select
+          value={value.size || undefined}
+          onValueChange={(size) => onChange({ ...value, size })}
+        >
+          <SelectTrigger id="team-size" className="h-auto px-4 py-3 text-base">
+            <SelectValue placeholder="Select a size…" />
+          </SelectTrigger>
+          <SelectContent>
+            {TEAM_SIZES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s} people
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <label
+          htmlFor="team-descriptor"
+          className="text-xs font-medium text-muted-foreground"
+        >
+          Short descriptor
+        </label>
+        <input
+          id="team-descriptor"
+          value={value.descriptor}
+          onChange={(e) => onChange({ ...value, descriptor: e.target.value })}
+          placeholder="e.g. ProdOps team — 2 PMs, 1 analyst, 1 coordinator"
+          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * KeyToolsCombobox — multi-select combobox (shadcn Command in a Popover) seeded
+ * with common enterprise tools, with a free-entry "Create" escape hatch
+ * (story 014).  Selected tools render as removable Badge chips.
+ */
+function KeyToolsCombobox({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = value.filter(Boolean);
+  const trimmed = query.trim();
+  const isSelected = (s: string) =>
+    selected.some((x) => x.toLowerCase() === s.toLowerCase());
+
+  const toggle = (tool: string) => {
+    if (isSelected(tool)) {
+      onChange(selected.filter((x) => x.toLowerCase() !== tool.toLowerCase()));
+    } else {
+      onChange([...selected, tool]);
+    }
+  };
+  const addCustom = (tool: string) => {
+    const t = tool.trim();
+    if (t && !isSelected(t)) onChange([...selected, t]);
+    setQuery("");
+  };
+  const remove = (tool: string) => onChange(selected.filter((x) => x !== tool));
+
+  const showCreate =
+    trimmed.length > 0 &&
+    !KEY_TOOL_OPTIONS.some((o) => o.toLowerCase() === trimmed.toLowerCase()) &&
+    !isSelected(trimmed);
+
+  return (
+    <div className="space-y-3">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            className={CONTROL_TRIGGER}
+          >
+            <span className="text-muted-foreground">
+              {selected.length > 0
+                ? `${selected.length} tool${selected.length === 1 ? "" : "s"} selected`
+                : "Select or type your tools…"}
+            </span>
+            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+        >
+          <Command>
+            <CommandInput
+              placeholder="Search or type a tool…"
+              value={query}
+              onValueChange={setQuery}
+            />
+            <CommandList>
+              <CommandEmpty>
+                {trimmed ? "Press Enter to add this tool." : "No tools found."}
+              </CommandEmpty>
+              <CommandGroup>
+                {KEY_TOOL_OPTIONS.map((opt) => (
+                  <CommandItem
+                    key={opt}
+                    value={opt}
+                    onSelect={() => toggle(opt)}
+                  >
+                    <Check
+                      className={cn(
+                        "size-4",
+                        isSelected(opt) ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    {opt}
+                  </CommandItem>
+                ))}
+                {showCreate && (
+                  <CommandItem
+                    value={trimmed}
+                    onSelect={() => addCustom(trimmed)}
+                  >
+                    <Plus className="size-4" /> Add &ldquo;{trimmed}&rdquo;
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Selected tools">
+          {selected.map((tool) => (
+            <Badge
+              key={tool}
+              variant="secondary"
+              className="gap-1 py-1 pl-2.5 pr-1"
+            >
+              {tool}
+              <button
+                type="button"
+                onClick={() => remove(tool)}
+                aria-label={`Remove ${tool}`}
+                className={cn(
+                  "flex size-4 items-center justify-center rounded-sm hover:bg-foreground/10",
+                  FOCUS_RING,
+                )}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * StakeholderRows — structured stakeholder rows, each with Name, Role/Title, and
+ * a Relationship Select (story 014 AC4).  Add appends an empty row; Remove
+ * deletes a row.  Every control is labelled for assistive tech.
+ */
+function StakeholderRows({
+  value,
+  onChange,
+}: {
+  value: Stakeholder[];
+  onChange: (v: Stakeholder[]) => void;
+}) {
+  const rows =
+    value.length > 0 ? value : [{ name: "", role: "", relationship: "" }];
+
+  const update = (i: number, key: keyof Stakeholder, v: string) =>
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, [key]: v } : r)));
+  const add = () =>
+    onChange([...rows, { name: "", role: "", relationship: "" }]);
+  const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-border bg-card p-3 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Stakeholder {i + 1}
+            </p>
+            {rows.length > 1 && (
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label={`Remove stakeholder ${i + 1}`}
+                className={cn(
+                  "flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+                  FOCUS_RING,
+                )}
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label
+                htmlFor={`stk-name-${i}`}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Name
+              </label>
+              <input
+                id={`stk-name-${i}`}
+                value={row.name}
+                onChange={(e) => update(i, "name", e.target.value)}
+                placeholder="e.g. Sarah Chen"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor={`stk-role-${i}`}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Role / Title
+              </label>
+              <input
+                id={`stk-role-${i}`}
+                value={row.role}
+                onChange={(e) => update(i, "role", e.target.value)}
+                placeholder="e.g. CTO"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor={`stk-rel-${i}`}
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Relationship
+            </label>
+            <Select
+              value={row.relationship || undefined}
+              onValueChange={(v) => update(i, "relationship", v)}
+            >
+              <SelectTrigger id={`stk-rel-${i}`}>
+                <SelectValue placeholder="Select a relationship…" />
+              </SelectTrigger>
+              <SelectContent>
+                {RELATIONSHIPS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className={cn(
+          "flex items-center gap-1 rounded-md px-1 text-xs font-medium text-primary hover:underline",
+          FOCUS_RING,
+        )}
+      >
+        <Plus className="size-3.5" /> Add stakeholder
+      </button>
+    </div>
+  );
+}
+
+/**
+ * OwnerSelect — phase-5 priority owner Select populated from the stakeholder
+ * names entered in phase 4, prefixed with "Me", plus a free-entry fallback
+ * (story 014 AC5).  Choosing "Someone else…" reveals a text input.
+ */
+function OwnerSelect({
+  value,
+  ownerOptions,
+  onChange,
+}: {
+  value: string;
+  ownerOptions: string[];
+  onChange: (v: string) => void;
+}) {
+  const isKnown = value !== "" && ownerOptions.includes(value);
+  const [custom, setCustom] = useState(value !== "" && !isKnown);
+
+  if (custom) {
+    return (
+      <div className="space-y-2">
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. Alex Smith or Product team"
+          aria-label="Priority owner (free entry)"
+          autoFocus
+          className="w-full rounded-lg border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setCustom(false);
+            onChange("");
+          }}
+          className={cn(
+            "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+            FOCUS_RING,
+          )}
+        >
+          ← Choose from list
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={isKnown ? value : undefined}
+      onValueChange={(v) => {
+        if (v === OWNER_CUSTOM) {
+          setCustom(true);
+          onChange("");
+        } else {
+          onChange(v);
+        }
+      }}
+    >
+      <SelectTrigger className="h-auto px-4 py-3 text-base">
+        <SelectValue placeholder="Select an owner…" />
+      </SelectTrigger>
+      <SelectContent>
+        {ownerOptions.map((o) => (
+          <SelectItem key={o} value={o}>
+            {o}
+          </SelectItem>
+        ))}
+        <SelectItem value={OWNER_CUSTOM}>Someone else…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Render a stakeholder row as one legible summary line (story 014 AC6/AC8). */
+function stakeholderSummary(s: Stakeholder): string {
+  const name = s.name.trim();
+  if (!name) return "";
+  const role = s.role.trim();
+  const rel = s.relationship.trim();
+  return `${name}${role ? ` (${role})` : ""}${rel ? ` — ${rel}` : ""}`;
+}
+
+/** Render the structured team object as one legible summary line. */
+function teamSummary(t: Team): string {
+  const descriptor = t.descriptor.trim();
+  const size = t.size.trim();
+  const parts: string[] = [];
+  if (descriptor) parts.push(descriptor);
+  if (size) parts.push(`${size} people`);
+  return parts.join(" — ");
+}
+
 /**
  * Internal sub-step manager for the manual path of phase 4.
  * Steps: 'about' → 'org' (with sensitivity gate) → 'review'.
@@ -1976,60 +2711,25 @@ function PhaseFourManual({
     return (
       <div className="space-y-6">
         <Field label="Your role">
-          <input
-            value={answers.role}
-            onChange={(e) => set("role", e.target.value)}
-            placeholder="Product Operations Lead"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <RoleCombobox value={answers.role} onChange={(v) => set("role", v)} />
         </Field>
 
-        <Field label="Working style in one line">
-          <input
+        <Field label="Working style">
+          <WorkstyleChips
             value={answers.workstyle}
-            onChange={(e) => set("workstyle", e.target.value)}
-            placeholder="Async-first, deep-work mornings, batched afternoons"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+            onChange={(v) => set("workstyle", v)}
           />
         </Field>
 
         <Field label="Your immediate team">
-          <textarea
-            rows={2}
-            value={answers.team}
-            onChange={(e) => set("team", e.target.value)}
-            placeholder="e.g. 4-person ProdOps team — 2 PMs, 1 analyst, 1 coordinator"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <TeamControl value={answers.team} onChange={(v) => set("team", v)} />
         </Field>
 
         <Field label="Key tools">
-          <div className="space-y-2">
-            {answers.keyTools.map((t, i) => (
-              <input
-                key={i}
-                value={t}
-                onChange={(e) => {
-                  const updated = [...answers.keyTools];
-                  updated[i] = e.target.value;
-                  set("keyTools", updated);
-                }}
-                placeholder={
-                  i === 0
-                    ? "AI assistant — e.g. GitHub Copilot"
-                    : "Tool — e.g. Jira, Confluence, Slack"
-                }
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => set("keyTools", [...answers.keyTools, ""])}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              + Add tool
-            </button>
-          </div>
+          <KeyToolsCombobox
+            value={answers.keyTools}
+            onChange={(v) => set("keyTools", v)}
+          />
         </Field>
 
         <button
@@ -2090,28 +2790,10 @@ function PhaseFourManual({
     return (
       <div className="space-y-6">
         <Field label="Key stakeholders">
-          <div className="space-y-2">
-            {answers.stakeholders.map((s, i) => (
-              <input
-                key={i}
-                value={s}
-                onChange={(e) => {
-                  const updated = [...answers.stakeholders];
-                  updated[i] = e.target.value;
-                  set("stakeholders", updated);
-                }}
-                placeholder="Sarah Chen (CTO) — decision maker"
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => set("stakeholders", [...answers.stakeholders, ""])}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              + Add stakeholder
-            </button>
-          </div>
+          <StakeholderRows
+            value={answers.stakeholders}
+            onChange={(v) => set("stakeholders", v)}
+          />
         </Field>
 
         <Field label="Team glossary (acronyms, project codenames)">
@@ -2198,15 +2880,23 @@ function PhaseFourManual({
 
       <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
         <ReviewRow label="Role" value={answers.role || "—"} />
-        <ReviewRow label="Working style" value={answers.workstyle || "—"} />
-        <ReviewRow label="Team" value={answers.team || "—"} />
+        <ReviewRow
+          label="Working style"
+          value={answers.workstyle.filter(Boolean).join(", ") || "—"}
+        />
+        <ReviewRow label="Team" value={teamSummary(answers.team) || "—"} />
         <ReviewRow
           label="Key tools"
           value={answers.keyTools.filter(Boolean).join(", ") || "—"}
         />
         <ReviewRow
           label="Stakeholders"
-          value={answers.stakeholders.filter(Boolean).join("\n") || "—"}
+          value={
+            answers.stakeholders
+              .map(stakeholderSummary)
+              .filter(Boolean)
+              .join("\n") || "—"
+          }
         />
         <ReviewRow label="Glossary" value={answers.glossary || "—"} />
       </div>
@@ -2314,6 +3004,15 @@ function PhaseNow({
     "Align on Q3 OKRs",
   ];
 
+  // AC5: priority-owner options = "Me" + each stakeholder name entered in
+  // phase 4, de-duplicated.  A free-entry fallback is offered by OwnerSelect.
+  const stakeholderNames = answers.stakeholders
+    .map((s) => s.name.trim())
+    .filter(Boolean);
+  const ownerOptions = ["Me", ...stakeholderNames].filter(
+    (o, i, arr) => arr.indexOf(o) === i,
+  );
+
   /* ── Form step ── */
   if (step === "form") {
     return (
@@ -2345,17 +3044,16 @@ function PhaseNow({
                 />
               </Field>
               <Field label="Owner (named person or role)">
-                <input
+                <OwnerSelect
                   value={p.owner}
-                  onChange={(e) => {
+                  ownerOptions={ownerOptions}
+                  onChange={(owner) => {
                     const updated = [
                       ...answers.priorities,
                     ] as typeof answers.priorities;
-                    updated[i] = { ...updated[i], owner: e.target.value };
+                    updated[i] = { ...updated[i], owner };
                     set("priorities", updated);
                   }}
-                  placeholder="e.g. Alex Smith or Product team"
-                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </Field>
               <Field label="Due date">
