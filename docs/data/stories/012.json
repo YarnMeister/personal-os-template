@@ -56,7 +56,7 @@
       "text": "ActionCard includes a 'View raw prompt' disclosure — HTML `<details>`/`<summary>` or equivalent ARIA pattern — that is collapsed by default (the `open` attribute is absent on first render). Clicking it expands to show the full markdown payload; clicking again collapses it. `grep -n 'details\\|disclosure\\|View raw' work-hq/src/components/work-hq/ActionCard.tsx` returns a match."
     },
     {
-      "text": "The Copy button transitions to a 'Copied' success state for approximately 1.8 s after click, matching the timing from the replaced components. All three onboarding ActionCard payloads preserve their exact handoff-header format (docs/specs/file-contracts.md §4): the bootstrap-prompt payload begins exactly `## Work HQ handoff · profile-bootstrap · <YYYY-MM-DD>`, the profile-corrections payload begins exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>`, and the phase-6 onboarding payload begins exactly `## Work HQ handoff · onboarding · <YYYY-MM-DD>`. Verify each by clicking Copy and pasting into a text editor."
+      "text": "The Copy button transitions to a 'Copied' success state for approximately 1.8 s after click, matching the timing from the replaced components. The profile-corrections ActionCard payload begins exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>` and the phase-6 onboarding ActionCard payload begins exactly `## Work HQ handoff · onboarding · <YYYY-MM-DD>` (docs/specs/file-contracts.md §4.3 and §4.1). The bootstrap-prompt ActionCard payload is byte-identical to the output of `readBootstrapPrompt` per §4.2 — it is NOT a `buildHandoff` block; verify by clicking Copy in phase 3 and confirming the pasted payload begins `# Bootstrap Profile Prompt` (raw substituted template content, not a `## Work HQ handoff` header line)."
     },
     {
       "text": "Phase 6 component (`PhaseFirst`) renders `ActionCard` instead of `HandoffDock`. `grep -n 'ActionCard' work-hq/src/routes/onboarding.tsx` returns at least one match whose line number falls inside the `PhaseFirst` function body. `grep -n 'HandoffDock' work-hq/src/routes/onboarding.tsx` returns no match whose line number falls inside the `PhaseFirst` function body."
@@ -82,5 +82,11 @@
       "checks": "Returns no output — HandoffDock.tsx is unmodified by this story."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [
+    {
+      "date": "2026-07-13",
+      "change": "AC4 corrected: removed erroneous '## Work HQ handoff · profile-bootstrap' first-line assertion for the bootstrap payload; per file-contracts.md §4.2 the bootstrap payload is raw substituted template content (begins '# Bootstrap Profile Prompt'), not a buildHandoff block — the profile-corrections and onboarding payload header assertions are unchanged.",
+      "reason": "ui-dev flagged spec/contract mismatch: implementation correctly preserved the byte-identical bootstrap payload per §4.2 and story outOfScope, but AC4 had asserted an incorrect first-line format for that payload."
+    }
+  ]
 }
