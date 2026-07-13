@@ -3,9 +3,45 @@
   "featureId": "f-onboarding-ux",
   "title": "Action cards replace raw markdown handoff surfaces",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "bd1ed70",
+    "filesTouched": [
+      "work-hq/src/components/work-hq/ActionCard.tsx",
+      "work-hq/src/routes/onboarding.tsx",
+      "docs/data/stories/012.json"
+    ],
+    "notes": "New shared component ActionCard (work-hq/src/components/work-hq/ActionCard.tsx): props title, meta?, stepList, copyPayload, statusLine?, copyLabel?, hint?, className?. Leads with an always-visible ordered step summary, a prominent Copy button (~1.8s copied-state via setTimeout 1800), an optional statusLine slot, and the raw markdown inside a native <details><summary>View raw prompt</summary>…</details> collapsed by default (no `open` attr). Token-only styling matching HandoffDock (rounded-2xl, border-primary/25, bg-primary/5, shadow-[0_0_40px_-20px_var(--primary)]); WCAG 2.2 AA focus rings (focus-visible ring-ring + ring-offset-background) on both the Copy button and the summary; the step-number badges are aria-hidden. The three onboarding surfaces now render ActionCard: BootstrapCopyBlock and ProfileCorrectionsDock became thin ActionCard wrappers, and PhaseFirst (phase 6) builds its markdown via buildHandoff and passes it as copyPayload (HandoffDock import removed from onboarding.tsx). Clipboard payloads are byte-identical — readBootstrapPrompt output, buildProfileCorrectionsMarkdown, and buildHandoff are all unchanged and passed straight through. Phase-3 profile-detection polling (waiting → detected) was consolidated into the ActionCard statusLine; the standalone waiting block was removed as it duplicated that status. The unused Copy lucide import was dropped from onboarding.tsx. HandoffDock.tsx is untouched (git diff empty) and remains in use by four other routes. NOTE for QA: AC4's stated bootstrap-prompt first line ('## Work HQ handoff · profile-bootstrap …') does not match the frozen §4.2 contract — the bootstrap payload is the raw template content (readBootstrapPrompt), which was NOT changed per outOfScope/technicalNotes. The profile-corrections and onboarding payloads do begin with their '## Work HQ handoff · <kind> · <date>' headers, verified unchanged.",
+    "verificationRun": [
+      {
+        "command": "grep -n '<pre' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — zero matches; no top-level <pre> in the route. The only <pre> now lives inside ActionCard's <details> disclosure (ActionCard.tsx)."
+      },
+      {
+        "command": "grep -n 'export.*ActionCard' work-hq/src/components/work-hq/ActionCard.tsx",
+        "result": "PASS — matched line 19: 'export function ActionCard({'"
+      },
+      {
+        "command": "git diff HEAD -- work-hq/src/components/work-hq/HandoffDock.tsx",
+        "result": "PASS — no output; HandoffDock.tsx unmodified."
+      },
+      {
+        "command": "grep -n 'ActionCard' work-hq/src/routes/onboarding.tsx (PhaseFirst body)",
+        "result": "PASS — PhaseFirst renders <ActionCard>; grep 'HandoffDock' in onboarding.tsx returns 0 matches."
+      },
+      {
+        "command": "npm run build (work-hq/)",
+        "result": "PASS — ✓ built in 383ms; onboarding chunk 80.77 kB gzip 17.89 kB; re-verified clean after prettier."
+      },
+      {
+        "command": "npx prettier --write ActionCard.tsx onboarding.tsx",
+        "result": "PASS — ActionCard.tsx reformatted (line wrap); onboarding.tsx unchanged."
+      }
+    ]
+  },
   "adrRefs": [],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user completing onboarding, I want the three handoff surfaces to present a human-readable summary and a single Copy button, so that I never see raw markdown as primary UI content.",
