@@ -1,0 +1,8 @@
+{
+  "id": "personal-os",
+  "name": "Personal OS — Template",
+  "slug": "personal-os-template",
+  "repo": "YarnMeister/personal-os-template",
+  "description": "VS Code–native, AI-augmented Personal OS. Markdown persistence, tiered constitution, skills. M6 adds a local Work HQ app for guided onboarding and visual daily rituals.",
+  "accent": "#c5292a"
+}

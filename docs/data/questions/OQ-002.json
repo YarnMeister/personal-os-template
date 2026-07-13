@@ -1,0 +1,13 @@
+{
+  "id": "OQ-002",
+  "title": "Is a Node.js ≥ 20 prerequisite acceptable for the target non-technical user?",
+  "description": "ADR-P6-001/ADR-P6-006 make the Work HQ opt-in via npm scripts, and ADR-P6-004 makes the wizard the recommended onboarding path. For a Head-of-Product-Operations audience, 'install Node, run npm install' may be the single highest-friction step in the whole system — potentially higher than the 30-minute M5 onboarding budget allows. Decide: (a) accept the prerequisite and document a 5-minute Node setup preflight in README; (b) keep chat-only onboarding (os-helper 'onboard') as the documented PRIMARY path with the wizard positioned as an enhancement for those who have Node; (c) invest in a zero-install packaging later (e.g. a single-binary build) if adoption data shows Node is the drop-off point. This changes README framing and the M6 acceptance criteria, not the architecture.",
+  "status": "resolved",
+  "raisedBy": "architect",
+  "relatedTo": [
+    { "label": "ADR-P6-001", "href": "/decisions" },
+    { "label": "ADR-P6-004", "href": "/decisions" },
+    { "label": "ADR-P6-006", "href": "/decisions" }
+  ],
+  "resolution": "Accept the prerequisite, but delegate it to the AI: the README is designed to be AI-assistant-friendly. The non-technical user points their AI assistant at the README and the assistant runs all the prerequisites (Node.js install, npm install, first launch) on their behalf — explicit, ordered, copy-runnable steps. Chat-only onboarding remains the documented no-Node fallback. ADR-P6-001, ADR-P6-004, and ADR-P6-006 updated."
+}

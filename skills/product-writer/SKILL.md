@@ -69,7 +69,7 @@ For specialised product domain tasks, reference these skills by name:
 - **`prioritizing-roadmap`** — prioritisation frameworks, trade-off analysis
 - **`metrics-and-analytics`** — success metrics, KPI definitions, measurement plans
 
-To use a Lenny skill: say "Load .github/skills/[skill-name]/SKILL.md and apply it to this task."
+To use a Lenny skill: say "Load skills/[skill-name]/SKILL.md and apply it to this task."
 
 ## Quality Check
 

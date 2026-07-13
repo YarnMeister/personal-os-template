@@ -1,0 +1,60 @@
+{
+  "id": "ADR-P6-006",
+  "title": "Stack and packaging: the proven claude-agents cockpit stack (Lovable-seeded), app lives in work-hq/, root package.json exposes onboard/dev scripts",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "ADR-P6-001 committed to a local app; this decides its construction. The claude-agents cockpit (Vite + TanStack Start + React 19 + Tailwind v4 + shadcn/ui) already solves the exact mechanics this app needs: import.meta.glob loading with HMR on file save, server functions for local file writes (save-human-input), the gather/copy dialog, status badges, and entity views for decisions/questions. The Personal OS template repo currently has no package.json at all; the packaging choice determines what a fresh clone looks like and how intrusive the code is to the markdown-first repo.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Fork the claude-agents cockpit and prune: same stack, same layout, delete BMAD-only entities, add ritual screens and markdown contract-parsing",
+      "pros": [
+        "Fastest credible path \u2014 the hard mechanics (glob loader + zod, server-fn writes, HMR, copy bridge, theming) arrive working, and the architect's match-existing-patterns rule points here: the claude-agents cockpit IS the established in-house pattern",
+        "Decisions/Questions views port almost unchanged and immediately render this phase's ADRs/OQs",
+        "Markdown loading fits the same mechanism: import.meta.glob with '?raw' gives contract files the identical HMR-on-save behaviour the JSON entities enjoy",
+        "Two repos, one mental model \u2014 maintenance knowledge transfers both ways"
+      ],
+      "cons": [
+        "Heavy dependency tree (~60 packages incl. full Radix/shadcn set) for a template whose ethos is minimalism; pruning discipline required",
+        "TanStack Start is still a fast-moving framework \u2014 upgrade churn lands on the template maintainer",
+        "Forking copies today's code, not a shared library: fixes in one app don't flow to the other automatically"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Minimal purpose-built app: Vite + React SPA with a tiny Hono/Express file API, hand-rolled CSS, no UI kit",
+      "pros": [
+        "Small dependency surface \u2014 closest in spirit to the template's minimalism",
+        "No framework-beta risk; everything in the tree is boring and stable"
+      ],
+      "cons": [
+        "Rebuilds solved problems from scratch: routing, server file-writes, HMR-coupled data loading, dialogs, toasts \u2014 weeks of work to reach where the fork starts, with new bugs the fork has already shaken out",
+        "Two processes (SPA + API) or custom Vite middleware \u2014 more moving parts for the end user's npm run dev, not fewer",
+        "Diverges from the in-house pattern, so every future contributor context-switches between two unlike codebases"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Next.js app (App Router, server actions)",
+      "pros": [
+        "Mainstream framework with long-horizon stability and abundant documentation",
+        "Server actions cover the file-write needs natively"
+      ],
+      "cons": [
+        "No in-house precedent \u2014 abandons the established cockpit pattern and its ported components for no capability gain",
+        "Heavier install and slower cold dev-start than Vite for a purely local tool",
+        "Next's cache/rendering machinery is dead weight for an app whose data source is the local filesystem with HMR"
+      ]
+    }
+  ],
+  "chosen": "A",
+  "decision": "Adopt Option A \u2014 same stack, different seed than originally drafted: rather than forking claude-agents/cockpit and pruning BMAD views, the UI was designed in Lovable against this stack (Vite + TanStack Start + React 19 + Tailwind v4 + shadcn/ui) from a design brief, then embedded into work-hq/ and de-Lovabled (sandbox build wrapper replaced with the plain Vite config mirroring claude-agents/cockpit; Lovable error-reporting hooks removed). The prototype ships all ADR-P6-005 screens plus the onboarding wizard, seeded from src/lib/mock.ts with localStorage persistence \u2014 the file-backed loaders (ADR-P6-002) and server-write input bridge (ADR-P6-003) replace mock.ts/localStorage as the next implementation step. Packaging: the repo gains a minimal root package.json whose only scripts delegate \u2014 \"dev\": \"npm --prefix work-hq run dev\", \"onboard\": \"npm --prefix work-hq run onboard\", \"start\" aliasing dev \u2014 plus a preflight hint when work-hq/node_modules is missing ('run npm install --prefix work-hq'). The onboard script sets an env flag so the server opens /onboarding. Node \u2265 20 is the documented prerequisite. .gitignore adds work-hq/node_modules, work-hq/dist, and docs/data/local/.",
+  "consequences": "The template maintainer owns Work HQ dependency upgrades on a quarterly cadence (same rhythm as the skills review); users receive them via git pull + npm install. Fork divergence from the claude-agents cockpit is accepted and expected \u2014 shared-library extraction is explicitly deferred until both apps prove stable shapes (revisit only if a third such app appears). The root package.json is the first code artefact in the repo root; README explains in one line that it exists solely to launch the Work HQ and the OS works without it. Per OQ-002 (resolved), the README's setup section is written to be executed by the user's AI assistant \u2014 explicit, ordered, copy-runnable steps (check/install Node \u2265 20, npm install --prefix work-hq, npm run onboard) so a non-technical user can say 'set this up for me' and point their assistant at the README; per OQ-003 it also states that the as-is configuration assumes GitHub Copilot in VS Code native chat, with guidance for adapting to another assistant. Complexity tier: Moderate \u2014 the fork lands working, the wizard and contract parser are the two genuinely new subsystems.",
+  "costCapacity": "No recurring or metered cost: no hosting, no CI change in this phase (Work HQ tests run locally; adding them to any future CI must pass the infra-cost-guard lens then). One-time ~250 MB node_modules per opted-in clone.",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-002",
+    "OQ-003"
+  ]
+}

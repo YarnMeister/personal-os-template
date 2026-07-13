@@ -1,0 +1,60 @@
+{
+  "id": "ADR-P6-001",
+  "title": "The Personal OS gains a local companion app \u2014 amending the zero-custom-code constitution",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "The architecture's founding constraint (AD-1, G5) is zero custom code and zero infrastructure: the system is markdown files interpreted by a VS Code AI assistant. Three M6 objectives break that ceiling: (1) the static onboarding.html gives a new user no guided path to an initialised constitution; (2) daily rituals (standup, backlog processing, wrap-up) are invisible \u2014 there is no surface showing OS state, staleness, or what the AI harvested; (3) the user wants npm run onboard and npm run dev entry points modelled on the claude-agents cockpit. Any interactive experience that reads live file state and collects structured human input requires running code. The question is where that code runs and how much of the constitution it displaces.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Stay zero-code: improve the static onboarding.html and keep all rituals chat-only",
+      "pros": [
+        "Preserves G5 (zero custom code, zero infrastructure) and non-technical maintainability untouched",
+        "No Node.js prerequisite, no dependency tree, nothing to keep patched in the template",
+        "Nothing new to explain in onboarding \u2014 the repo stays 'just files'"
+      ],
+      "cons": [
+        "A static page cannot read live OS state, so it can never show real staleness, priorities, or backlog contents",
+        "No structured input collection \u2014 onboarding stays 'read this page, then go type things at the AI', which is exactly the guidance gap being complained about",
+        "Fails all three M6 objectives; the improvement is cosmetic"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Ship a local-only Work HQ app inside the template, run via npm scripts; additive, never load-bearing",
+      "pros": [
+        "Meets all three objectives: guided onboarding wizard, visual ritual screens, npm run onboard / npm run dev entry points",
+        "Local process with direct workspace file access \u2014 can render markdown OS state live and persist human input, with zero hosting and zero recurring cost",
+        "Degrades cleanly: extends AD-4's additive principle \u2014 every ritual keeps working chat-only if the app is never started, so the constitution's availability guarantees survive intact",
+        "Proven pattern exists (claude-agents cockpit) to fork rather than invent"
+      ],
+      "cons": [
+        "The template now ships code: a dependency tree to maintain, upgrades to manage, and a class of bugs the markdown-only OS could not have",
+        "Adds a Node.js \u2265 20 prerequisite and ~250 MB of node_modules for users who opt in (see OQ-002)",
+        "Widens the gap between 'non-technical user maintains their own context' (G2, still true) and 'non-technical user maintains the tooling' (now false \u2014 tooling is maintained upstream in the template)"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Hosted web app (e.g. Vercel) serving the Work HQ as a URL",
+      "pros": [
+        "Zero local setup for the user \u2014 no Node, no npm install",
+        "One always-current deployment instead of per-clone copies"
+      ],
+      "cons": [
+        "The entire persistence layer is local markdown in the user's workspace \u2014 a hosted app cannot read or write it without a sync agent, which is far more infrastructure than a local dev server",
+        "Personal, gitignored content (me.md, active.md, learnings) would transit a third-party host: a direct AD-5 data-governance breach",
+        "Introduces hosting cost, auth, and an operations burden \u2014 the exact things AD-1 exists to avoid"
+      ]
+    }
+  ],
+  "chosen": "B",
+  "decision": "Adopt Option B. The Personal OS gains a local-only companion app ('Work HQ') living inside the template repo, started with npm run dev (daily Work HQ) and npm run onboard (guided first-run wizard, ADR-P6-004). The constitution is amended, not repealed: AD-1 still holds for the OS itself \u2014 all durable state remains plain markdown files and every ritual remains fully operable through chat alone with the app never started. The Work HQ is classified exactly like MCP under AD-4: additive, never load-bearing. It renders OS state and collects human input, but the AI assistant remains the only writer of constitution-level files and the markdown files remain the single source of truth (ADR-P6-002). architecture.md gains a new decision (AD-9) recording this amendment once accepted.",
+  "consequences": "The template carries a code directory with its own package.json, lockfile, and upgrade cadence \u2014 maintained upstream in the template, not by individual users (their git pull picks up Work HQ fixes like it picks up skill fixes). The Node prerequisite is defused per OQ-002 (resolved): the README is written to be AI-assistant-friendly \u2014 the non-technical user points their assistant at it and the assistant executes the prerequisites (Node.js install, npm install, first launch) on their behalf; the chat-only path stays fully supported as the fallback. NFR table gains a row: every ritual passes with the Work HQ not running. Forecloses nothing: the app can be deleted from a clone and the OS still works.",
+  "costCapacity": "No new recurring or metered cost. The app runs on localhost only; no hosting, no external API calls, no CI additions in this phase. One-time local disk cost ~250 MB node_modules per clone that opts in; npm install network cost on first run only.",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-002"
+  ]
+}

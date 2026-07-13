@@ -24,7 +24,7 @@ Read `templates/SKILL.template.md` before producing Artefact 2 — the SKILL.md 
 1. Confirm the process description is sufficient (3+ sentences, has trigger, steps, output).
 2. Produce all three artefacts in a single response, clearly labelled.
 3. Offer to publish Artefact 1 to Confluence.
-4. Offer to save Artefact 2 as a new SKILL.md file in `.github/skills/<skill-name>/SKILL.md`.
+4. Offer to save Artefact 2 as a new SKILL.md file in `skills/<skill-name>/SKILL.md`.
 
 ## Artefact 1 — Confluence-Ready Process Document
 

@@ -1,0 +1,59 @@
+{
+  "id": "ADR-P6-002",
+  "title": "Markdown stays canonical: the Work HQ reads OS state via section contracts; JSON only for Work-HQ-native entities",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "The claude-agents cockpit renders zod-validated JSON entities from docs/data/ \u2014 a natural fit for BMAD, whose state (stories, ADRs, test plans) is machine-shaped. The Personal OS is the opposite: its state (active.md, BACKLOG.md, learnings.md, me.md) is deliberately human-editable markdown, protected by AD-1 ('files are diffable, git-versionable, and human-readable') and G2 (non-technical users maintain their own context in an editor). The Work HQ needs to render this state reliably. The tension: free-form markdown is fragile to parse, but converting OS state to JSON destroys the property the whole system is built on.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Parse the existing free-form markdown files exactly as they are today",
+      "pros": [
+        "Zero migration \u2014 nothing changes for existing users, skills, or the AI",
+        "AD-1 and G2 fully preserved"
+      ],
+      "cons": [
+        "Today's files have loose, implicit structure; a heading reworded by the AI or the user silently breaks a Work HQ view",
+        "Every view needs bespoke, defensive parsing with no contract to validate against \u2014 the fragility lives in the app forever",
+        "No leverage for the AI either: skills also benefit from predictable sections, and this option leaves that value on the table"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Migrate OS state to JSON entities under docs/data/, BMAD-style; markdown becomes a rendered view",
+      "pros": [
+        "Proven loader pattern (import.meta.glob + zod) ports directly from the claude-agents cockpit; rendering is trivially reliable",
+        "Schema validation catches malformed state loudly at load time"
+      ],
+      "cons": [
+        "Repeals AD-1: a non-technical user editing priorities in a JSON file is exactly the experience the OS exists to avoid",
+        "Every skill, rule, and standing order that reads or writes the markdown files must be rewritten; the migration blast radius is the whole system",
+        "Git diffs of JSON are hostile to the weekly human prune ritual (AD-6), which is a curation activity done by reading files"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Hybrid: markdown remains the single source of truth, tightened by explicit per-file section contracts; JSON only for Work-HQ-native entities",
+      "pros": [
+        "AD-1/G2 preserved \u2014 users and the AI keep editing the same human-readable files",
+        "Section contracts (named headings, the existing 'Updated: YYYY-MM-DD' header, list/table shapes) are already half-established convention; codifying them helps skills as much as the Work HQ",
+        "Work HQ parsing becomes contract-checking: parseable sections render richly, unparseable files degrade gracefully to raw markdown display plus a visible 'contract drift' flag \u2014 nothing ever breaks silently",
+        "Work HQ-native entities that are genuinely machine-shaped (ADRs, open questions, onboarding progress) use the proven JSON pattern under docs/data/ without touching OS state"
+      ],
+      "cons": [
+        "Section contracts must be documented and versioned (a docs/specs/file-contracts.md), and the AI's skills need one-line reminders to preserve section headings",
+        "Two data planes (markdown OS state, JSON Work HQ entities) is more concept than either pure option",
+        "Markdown parsing is still real work \u2014 contracts reduce but don't eliminate it"
+      ]
+    }
+  ],
+  "chosen": "C",
+  "decision": "Adopt Option C. Markdown files remain the only source of truth for OS state; the Work HQ is a read-only renderer of them. A new docs/specs/file-contracts.md defines the section contract per file (active.md: Priorities / Blockers / Open Questions sections with the Updated header; BACKLOG.md: flat item list; learnings.md: dated lines; usage-log.md: the existing table). The Work HQ loads markdown via import.meta.glob with ?raw (same HMR-on-save behaviour the JSON loader enjoys), parses against the contract, and degrades per file to raw display + a drift flag when parsing fails. JSON under docs/data/ is reserved for Work-HQ-native entities: adrs/, questions/, project.json, and onboarding state \u2014 mirroring the claude-agents schemas so the entity components port unchanged. Human draft input written by the app goes only to gitignored docs/data/local/ (ADR-P6-003), which also holds the dated ritual-history snapshots under docs/data/local/history/ with an app-enforced 90-day rolling window (OQ-004, resolved); the app never writes OS markdown except where ADR-P6-004 explicitly scaffolds personal files during onboarding.",
+  "consequences": "docs/specs/file-contracts.md becomes a shared, committed artefact and the skills (chief-of-staff, os-helper) get a standing line: preserve section headings when editing contract files. The Work HQ's Health screen (ADR-P6-005) doubles as the contract monitor \u2014 drift is surfaced to the user instead of hidden in a parser. Commits us to keeping OS-state schema out of JSON permanently; if a future feature needs machine-shaped OS state, it must argue against this ADR. The .gitignore gains docs/data/local/; docs/data/ itself is committed (shared).",
+  "costCapacity": "No new recurring cost. Parsing happens in the local dev server; file watching is Vite-native.",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-004"
+  ]
+}

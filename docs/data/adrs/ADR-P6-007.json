@@ -1,0 +1,59 @@
+{
+  "id": "ADR-P6-007",
+  "title": "Onboarding is seeded by a Glean-bootstrapped AI Context Profile, reviewed and corrected in Work HQ",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "The interview-based wizard (ADR-P6-004) makes the user type their context from scratch \u2014 the weakest form of seeding when the org already runs Glean MCP as standard in VS Code. A production-tested bootstrap prompt run through Glean produces a rich 'AI Context Profile': ~30 numbered markdown sections (identity, role scope, programs, team, stakeholders, OKRs, derived work/communication style, an explicit 'How My AI Assistant Should Support Me' guide), with every claim labelled Confirmed / Derived / Unknown-needs-validation. A worked example on a real user validates the quality. The design question: how does this bootstrap integrate with onboarding without violating AD-4 (no MCP is ever load-bearing) and AD-5 (the profile contains personnel-adjacent data \u2014 manager, reports, start dates \u2014 that must never reach the committed repo)?",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Status quo: manual interview phases only; users with Glean paste findings in by hand",
+      "pros": [
+        "No new UI, no parser, no new file contract \u2014 ships exactly what ADR-P6-004 drafted",
+        "Zero MCP coupling; AD-4 trivially satisfied"
+      ],
+      "cons": [
+        "Throws away the highest-leverage seeding available: minutes of Glean research versus a shallow five-field form",
+        "Typed-from-scratch context is thin, unsourced, and skips exactly the derived work-style insight the worked example proves is extractable",
+        "The user has already production-tested the bootstrap; not designing for it guarantees an unofficial workflow grows outside the wizard"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Optional bootstrap path: the wizard hands the assistant the bootstrap prompt, the assistant writes context/profile.md via Glean, Work HQ renders every section as an editable card, and a corrections handoff locks the profile in \u2014 manual interview remains the first-class fallback",
+      "pros": [
+        "Best of both: enterprise-grounded depth when Glean is present, unchanged manual path when it is not \u2014 AD-4 holds because the bootstrap is a path choice, never a requirement",
+        "The review-and-correct phase turns AI research into human-verified context: per-section editing with Confirmed/Derived/Unknown status visible, and only edited sections travel back in the corrections handoff",
+        "One durable artefact (gitignored context/profile.md) becomes the deep Tier-2 context file; me.md/org.md/active.md are distilled from it, so the interview phases become confirmation rather than data entry",
+        "Reuses existing Work HQ machinery: the handoff dock carries the bootstrap prompt out and the corrections back \u2014 no new interaction pattern"
+      ],
+      "cons": [
+        "Real work: a markdown section parser, an editable-sections review UI, two new handoff kinds, and a profile file contract",
+        "The bootstrap prompt becomes a committed, versioned artefact that must be kept assistant-agnostic and org-portable",
+        "Two onboarding paths to test and keep coherent (seeded vs manual) \u2014 the test matrix grows"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Fully agent-driven: the assistant runs the bootstrap AND the corrections conversationally in chat; no review UI in Work HQ",
+      "pros": [
+        "No new Work HQ screens \u2014 the os-helper Butler Protocol absorbs the bootstrap as another interview source",
+        "Single path; smallest test matrix"
+      ],
+      "cons": [
+        "Reviewing ~30 sections conversationally is exactly the clunky, low-visibility experience the visual wizard exists to replace",
+        "No per-section status display (Confirmed/Derived/Unknown), no side-by-side editing \u2014 corrections become a wall of chat text",
+        "Contradicts the product direction: the user explicitly wants editable sections in the onboarding page with a paste-back correction loop"
+      ]
+    }
+  ],
+  "chosen": "B",
+  "decision": "Adopt Option B. The wizard's seeding phase offers two paths. BOOTSTRAP PATH: Work HQ shows the bootstrap prompt (a committed template at templates/bootstrap-profile-prompt.md with the user's name filled in) with Collect & Copy ('## Work HQ handoff \u00b7 profile-bootstrap \u00b7 <date>'); the user pastes it into their assistant, which researches via Glean MCP and writes the AI Context Profile to context/profile.md (gitignored, durable-personal \u2014 it contains personnel-adjacent data and must never be committed, per AD-5). Work HQ detects the file, parses it generically on '## <heading>' boundaries, and renders each section as an editable card with its Confirmed/Derived/Unknown status chip and an edited badge. The user corrects any section; Collect & Copy emits '## Work HQ handoff \u00b7 profile-corrections \u00b7 <date>' carrying ONLY the edited sections plus the lock-in ask: apply corrections to context/profile.md, then distil me.md, org.md (through the sensitivity gate \u2014 no personnel data in the committed file), and active.md seeds from it. MANUAL PATH: the ADR-P6-004 interview phases, unchanged, for users without Glean or who prefer typing. Both paths converge on the Right-now and Finish phases. The wizard phase order changes to make this possible: Wire-your-assistant moves BEFORE seeding, because the bootstrap requires a working assistant bridge. context/profile.md becomes a first-class Tier-2 durable-personal file with a routing-table row ('load before drafting or personalising, after me.md') \u2014 an AGENTS.md edit made by the implementing agent, never by the wizard. The production-tested prompt text (supplied via OQ-005, resolved) lives at templates/bootstrap-profile-prompt.md. Its structural contract is binding: title header '# <Name> \u2014 AI Context Profile', '## <Title>' sections (numbered or unnumbered \u2014 the parser splits on heading boundaries and must not assume numbering), per-claim Confirmed/Derived/Unknown labels, an 'Open questions / assumptions to validate' section, and a closing 'How my AI assistant should support me' section. The template also carries the production follow-up prompt (first-person conversion), applied at lock-in.",
+  "consequences": "ADR-P6-004's phase list is amended (same ADR, still Proposed): Orientation \u2192 Wire your assistant \u2192 Seed your profile (path choice) \u2192 Review & correct (seeded: section cards; manual: interview forms) \u2192 Right now \u2192 Finish. New file contract entries in docs/specs/file-contracts.md: context/profile.md structure and the profile-bootstrap / profile-corrections handoff kinds. The Glean dependency is confined to the assistant side \u2014 Work HQ itself never calls MCP, so AD-4 is preserved structurally. Demo/mock data for the review UI must be a FICTIONAL persona; the real worked example (example-profile.md) stays untracked and is never committed. os-helper gains the lock-in contract (apply corrections, distil, confirm). Stories 002/003/004/006 and the test plan need revision; two new stories cover the bootstrap phase and the review UI.",
+  "costCapacity": "No recurring cost to Work HQ (local only, no MCP calls from the app). The bootstrap itself costs one burst of Glean MCP queries per onboarding run \u2014 one-time per user, within normal enterprise Glean usage; the profile is thereafter read locally per the consolidate-once pattern (AD-4).",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-005"
+  ]
+}

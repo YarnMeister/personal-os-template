@@ -1,5 +1,7 @@
 # Personal OS — personal/private files (never commit)
 CLAUDE.local.md
+context/profile.md
+example-profile.md
 context/me.md
 context/active.md
 memory/learnings.md
@@ -13,6 +15,9 @@ knowledge/
 # Force-include shared memory files
 !memory/tools.md
 !memory/eval.md
+
+# Work HQ human input — raw draft answers/ritual history, never committed (see claude-agents ADR-008)
+docs/data/local/
 
 # macOS
 .DS_Store
@@ -35,3 +40,11 @@ yarn-error.log*
 
 # Misc
 *.log
+
+# Work HQ app (work-hq/) — build artefacts stay local; the Work HQ lockfile IS
+# committed (overrides the global package-lock.json ignore) for reproducible installs
+work-hq/dist/
+work-hq/.output/
+work-hq/.nitro/
+work-hq/.tanstack/
+!work-hq/package-lock.json

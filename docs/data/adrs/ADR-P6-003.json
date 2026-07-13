@@ -1,0 +1,60 @@
+{
+  "id": "ADR-P6-003",
+  "title": "Human-input bridge: persist-as-you-type to local files, plus a Collect & Copy block any assistant can consume",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "There is no hosted app and no live agent integration: the Work HQ and the AI chat are two windows on the same workspace. The bridge between them is the load-bearing UX decision. The claude-agents cockpit went through this evolution already: it started with a big collated copy-paste block (its ADR-002 era) and refined it to server-persisted input files plus a one-line trigger phrase (its ADR-008), because the app runs a Node server with filesystem access anyway. The Personal OS Work HQ has the same server, but a different audience (non-technical, multi-assistant per G3) and an explicit user requirement for the collate-and-copy pattern on ritual screens.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Pure collate-and-copy: inputs live in localStorage; a button collates every field on the screen into one formatted block to paste into chat",
+      "pros": [
+        "Works with any assistant, even one that cannot read workspace files \u2014 the paste carries the full payload",
+        "Fully transparent: the user sees and can edit exactly what the AI will receive before sending",
+        "No dependency on the server being alive at consume time"
+      ],
+      "cons": [
+        "localStorage is not durable or inspectable \u2014 a cleared browser profile silently loses drafts",
+        "Large screens produce large pastes; chat input boxes handle them badly",
+        "Two sources of truth (browser storage vs files) \u2014 the exact problem claude-agents ADR-008 was written to kill"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Server-write + one-line trigger only (adopt claude-agents ADR-008 unchanged): the app saves input to docs/data/local/, the copy button copies just a trigger phrase like 'process my wrap-up'",
+      "pros": [
+        "No large paste; durable, inspectable input files; single source of truth",
+        "Proven in production in the claude-agents cockpit \u2014 components port directly"
+      ],
+      "cons": [
+        "Requires the assistant to read workspace files on hearing the trigger \u2014 true for Copilot agent mode and Claude Code, but not guaranteed across 'any VS Code AI' (G3), and untestable assistants fail opaquely",
+        "Opaque to the user: what the AI consumes is invisible at send time, which costs trust with exactly this audience",
+        "Contradicts the explicit product requirement for a collated copy-paste block"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Both channels, one source of truth: debounced server-write to docs/data/local/ for durability; Collect & Copy emits the full formatted block (with a machine-recognisable header) built from that same state",
+      "pros": [
+        "Meets the stated requirement and stays honest with G3: the pasted block is self-contained, so even a file-blind assistant can act on it",
+        "Durability and inspectability of ADR-008: drafts survive reloads and live in files the user (and the AI) can open",
+        "Skills accept either form \u2014 the block's header line ('## Work HQ handoff \u00b7 <screen> \u00b7 <date>') is also the trigger, so power users can paste just that line and let the AI read the file",
+        "Single source of truth: the block is a projection of the saved file, never a parallel store (localStorage is only an offline write-through cache)"
+      ],
+      "cons": [
+        "Two consumption paths to document and test in skills (full block vs trigger + file read)",
+        "Slightly more UI: the copy dialog needs to show block size and both usage hints",
+        "The formatted block format becomes a versioned contract between app and skills"
+      ]
+    }
+  ],
+  "chosen": "C",
+  "decision": "Adopt Option C. Every ritual screen's editable fields debounce-save through a server function to gitignored docs/data/local/<screen>.json (identical mechanism to claude-agents save-human-input.ts). The primary button on each screen is Collect & Copy: it collates the screen's saved state into a formatted markdown block opening with a recognisable handoff header, e.g. '## Work HQ handoff \u00b7 wrap-up \u00b7 2026-07-05', followed by the labelled responses. Skills (chief-of-staff, os-helper) are amended to recognise a handoff block pasted in full AND the bare header line as a trigger to read docs/data/local/ directly \u2014 same behaviour either way, because the file and the block carry identical content. The handoff block format is specified in docs/specs/file-contracts.md alongside the section contracts (ADR-P6-002).",
+  "consequences": "Per OQ-003 (resolved): the reference consumer is GitHub Copilot in the VS Code native chat UI, reading AGENTS.md \u2014 Claude Code availability is NOT assumed. Both consumption paths (full pasted block; bare trigger + file read) are acceptance-tested against Copilot agent mode; the full-block paste doubles as the safety net for assistants whose file access is unverified. README and onboarding carry a note that the as-is configuration assumes Copilot, guiding the user's AI assistant to adapt the setup for a different chosen assistant. docs/data/local/ is gitignored from day one (raw human drafts are never committed \u2014 only what the AI formalises into OS markdown). Skills gain a short 'Work HQ handoff' section each; that is the full blast radius on the AI side. The block format is versioned in file-contracts.md, so app and skills can evolve it deliberately. If experience shows everyone uses the trigger-only path, a future ADR can retire the full-block copy without touching storage.",
+  "costCapacity": "No new recurring cost. Writes are local filesystem only.",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-003"
+  ]
+}
