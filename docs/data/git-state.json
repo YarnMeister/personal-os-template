@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-05T22:33:00Z",
+  "generatedAt": "2026-07-13T06:35:29Z",
   "fetchOk": true,
   "localBranches": [
     {
-      "name": "feat/onboarding",
+      "name": "f-onboarding-ux",
       "current": true,
-      "ahead": 25,
+      "ahead": 0,
       "behind": 0,
-      "lastCommit": "dfbc548b1ec2236caf02fd2bbcb063c7266abfad",
-      "when": "chore: record QA approval on all f-onboarding stories (001-011)",
+      "lastCommit": "cb0f60e",
+      "when": "chore(017): QA verdict — Approved; advance f-onboarding-ux phase to Done",
       "merged": false
     },
     {
@@ -17,7 +17,7 @@
       "ahead": 0,
       "behind": 0,
       "lastCommit": "77a0b23",
-      "when": "previous session",
+      "when": "refactor: remove workspace mcp.json — MCP config is personal",
       "merged": true
     },
     {
@@ -26,7 +26,7 @@
       "ahead": 0,
       "behind": 0,
       "lastCommit": "b1433cc",
-      "when": "previous session",
+      "when": "fix: strengthen skill routing and comms gate in AGENTS.md",
       "merged": true
     },
     {
@@ -35,7 +35,7 @@
       "ahead": 0,
       "behind": 0,
       "lastCommit": "a30e67d",
-      "when": "previous session",
+      "when": "fix: mark Story 012 approved after AC2 re-verification",
       "merged": true
     },
     {
@@ -44,25 +44,25 @@
       "ahead": 0,
       "behind": 0,
       "lastCommit": "89a04e1",
-      "when": "previous session",
+      "when": "fix: make skill file routing explicit in AGENTS.md",
       "merged": true
     },
     {
       "name": "main",
       "current": false,
       "ahead": 0,
-      "behind": 25,
-      "lastCommit": "1d6a123",
-      "when": "previous session",
-      "merged": false
+      "behind": 0,
+      "lastCommit": "fe7dac4",
+      "when": "merge: f-onboarding complete — 11 stories, all QA Approved",
+      "merged": true
     }
   ],
   "remoteBranches": [
     {
       "name": "origin/main",
-      "lastCommit": "1d6a123",
-      "when": "previous session",
-      "merged": false
+      "lastCommit": "fe7dac4",
+      "when": "merge: f-onboarding complete — 11 stories, all QA Approved",
+      "merged": true
     }
   ],
   "worktreeIssues": []

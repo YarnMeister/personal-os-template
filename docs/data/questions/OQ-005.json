@@ -1,0 +1,14 @@
+{
+  "id": "OQ-005",
+  "title": "Supply the production-tested Glean bootstrap prompt text",
+  "description": "ADR-P6-007 builds the seeding phase around the bootstrap prompt that was tested in production via Glean (the worked example proves the output quality). The prompt TEXT itself was not provided — only its output. The design reverse-engineers the structural contract from the worked example (numbered '## N. Title' sections, Confirmed/Derived/Unknown claim labels, 'Open Questions / Assumptions to Validate', closing 'How My AI Assistant Should Support Me'), and templates/bootstrap-profile-prompt.md will carry a reconstruction until the real text lands. Please paste the exact production prompt so the template ships the tested version verbatim (with the user-name placeholder added).",
+  "status": "resolved",
+  "raisedBy": "architect",
+  "relatedTo": [
+    {
+      "label": "ADR-P6-007",
+      "href": "/decisions"
+    }
+  ],
+  "resolution": "Production prompt text supplied by the user on 2026-07-05 and captured verbatim (formatting normalised, wording unchanged) at templates/bootstrap-profile-prompt.md. The template carries: a Personal OS wrapper directing the assistant to write context/profile.md, the master prompt with [FULL_NAME]/[WORK_EMAIL] placeholders, the recommended output structure, and the follow-up first-person conversion prompt (folded into the lock-in step, ADR-P6-007/story 011). Story 009's reconstruction-marker AC replaced with a production-text AC."
+}

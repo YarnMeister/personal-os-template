@@ -12,7 +12,7 @@ This policy defines what belongs in the Personal OS repository and what must liv
 | Key personal decisions | `memory/decisions.md` | Gitignored — personal, never committed |
 | Project and area deep-context files | `projects/`, `areas/` | Gitignored — personal, never committed |
 | Shared org context (stakeholder map, glossary) | `context/org.md` | Committed — shared with team |
-| Skill files, templates, rules | `.github/skills/`, `templates/`, `rules/` | Committed — shared with team |
+| Skill files, templates, rules | `skills/`, `templates/`, `rules/` | Committed — shared with team |
 
 ## What must stay in Confluence or Glean
 

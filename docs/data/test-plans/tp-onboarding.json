@@ -1,0 +1,127 @@
+{
+  "id": "tp-onboarding",
+  "featureId": "f-onboarding",
+  "title": "Manual Test Plan — Guided Onboarding",
+  "steps": [
+    {
+      "label": "Fresh install opens wizard",
+      "instruction": "From the repo root, run `npm install --prefix work-hq && npm run onboard`. Expected: the browser opens at http://localhost:<port>/onboarding and the wizard displays Phase 1 of 6 — Orientation — with the progress rail showing one dot filled.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Orientation — real OS tier model and trigger phrases",
+      "instruction": "Read all visible text on Phase 1 without scrolling past the fold. Expected: AGENTS.md (Tier 1 constitution), context/me.md, context/org.md, context/active.md, and memory/ (Tier 2), and projects/, areas/, BACKLOG.md (Tier 3) all appear as monospace names. No reference to /state, /decisions, or /archive paths appears anywhere on the page. The three daily trigger phrases 'morning standup', 'process my backlog', and 'end session' each appear as highlighted or monospace text. A privacy/offline note (data stays local, works offline) is visible at 1280px without scrolling.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Wire assistant (phase 2) — setup steps and verification prompt",
+      "instruction": "Click Next to Phase 2. Expected: the Copilot branch shows exactly two numbered steps — (1) enable the `chat.useAgentsMdFile` setting (name shown as copyable monospace text), (2) confirm the workspace folder is open. The verification prompt block contains exactly the text 'Confirm you can read my constitution and context/active.md — tell me my #1 priority.' — verbatim, in a copyable block.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Verification prompt works in Copilot",
+      "instruction": "Click the copy button on the phase 2 verification prompt. Open VS Code Copilot Chat (workspace folder open, chat.useAgentsMdFile enabled). Paste the prompt and send. Expected: Copilot responds with a recognisable reference to the constitution (e.g. describes AGENTS.md or its standing orders). Mark all three phase 2 checkboxes as complete.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Bootstrap path choice unlocks only after phase 2 complete",
+      "instruction": "Navigate to Phase 3 (Seed your profile) while phase 2 checkboxes are NOT all marked. Expected: the 'Bootstrap with Glean' option is visually disabled and shows the note 'Complete assistant wiring in phase 2 first'. Return to phase 2, mark all checkboxes, then re-visit phase 3. Expected: the Bootstrap option is now enabled.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Bootstrap prompt has user's name and structural sections",
+      "instruction": "Select 'Bootstrap with Glean' on Phase 3. Expected: the displayed prompt (and clipboard content after clicking Collect & Copy) shows the user's name substituted for the placeholder (not the raw `{{name}}` token). The first line of the copied block is exactly `## Work HQ handoff · profile-bootstrap · <today's date>`. The prompt body contains numbered `## N. Title` section headers, at least one Confirmed/Derived/Unknown label, an 'Open Questions / Assumptions to Validate' section, and a closing 'How My AI Assistant Should Support Me' section.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Review & correct phase renders section cards after profile.md is written",
+      "instruction": "Paste the bootstrap prompt into VS Code Copilot Chat. After the assistant writes context/profile.md, return to Work HQ phase 4 and click 'Refresh' (or wait for auto-detect). Expected: the waiting state resolves and the phase renders one editable card per `## <heading>` found in context/profile.md. Each card shows the section heading, body text, and a status chip labelled Confirmed, Derived, or Unknown matching the first claim label in that section.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Editing a section marks it with an edited badge",
+      "instruction": "On Phase 4 section cards, edit the body text of at least two cards. Expected: each edited card shows an 'edited' badge. The phase heading updates to show the count of edited sections (e.g. '2 sections edited'). Refresh the page — the edited content and badge are still present (loaded from onboarding-state.json).",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Corrections handoff contains only edited sections",
+      "instruction": "With two sections edited, click the Collect & Copy button in Phase 4. Open a text editor and paste the clipboard contents. Expected: the first line is exactly `## Work HQ handoff · profile-corrections · <today's date>`. The block body contains ONLY the two edited sections — no un-edited section content appears. The lock-in ask is present: apply corrections to context/profile.md, then distil context/me.md, context/org.md (sensitivity gate), and context/active.md.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Lock-in distils me/org/active — sensitivity gate applies to org.md",
+      "instruction": "Paste the profile-corrections block into VS Code Copilot Chat. Expected: the assistant (a) applies the corrections to context/profile.md, (b) writes context/me.md and context/org.md distilled from the profile — `cat context/me.md` shows a `# Me · Updated: <today>` header with real content and no `[bracketed]` placeholders. For org.md, the assistant applies the sensitivity gate (no personnel data, unreleased roadmap items, or commercial terms in the committed file). `cat context/org.md` is present and shows real content.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Manual path works end-to-end with Glean disconnected",
+      "instruction": "Start a fresh wizard run (clear onboarding-state.json or use a clean profile). On Phase 3, select 'Set up manually'. Expected: the wizard advances to Phase 4 showing the About-you and Your-org interview forms — no mention of Glean or profile.md is required. Complete phases 4 and 5 using the forms. Run `cat context/me.md && cat context/active.md` — both files exist with real content. This confirms AD-4: the manual path is fully functional with no Glean/MCP dependency.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Sensitivity confirmation gates org.md write on manual path",
+      "instruction": "On Phase 4 manual path, fill in the Your-org fields but when the sensitivity-check confirmation panel appears ('no personnel data, unreleased roadmap items, or commercial terms'), click Cancel. Then run `cat context/org.md`. Expected: the file either does not exist (first run) or retains its previous content unchanged — the new answers were NOT written because confirmation was not given.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Phase 5 Right now — priorities with owner and due date",
+      "instruction": "Reach Phase 5 on either path. Enter three priorities, each with a title, a named owner, and a due date. Enter a blocker. Click Confirm. Run `cat docs/data/local/onboarding-state.json`. Expected: the priorities array contains three objects each with keys title, owner, dueDate — not plain strings. Run `cat context/active.md` — priorities are formatted as `<title> — Owner: <owner> — Due: <dueDate>`.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "git status shows context/profile.md untracked",
+      "instruction": "After the bootstrap path has written context/profile.md, run `git status` from the repo root. Expected: context/profile.md does NOT appear in 'Changes to be committed' or 'Changes not staged'. It should either not appear at all (covered by a gitignore glob) or appear only as 'nothing to commit' / within an ignored path.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Mid-wizard quit and resume",
+      "instruction": "Complete phase 2 and start phase 3 but do not confirm. Close the browser tab. Wait 5 seconds, then run `npm run onboard` again. Expected: the wizard opens directly at phase 3 (or the last incomplete phase), not at phase 1. Previously entered phase 2 checkbox states are pre-populated. `cat docs/data/local/onboarding-state.json` shows completedPhases containing at least 1 and 2.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Phase 6 handoff block format",
+      "instruction": "Complete all 6 phases and click the Collect & Copy button on Phase 6. Open a text editor and paste. Expected: the first line is exactly `## Work HQ handoff · onboarding · <today's date in YYYY-MM-DD format>`. The block lists which files were scaffolded (context/me.md, context/org.md, context/active.md) and contains two explicit asks: (a) verify the files, (b) run the first 'morning standup'. The word 'initialize' does not appear.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Paste onboarding handoff to assistant — verify + first standup",
+      "instruction": "Paste the Phase 6 handoff block into VS Code Copilot Chat. Expected: the assistant (a) confirms the scaffolded files look correct, then (b) runs a morning standup using context/active.md, outputting the three priorities with owner and due date as entered in Phase 5.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "onboarding.html is gone",
+      "instruction": "From the repo root, run `ls onboarding.html || echo gone`. Expected: output is 'gone' — the file no longer exists at the repo root.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "README runbook reaches a running wizard",
+      "instruction": "On a machine with Node ≥ 20 installed, follow only the numbered steps in the README's setup section (fresh clone, no work-hq/node_modules). Expected: following the steps in order — without additional commands or prior knowledge — results in the browser opening the wizard at /onboarding without errors. The README's AI-assistant framing ('set this up for me') appears before the numbered steps, and a no-Node fallback ('onboard me') is documented.",
+      "result": null,
+      "comment": ""
+    },
+    {
+      "label": "Health tile reflects completion",
+      "instruction": "After completing all 6 wizard phases, navigate to the Work HQ Health screen (without restarting the server). Expected: the onboarding tile shows '6 of 6 phases complete' or a 'Complete' badge, and displays the updatedAt date from docs/data/local/onboarding-state.json. A tile with 'Onboarding not started' must NOT appear.",
+      "result": null,
+      "comment": ""
+    }
+  ]
+}

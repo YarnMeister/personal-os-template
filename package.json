@@ -1,0 +1,14 @@
+{
+  "name": "personal-os-template",
+  "private": true,
+  "description": "Launcher for Work HQ (work-hq/). The OS itself is markdown files and works without this — see README.",
+  "scripts": {
+    "preflight": "node -e \"if(!require('fs').existsSync('work-hq/node_modules')){console.error('\\nWork HQ dependencies are not installed yet. Run:\\n\\n  npm install --prefix work-hq\\n');process.exit(1)}\"",
+    "predev": "npm run preflight",
+    "prestart": "npm run preflight",
+    "preonboard": "npm run preflight",
+    "dev": "npm --prefix work-hq run dev",
+    "start": "npm --prefix work-hq run dev",
+    "onboard": "npm --prefix work-hq run onboard"
+  }
+}

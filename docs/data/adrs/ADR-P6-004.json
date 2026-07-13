@@ -1,0 +1,61 @@
+{
+  "id": "ADR-P6-004",
+  "title": "npm run onboard boots the Work HQ into a guided wizard that scaffolds the personal OS and hands the constitution to the AI",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "Onboarding is the weakest part of the current template: onboarding.html is a handsome static explainer, but it explains rather than guides \u2014 a new user still faces empty context files, an unconfigured assistant, and no confirmation that anything works. M5's acceptance bar (clone to first successful standup in under 30 minutes) was met with developer-adjacent testers; the guidance gap is the blocker for less technical users. The os-helper skill already owns chat-side onboarding ('onboard [name]'), including detecting a failed @AGENTS.md import. The question is what npm run onboard runs and how the wizard divides labour with the AI.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Enhance the static onboarding.html: add interactive checklists and copy buttons, but keep it a served static page",
+      "pros": [
+        "Smallest build; keeps the existing well-designed page as the base",
+        "No server needed \u2014 could even keep working from file://"
+      ],
+      "cons": [
+        "Cannot write files, so the user still hand-creates me.md, active.md, etc. from templates \u2014 the core friction survives",
+        "Cannot read files, so it can never verify progress or confirm the constitution actually loaded",
+        "A second, separate artefact once the Work HQ exists \u2014 two UIs to maintain and keep consistent"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Terminal CLI wizard (inquirer-style prompts) that writes the personal files directly",
+      "pros": [
+        "Tiny dependency footprint; no browser context switch",
+        "Direct file writes make scaffolding trivial"
+      ],
+      "cons": [
+        "A terminal Q&A is the least hospitable medium for the exact audience with the guidance problem \u2014 no visuals, no progress overview, no explanatory side panel",
+        "Cannot reuse the Work HQ's screens, components, or the Collect & Copy bridge (ADR-P6-003); parallel codebase for one-time use",
+        "Long free-text answers (role description, stakeholder map) are miserable to type into a terminal prompt"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "A wizard route inside the Work HQ app: npm run onboard starts the same dev server opening at /onboarding, a stepped flow that scaffolds files and ends with a handoff to the AI",
+      "pros": [
+        "One app, one component library, one input bridge \u2014 the wizard is just another consumer of ADR-P6-003's save + Collect & Copy machinery",
+        "Server functions let the wizard scaffold the gitignored personal files (me.md, active.md, BACKLOG.md placeholder) from templates/ with the user's answers already filled in",
+        "Can verify as it goes: which files exist, whether headers carry Updated dates, and it can coach the assistant-wiring step (chat.useAgentsMdFile, CLAUDE.md shim check) with a copyable verification prompt",
+        "Onboarding state persisted as a Work-HQ-native JSON entity (ADR-P6-002), so the wizard is resumable and the Health screen can show 'onboarding incomplete'"
+      ],
+      "cons": [
+        "Onboarding now requires Node + npm install before first value \u2014 the heaviest possible first step for a non-technical user (OQ-002); chat-only onboarding must remain documented as the fallback",
+        "Wizard quality bar is high: a broken guided flow is worse than no guided flow",
+        "The static onboarding.html becomes redundant as an entry point and needs an explicit fate (OQ-001)"
+      ]
+    }
+  ],
+  "chosen": "C",
+  "decision": "Adopt Option C. npm run onboard starts the Work HQ server and opens /onboarding: an instructional, interview-style wizard \u2014 a smart multi-turn form organised in logical phases, explicitly designed to span many sessions (onboarding-state JSON records per-phase completion, so the user can leave and resume where they stopped; per OQ-001). Phases (order amended by ADR-P6-007 \u2014 assistant wiring must precede seeding because the bootstrap runs through the assistant): (1) Orientation \u2014 intro and intent, absorbing the static content of onboarding.html, which is then deleted (OQ-001: one onboarding surface, no drift); (2) Wire your assistant \u2014 the as-is setup assumes GitHub Copilot in the VS Code native chat UI reading AGENTS.md (OQ-003): checklist for chat.useAgentsMdFile / CLAUDE.md shim with a copyable verification prompt ('confirm you can read my constitution and tell me my #1 priority'), the os-helper import-debug steps surfaced on failure, plus a note guiding the user's AI assistant to adapt the setup when their assistant is not Copilot; (3) Seed your profile \u2014 path choice per ADR-P6-007: Glean-bootstrap (copy the bootstrap prompt; the assistant researches and writes context/profile.md) or manual interview; (4) Review & correct \u2014 seeded path: every profile section rendered as an editable card with Confirmed/Derived/Unknown status, corrections handoff locks the profile in (ADR-P6-007); manual path: the About-you and Your-org interview forms scaffolding context/me.md and context/org.md (committed file: wizard shows the sensitivity-check wording before writing); (5) Right now \u2014 top-3 priorities (each with named owner and due date) and blockers scaffolding context/active.md, both paths; (6) First standup \u2014 Collect & Copy handoff block inviting the AI to run the inaugural 'morning standup' and os-helper 'onboard' harvest. Labour split: the wizard writes only gitignored personal scaffolds and its own onboarding-state JSON; anything constitution-level (AGENTS.md edits, skill changes) is handed to the AI via the handoff block \u2014 the AI remains the sole editor of shared, committed OS files.",
+  "consequences": "The 30-minute M5 onboarding criterion is re-baselined to include npm install, and the prerequisite step is delegated to the user's AI assistant: the README is written to be assistant-executable, so the user points their assistant at it and the assistant runs the Node.js/npm preflight and first launch (OQ-002). The chat-only path ('onboard' via os-helper) remains documented as the no-Node fallback. onboarding.html's intro/intent content is folded into the Orientation phase and the file is deleted (OQ-001). os-helper gains a wizard-aware mode: when onboarding-state JSON shows wizard completion, chat onboarding skips straight to verification instead of re-interviewing. templates/ becomes a runtime dependency of the wizard (scaffold sources), so template edits must keep placeholder markers intact.",
+  "costCapacity": "No new recurring cost; wizard runs on the same local server as the Work HQ (ADR-P6-006).",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-001",
+    "OQ-002",
+    "OQ-003"
+  ]
+}

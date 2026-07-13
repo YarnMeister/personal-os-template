@@ -1,0 +1,57 @@
+{
+  "id": "ADR-P6-008",
+  "title": "Phase-2 verification is observed via an assistant-written local handshake file",
+  "status": "Proposed",
+  "date": "2026-07-13",
+  "phase": "f-onboarding-ux — Onboarding UX Overhaul",
+  "context": "Phase 2 of the wizard (PhaseWire) currently ends in self-attestation: the user copies a verification prompt, pastes it into their assistant, and then ticks a checkbox ('I've sent the verification prompt and my assistant responded') on their own honour. Nothing observes whether the assistant actually loaded the constitution. The UX-overhaul goal (f-onboarding-ux) is that verification be observed rather than taken on trust. The wizard is a local TanStack Start app with no channel into the user's chat session — it cannot read the assistant's reply directly. It already has one proven idiom for observing assistant side effects: PhaseSeeding polls the read-only `check-profile-exists` server function (existsSync on `context/profile.md`) on a 5s interval to detect when the assistant has written the bootstrapped profile. AD-4 forbids any MCP or network dependency being load-bearing, and the manual self-attest path must survive for assistants that cannot write files. The question: what transport lets the wizard observe that the assistant completed verification, without new infrastructure and without breaking the no-file-write fallback?",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Assistant writes a gitignored handshake file (docs/data/local/handshake.json); the wizard polls for it via a read-only server function, exactly mirroring the check-profile-exists pattern",
+      "pros": [
+        "Reuses an already-shipped, already-tested idiom: a createServerFn GET + existsSync + a setInterval poll in the phase component — no new interaction model to design or test",
+        "Works fully offline and with zero MCP: the assistant writes a local file, the wizard reads a local file, nothing crosses the network (AD-4 preserved structurally)",
+        "The handshake payload (verifiedAt, assistant) gives the wizard real content to display ('✓ Assistant verified at 09:41') rather than a bare boolean, and names which assistant did it",
+        "Manual self-attest fallback stays trivially intact: if the file never appears (assistant cannot write files), the checkbox remains interactive and the user proceeds exactly as today",
+        "Gitignore story is already solved — docs/data/local/ is gitignored (.gitignore line 20), so handshake.json inherits the boundary with no new rule and can never be committed"
+      ],
+      "cons": [
+        "Requires assistants to have file-write capability to get the observed path; file-less assistants get only the manual fallback (acceptable — the fallback is a first-class requirement, not a degradation)",
+        "The wizard trusts file existence, not a cryptographic proof — a user could hand-create the file to skip the step (but self-attest already allows exactly this, so no security regression)"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "User pastes the assistant's verification reply back into a wizard textarea; the wizard string-matches it against an expected marker",
+      "pros": [
+        "Works for every assistant including file-less ones — the only input is a paste",
+        "No new server function; matching is client-side"
+      ],
+      "cons": [
+        "Reintroduces manual copy-paste friction — the exact clunkiness the UX overhaul is removing, just relocated from a checkbox to a textarea",
+        "String-matching an LLM's free-form reply is brittle: the assistant phrases the confirmation differently every run, so either the match is too loose (matches anything, no better than a checkbox) or too strict (rejects valid confirmations)",
+        "Still fundamentally self-attested — the user chooses what to paste and could paste anything"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "The assistant curls a local HTTP callback endpoint the wizard exposes; the wizard marks verification on receipt",
+      "pros": [
+        "Real push signal — no polling latency",
+        "Carries structured data in the request body"
+      ],
+      "cons": [
+        "Introduces a live network transport and a new server route into a local-first, offline-by-design app — direct tension with AD-4 and the 'data stays local and works offline' promise (story 016)",
+        "Assistants generally cannot make arbitrary outbound HTTP calls to localhost from a chat session without tool wiring the user does not have; far narrower capability surface than file-write",
+        "New endpoint = new attack surface, CORS/port concerns, and a transport the codebase has no precedent for — highest-risk, lowest-consistency option"
+      ]
+    }
+  ],
+  "chosen": "A",
+  "decision": "Adopt Option A. The phase-2 verification prompt is extended to instruct the assistant to write `docs/data/local/handshake.json` after confirming it loaded the constitution. The wizard observes the write by polling a new read-only server function `work-hq/src/server/check-handshake.ts`, built as an exact structural clone of `check-profile-exists.ts` (createServerFn GET, strict:false, existsSync + resolve against process.cwd()), returning `{ detected, verifiedAt, assistant }`. PhaseWire polls it on a 5000ms setInterval (the same setInterval/clearInterval shape PhaseSeeding uses for check-profile-exists); on detection it stops polling and the third checkbox (testedPaste) becomes a locked confirmation line '✓ Assistant verified at <HH:MM>'. FILE SHAPE (implementers copy verbatim): `{ \"verifiedAt\": \"<ISO 8601 timestamp>\", \"assistant\": \"<assistant name>\" }` — e.g. `{ \"verifiedAt\": \"2026-07-13T09:41:00.000Z\", \"assistant\": \"GitHub Copilot\" }`. The wizard never writes this file; only the assistant does. MANUAL FALLBACK (non-negotiable): while handshake.json is absent, the testedPaste checkbox stays interactive; a user whose assistant cannot write files ticks it by hand, answers.checks.testedPaste persists to onboarding-state.json, and they are never blocked. STALENESS RULE: detection is existence-only (matching check-profile-exists, which never inspects mtime). A handshake from a previous onboarding session still counts. Rationale: (1) consistency with the established existsSync idiom — adding an mtime/session-window check would be a bespoke deviation with no analog elsewhere; (2) the file is gitignored and single-workspace, so a lingering handshake means this workspace's assistant was verified at least once, which is exactly what phase 2 asserts; (3) the user sees the real verifiedAt timestamp in the locked line and retains the manual path if they distrust a stale value; (4) re-onboarding is rare and low-stakes. The wizard returns verifiedAt purely for display; it does not gate on its recency. GITIGNORE: docs/data/local/ is already gitignored (.gitignore line 20) — no new rule; a `git ls-files --error-unmatch docs/data/local/handshake.json` must exit non-zero.",
+  "consequences": "New read-only server function work-hq/src/server/check-handshake.ts (owned by story 015). PhaseWire gains handshakeDetected/verifiedAt local state and a polling useEffect. The phase-2 verification prompt string changes (append the handshake instruction) — its exact new wording is pinned in docs/specs/file-contracts.md so it stays byte-stable. New file contract: docs/specs/file-contracts.md documents handshake.json (path, shape, writer=assistant, reader=wizard poll, gitignore, existence-only staleness rule). os-helper / assistant-side guidance should note that writing the handshake is optional-but-preferred: assistants that can write files should; those that cannot leave the user on the manual fallback. Forecloses nothing — a future push-based signal could supersede this ADR if a real transport appears, but the file idiom remains the offline floor. Does NOT change the first two setup checkboxes (installed, contextOpen).",
+  "costCapacity": "No new recurring cost. Local file read on a 5s poll while phase 2 is on screen; no metered operations, no MCP calls, no network. Polling stops on detection or phase change.",
+  "relatedStoryIds": ["015"],
+  "relatedOqIds": []
+}

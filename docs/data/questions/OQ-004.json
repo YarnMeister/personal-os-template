@@ -1,0 +1,12 @@
+{
+  "id": "OQ-004",
+  "title": "Should ritual outputs persist as dated history, or stay ephemeral in chat?",
+  "description": "Today a standup or wrap-up lives only in the chat transcript; memory files keep distilled learnings, not the ritual artefacts themselves. With the Work HQ capturing structured wrap-up input (ADR-P6-003) it becomes cheap to persist dated snapshots (e.g. docs/data/local/history/2026-07-05-wrapup.json), which would let the Health screen chart streaks, priority churn, and harvest consistency over time. Options: (a) ephemeral — nothing persists beyond what skills already write to memory/, keeping AD-6's bounded-memory discipline simple; (b) persist locally, gitignored, with a 90-day rolling window pruned by the app; (c) persist and let os-helper's monthly review fold trends into usage-log.md. Tension to weigh: history is observability gold, but AD-6 exists precisely because unbounded accumulation degrades the system.",
+  "status": "resolved",
+  "raisedBy": "architect",
+  "relatedTo": [
+    { "label": "ADR-P6-002", "href": "/decisions" },
+    { "label": "ADR-P6-005", "href": "/decisions" }
+  ],
+  "resolution": "Option (b) — ritual outputs persist locally as dated snapshots under gitignored docs/data/local/history/, with a 90-day rolling window pruned automatically by the app on server start. AD-6's bound is app-enforced rather than human-enforced; history never enters the committed repo or the AI's memory files. Health screen gains trend panels (harvest streaks, priority churn). ADR-P6-002 and ADR-P6-005 updated."
+}

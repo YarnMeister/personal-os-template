@@ -1,0 +1,59 @@
+{
+  "id": "ADR-P6-005",
+  "title": "Work HQ information architecture: ritual-first screens mapped 1:1 to the chief-of-staff triggers, plus an OS Health monitor",
+  "status": "Accepted",
+  "date": "2026-07-05",
+  "phase": "M6 \u2014 Work HQ & Guided Onboarding",
+  "context": "The claude-agents cockpit's screens mirror its domain entities (stories, decisions, questions, tests). The Personal OS domain is different: its 'entities' are rituals (morning standup, backlog processing, session wrap-up) and health disciplines (staleness flags, memory pruning, golden evals) currently enforced only by standing orders the user never sees. The screen set determines build cost and, more importantly, whether the Work HQ teaches the OS's operating rhythm or just decorates it.",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Minimal: a single Today screen (standup view + backlog list) and nothing else",
+      "pros": [
+        "Smallest possible build after the wizard; fastest to ship",
+        "One screen to keep consistent with the skills"
+      ],
+      "cons": [
+        "Ignores wrap-up \u2014 the harvest ritual is the OS's memory engine and the one users skip most; leaving it chat-only misses the highest-leverage visualisation",
+        "No health surface means the staleness standing orders stay invisible until the AI nags",
+        "Open questions raised during this very design process would have no home"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Clone the full BMAD cockpit suite: stories, features, decisions, questions, tests re-skinned onto the Personal OS",
+      "pros": [
+        "Maximum component reuse from claude-agents; familiar to the author",
+        "Every entity type gets a view on day one"
+      ],
+      "cons": [
+        "Wrong domain: the Personal OS has no stories, features, or test plans \u2014 the suite would render empty or force artificial entities into JSON, colliding with ADR-P6-002",
+        "Build cost spent on screens with no ritual behind them, while standup/wrap-up \u2014 the actual daily loop \u2014 get no dedicated treatment",
+        "Teaches BMAD's rhythm, not the Personal OS's"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Ritual-first: Today, Backlog, Wrap-Up, Health, Decisions & Questions, plus the Onboarding wizard route; skills-registry and eval-runner views deferred",
+      "pros": [
+        "Screens map 1:1 to trigger phrases the skills already own ('morning standup', 'process my backlog', 'end session'), so each screen's Collect & Copy block lands in an existing, tested skill path",
+        "Health makes the invisible disciplines visible: Updated-header ages, the active.md 2-working-day rule, learnings entries >30 days, BACKLOG item count, contract-drift flags (ADR-P6-002), onboarding completeness (ADR-P6-004)",
+        "Decisions & Questions ports nearly unchanged from claude-agents and immediately hosts the M6 ADRs and OQs \u2014 the Work HQ reviews its own design",
+        "Deferral is cheap and reversible: registry/eval views are additive later screens, not architectural choices"
+      ],
+      "cons": [
+        "Six routes is a real build, meaningfully larger than Option A",
+        "Wrap-Up and Health need net-new components (staleness meters, harvest capture) with no claude-agents equivalent to fork",
+        "Deferred views mean the skills registry and golden evals remain chat/file-only for now"
+      ]
+    }
+  ],
+  "chosen": "C",
+  "decision": "Adopt Option C. Routes: /(Today) \u2014 active.md rendered per its section contract with staleness banner, plus a standup capture area whose Collect & Copy emits the 'morning standup' handoff; /backlog \u2014 BACKLOG.md items with quick-add fields (saved to docs/data/local/, ADR-P6-003) and a 'process my backlog' handoff; /wrap-up \u2014 end-of-day fields (what shipped, learnings candidates, decisions made, tomorrow's top-3) emitting the 'end session' harvest handoff; /health \u2014 staleness dashboard driven by data already mandated by the standing orders (Updated headers, entry dates, file sizes vs AD-6 bounds, contract drift, onboarding state), plus trend panels (harvest streaks, priority churn) read from the ritual history snapshots (OQ-004: dated snapshots under gitignored docs/data/local/history/, 90-day rolling window pruned automatically by the app); /decisions and /questions \u2014 the claude-agents Decisions/Questions views pointed at this repo's docs/data/; /onboarding \u2014 the ADR-P6-004 wizard. Every ritual screen follows one template: read-only OS state on the left, human input on the right, one primary Collect & Copy action.",
+  "consequences": "The chief-of-staff skill gains recognition of three handoff headers (standup, backlog, wrap-up) per ADR-P6-003 \u2014 no new rituals are invented, so skill changes stay one section each. Health screen becomes the enforcement surface for AD-6 and the staleness standing orders, reducing dependence on AI-side nagging. Per OQ-004 (resolved, option b): each Collect & Copy also writes a dated snapshot to docs/data/local/history/<date>-<screen>.json; the app enforces the 90-day rolling window by pruning older snapshots on server start, keeping AD-6's bounded-memory discipline app-enforced rather than human-enforced \u2014 history never enters the committed repo or the AI's memory files. Deferred: skills-registry view, golden-eval runner, and any multi-project support (this Work HQ reads one workspace \u2014 its own; the multi-repo globbing of the claude-agents cockpit is explicitly not carried over). Each deferral is a candidate M7 story, not a blocked dependency.",
+  "costCapacity": "No new recurring cost. All screens read local files; no polling beyond Vite's native file watching.",
+  "relatedStoryIds": [],
+  "relatedOqIds": [
+    "OQ-004"
+  ]
+}

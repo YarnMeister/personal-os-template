@@ -1,0 +1,13 @@
+{
+  "id": "OQ-003",
+  "title": "Which assistant is the reference consumer of Work HQ handoff blocks — Copilot chat or Claude Code?",
+  "description": "The architecture names GitHub Copilot as the reference assistant (OQ-10, resolved), but the template's actual daily driver is currently Claude Code, and ADR-P6-003's dual bridge (full pasted block vs trigger-line + file read) behaves differently per assistant: file-read-on-trigger is robust in Copilot agent mode and Claude Code but unverified elsewhere. Decide: (a) Copilot remains the reference — every handoff block and trigger is acceptance-tested in Copilot chat, Claude Code is best-effort; (b) dual reference — both are tested each release, doubling the manual test matrix; (c) re-open the reference-assistant question formally and align it with real usage. Affects the M6 test plan and the wording of the assistant-wiring wizard step.",
+  "status": "resolved",
+  "raisedBy": "architect",
+  "relatedTo": [
+    { "label": "ADR-P6-003", "href": "/decisions" },
+    { "label": "ADR-P6-004", "href": "/decisions" },
+    { "label": "ADR-P6-006", "href": "/decisions" }
+  ],
+  "resolution": "Option (a) — the VS Code native chat UI is the target, so the reference is GitHub Copilot reading AGENTS.md; Claude Code availability is not assumed. Handoff blocks and triggers are acceptance-tested against Copilot. README and/or onboarding gain notes guiding the user's AI assistant to optimise the setup to match their chosen assistant, stating explicitly that the as-is configuration assumes Copilot. ADR-P6-003, ADR-P6-004, and ADR-P6-006 updated."
+}

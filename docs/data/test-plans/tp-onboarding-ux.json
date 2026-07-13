@@ -1,0 +1,122 @@
+{
+  "id": "tp-onboarding-ux",
+  "featureId": "f-onboarding-ux",
+  "title": "Manual Test Plan — Onboarding UX Overhaul",
+  "steps": [
+    {
+      "label": "No raw markdown visible by default",
+      "instruction": "Open `/onboarding` in a browser. Scroll through all phases without interacting with any disclosure. Inspect the DOM. Expected: no `<pre>` element containing markdown text is visible at any phase without user interaction. Any `<pre>` elements exist only inside collapsed `<details>` disclosure blocks.",
+      "result": null
+    },
+    {
+      "label": "ActionCard step list and View raw disclosure",
+      "instruction": "Navigate to phase 3 and select 'Bootstrap with Glean'. Expected: the ActionCard shows a short bullet list describing what the assistant will do (e.g. 'Research your role via Glean', 'Write context/profile.md'). No raw markdown is visible. Click 'View raw prompt' — the disclosure expands showing the full markdown. Click again — it collapses.",
+      "result": null
+    },
+    {
+      "label": "Bootstrap prompt Copy payload: raw template content, not a handoff block",
+      "instruction": "Click the Copy button on the bootstrap-prompt ActionCard. Paste into a text editor. Expected: the first line begins `# Bootstrap Profile Prompt` (the raw substituted template content per file-contracts.md §4.2) — NOT a `## Work HQ handoff` header line. The user's name appears substituted in place of any placeholder. The payload is byte-identical to the readBootstrapPrompt server function output.",
+      "result": null
+    },
+    {
+      "label": "Profile corrections ActionCard: payload contains only changes",
+      "instruction": "Navigate to phase 4 (seeded path, profile loaded). Edit the text of two facts and mark one fact for removal. Click Copy on the corrections ActionCard. Paste into a text editor. Expected: first line is exactly `## Work HQ handoff · profile-corrections · <today's date>`. Only the two edited facts (with new text) and the one removal flag appear — no unchanged section content is present. The lock-in ask is present.",
+      "result": null
+    },
+    {
+      "label": "Phase 6 ActionCard: onboarding handoff header",
+      "instruction": "Complete all 6 phases and click Copy on the phase 6 ActionCard. Paste into a text editor. Expected: first line is exactly `## Work HQ handoff · onboarding · <today's date>`. The payload lists context/me.md, context/org.md, context/active.md and includes two asks: verify the files and run the first morning standup. The word 'initialize' does not appear.",
+      "result": null
+    },
+    {
+      "label": "Per-fact triage: Unknown/Derived facts surface first",
+      "instruction": "Load phase 4 (seeded path) with a profile that contains sections mixing Confirmed, Derived, and Unknown facts. Expected: facts labeled Derived or Unknown appear under a header 'N items need your review' above the Confirmed group. The Confirmed group renders as a collapsed summary line (e.g. '8 confirmed — click to expand').",
+      "result": null
+    },
+    {
+      "label": "Per-fact Accept, Edit, and Remove survive page refresh",
+      "instruction": "In phase 4 per-fact triage: click Edit on one fact, change its text, then click Accept. Click Remove on a different fact. Refresh the browser (F5). Expected: the edited text is preserved in the fact row; the removed fact remains marked for removal. `cat docs/data/local/onboarding-state.json` shows an extended editedSections shape with a 'facts' key.",
+      "result": null
+    },
+    {
+      "label": "Raw section escape hatch",
+      "instruction": "In phase 4 per-fact triage, click 'Edit raw section' on any section card. Expected: the full section body appears in a textarea for free-form editing. The textarea can be saved and the result persists after a page refresh.",
+      "result": null
+    },
+    {
+      "label": "Role combobox: preset options and free entry",
+      "instruction": "Navigate to phase 4 manual path. Click the Role field. Expected: a combobox opens showing at least 8 preset job titles. Select one — it populates the field. Type a custom title not in the list and confirm it (Enter or 'Create' option) — the custom value is accepted. The value persists to onboarding-state.json after navigating away and back.",
+      "result": null
+    },
+    {
+      "label": "Stakeholder structured rows: add, configure, remove",
+      "instruction": "In phase 4 manual path, add two stakeholders: 'Alice Chen' (Role: CTO, Relationship: Decision maker) and 'Bob Park' (Role: Platform Lead, Relationship: Collaborator). Click the Remove button on Bob Park's row. Expected: only Alice Chen's row remains. `cat docs/data/local/onboarding-state.json` shows answers.stakeholders as an array of objects each with name, role, and relationship keys.",
+      "result": null
+    },
+    {
+      "label": "Phase 5 priority owner select populated from stakeholders",
+      "instruction": "After saving phase 4 with stakeholders 'Alice Chen' and 'Bob Park', navigate to phase 5. Open the owner Select on the first priority. Expected: the dropdown contains at minimum 'Me', 'Alice Chen', and 'Bob Park'. Selecting 'Alice Chen' persists to onboarding-state.json under the first priority's owner key.",
+      "result": null
+    },
+    {
+      "label": "Phase 2 verification prompt instructs handshake write",
+      "instruction": "Navigate to phase 2. Read the verification prompt text displayed on screen. Expected: the prompt contains the file path `docs/data/local/handshake.json` and instructs the assistant to write a JSON file with the shape `{ verifiedAt: \"<ISO timestamp>\", assistant: \"<name>\" }`.",
+      "result": null
+    },
+    {
+      "label": "Phase 2 handshake auto-check: observed verification",
+      "instruction": "Open phase 2. Manually create `docs/data/local/handshake.json` containing `{ \"verifiedAt\": \"<current ISO timestamp>\", \"assistant\": \"Copilot\" }`. Wait up to 10 seconds without interacting. Expected: the third checkbox transitions automatically to a locked '✓ Assistant verified at <HH:MM>' confirmation line. The checkbox is no longer interactive — clicking or tabbing to it does not allow it to be un-ticked.",
+      "result": null
+    },
+    {
+      "label": "Phase 2 manual fallback when handshake file absent",
+      "instruction": "Delete `docs/data/local/handshake.json` and reload phase 2. Expected: the third checkbox is a standard interactive checkbox the user can tick by hand. Ticking it sets `checks.testedPaste: true` in `onboarding-state.json`. The wizard is not blocked from proceeding.",
+      "result": null
+    },
+    {
+      "label": "Phase 1 tier click-to-explore",
+      "instruction": "Open phase 1. Click the 'Tier 2 · Living context' card. Expected: the card highlights with a distinct border or background. Click 'Tier 1 · Constitution' — it highlights and Tier 2 returns to its unhighlighted state. Tab to a tier card and press Enter — the keyboard activation applies the same selected state.",
+      "result": null
+    },
+    {
+      "label": "Phase 1 trigger phrase mini-chat",
+      "instruction": "Click the 'morning standup' chip on phase 1. Expected: a mini-chat panel appears showing 'morning standup' as the user turn and a canned description of the standup ritual as the assistant reply. Click 'process my backlog' — the panel updates with the backlog ritual description. No real assistant call is made.",
+      "result": null
+    },
+    {
+      "label": "Phase 1 privacy note remains above fold at 1 280 px",
+      "instruction": "Open `/onboarding` (phase 1) with the browser window set to 1 280×800 px. Without scrolling, confirm the 'Your data stays local and works offline' note is visible in the initial viewport. Expected: the note is not pushed below the fold by the new interactive tier cards or mini-chat panel.",
+      "result": null
+    },
+    {
+      "label": "Sidebar shows real onboarding progress",
+      "instruction": "Ensure `docs/data/local/onboarding-state.json` shows phase 3 with completedPhases [1, 2]. Navigate to the Today view (not the onboarding route). Expected: the sidebar onboarding progress bar is approximately 33% wide and the label reads 'Phase 3 of 6'. The value is not hardcoded — change the state file to phase 4 and reload; the sidebar shows 'Phase 4 of 6'.",
+      "result": null
+    },
+    {
+      "label": "Labeled stepper with completed-phase back-navigation",
+      "instruction": "Complete phases 1–3, reach phase 4. Expected: the top-rail stepper shows labeled steps using phase titles ('Orientation', 'Wire assistant', 'Seed profile', 'Your org', 'Right now', 'First standup'). Phases 1–3 are clickable. Click 'Orientation' — the wizard navigates to phase 1 without clearing any entered answers. Phase 5 and 6 indicators are non-interactive.",
+      "result": null
+    },
+    {
+      "label": "profileDetected persists across page refresh",
+      "instruction": "Complete the phase 3 bootstrap flow until `context/profile.md` is detected and the phase 4 section cards appear. Refresh the browser (F5). Expected: phase 4 renders section cards immediately — the 'waiting for profile' state does not re-appear. `cat docs/data/local/onboarding-state.json` shows a `profileDetected: true` value inside `answers`.",
+      "result": null
+    },
+    {
+      "label": "RitualLayout save indicator is truthful or absent",
+      "instruction": "Navigate to the Today view. Look at the header save-status area. Expected: either (a) no save-status label appears at all, or (b) a relative-time label is present that changes as time passes (e.g. updates from 'just now' to '1 min ago' after 60 seconds). The static string 'Saved to LocalStorage · just now' must NOT remain permanently fixed regardless of when data was last written.",
+      "result": null
+    },
+    {
+      "label": "os-helper applies Removed-marker as a deletion",
+      "instruction": "Using phase 4 fact triage, mark at least one fact for removal and edit the text of another. Click Copy on the corrections ActionCard and paste the block into VS Code Copilot Chat (os-helper active). Expected: the assistant (a) deletes the Removed-marked fact from context/profile.md — after the assistant confirms, run `grep '<original removed fact text>' context/profile.md` and confirm no match; (b) applies the edited fact's new text in place in the same file — `grep '<new fact text>' context/profile.md` returns a match. Lines without the `**Removed:**` prefix were applied as replacements, not deletions.",
+      "result": null
+    },
+    {
+      "label": "os-helper writes handshake.json on phase-2 verification prompt",
+      "instruction": "Delete `docs/data/local/handshake.json` if it exists. Copy the phase-2 verification prompt from Work HQ and paste it into VS Code Copilot Chat (os-helper / constitution active). Expected: the assistant (a) states the user's #1 priority AND (b) writes `docs/data/local/handshake.json`. Verify: `cat docs/data/local/handshake.json` returns valid JSON with keys `verifiedAt` (ISO 8601 string) and `assistant` (non-empty string). Back in Work HQ, the third phase-2 checkbox automatically locks to '✓ Assistant verified at <HH:MM>' within the next polling cycle (up to 5 s).",
+      "result": null
+    }
+  ]
+}

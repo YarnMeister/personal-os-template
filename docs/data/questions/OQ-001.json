@@ -1,0 +1,11 @@
+{
+  "id": "OQ-001",
+  "title": "Fate of onboarding.html once the wizard ships",
+  "description": "ADR-P6-004 retires onboarding.html as the onboarding entry point. The page itself is well-crafted and currently the only zero-install artefact that explains the system. Options: (a) delete it outright to avoid a second, drifting source of onboarding truth; (b) keep it as a read-only 'what is this?' overview linked from README, with all instructional content removed in favour of the wizard; (c) fold its explanatory content into the wizard's Orientation step and delete the file. Recommendation: (c) — one onboarding surface, no drift.",
+  "status": "resolved",
+  "raisedBy": "architect",
+  "relatedTo": [
+    { "label": "ADR-P6-004", "href": "/decisions" }
+  ],
+  "resolution": "Option (c) — one onboarding surface. The onboarding.html static content is leveraged for the basic intro and intent inside the wizard's Orientation phase, then the file is deleted. The onboarding UI is instructional by design: a logical step-by-step experience shaped like a multi-turn interview — a smart onboarding form with logical phases that can happen over many sessions (onboarding-state JSON tracks per-phase completion for resume). ADR-P6-004 updated."
+}

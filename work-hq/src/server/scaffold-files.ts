@@ -37,18 +37,42 @@ const prioritySchema = z.object({
   dueDate: z.string().default(""),
 });
 
+/** Structured team shape (story 014) — legacy flat string still accepted. */
+const teamSchema = z.union([
+  z.string(),
+  z.object({
+    size: z.string().default(""),
+    descriptor: z.string().default(""),
+  }),
+]);
+
+/** Structured stakeholder row (story 014) — legacy string still accepted. */
+const stakeholderSchema = z.union([
+  z.string(),
+  z.object({
+    name: z.string().default(""),
+    role: z.string().default(""),
+    relationship: z.string().default(""),
+  }),
+]);
+
 /**
  * Only the fields scaffold-files uses are declared explicitly.
  * `.passthrough()` allows the full Answers object (with assistant, checks,
  * seedingPath, etc.) to be forwarded without a schema error.
+ *
+ * `workstyle`, `team`, and `stakeholders` accept both the story-014 structured
+ * shapes and their legacy string shapes (unions), so the server stays valid
+ * regardless of which shape a caller forwards.  The content builders below
+ * coerce each into well-formed markdown.
  */
 const answersSchema = z
   .object({
     role: z.string().default(""),
-    workstyle: z.string().default(""),
-    team: z.string().default(""),
+    workstyle: z.union([z.string(), z.array(z.string())]).default(""),
+    team: teamSchema.default(""),
     keyTools: z.array(z.string()).default([]),
-    stakeholders: z.array(z.string()).default([]),
+    stakeholders: z.array(stakeholderSchema).default([]),
     glossary: z.string().default(""),
     priorities: z.array(prioritySchema).default([]),
     blockers: z.string().default(""),
@@ -117,6 +141,53 @@ function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/* ── Answer-shape coercion (story 014) ── */
+
+/**
+ * Coerce the working-style answer into a single comma-joined line.
+ * Accepts the structured `string[]` (story 014) or the legacy flat string.
+ */
+function workstyleToLine(ws: Answers["workstyle"]): string {
+  const parts = Array.isArray(ws) ? ws : ws ? [ws] : [];
+  return parts
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Coerce the team answer into a single descriptive line
+ * (`<descriptor> — <size> people`).  Accepts the structured object
+ * (story 014) or the legacy flat string.  Never emits `[` brackets.
+ */
+function teamToLine(team: Answers["team"]): string {
+  if (typeof team === "string") return team.trim();
+  const descriptor = (team.descriptor ?? "").trim();
+  const size = (team.size ?? "").trim();
+  const parts: string[] = [];
+  if (descriptor) parts.push(descriptor);
+  if (size) parts.push(`${size} people`);
+  return parts.join(" — ");
+}
+
+/**
+ * Coerce the stakeholders answer into legible bullet lines
+ * (`<name> (<role>) — <relationship>`).  Accepts the structured object rows
+ * (story 014) or the legacy string[]; empty/name-less rows are dropped.
+ */
+function stakeholderLines(stakeholders: Answers["stakeholders"]): string[] {
+  return stakeholders
+    .map((s) => {
+      if (typeof s === "string") return s.trim();
+      const name = (s.name ?? "").trim();
+      if (!name) return "";
+      const role = (s.role ?? "").trim();
+      const rel = (s.relationship ?? "").trim();
+      return `${name}${role ? ` (${role})` : ""}${rel ? ` — ${rel}` : ""}`;
+    })
+    .filter(Boolean);
+}
+
 /* ── Content builders ── */
 
 /**
@@ -130,8 +201,8 @@ function buildMeContent(answers: Answers): string {
   return `# Me · Updated: ${today}
 
 - **Role:** ${answers.role || "(not specified)"}
-- **Working style:** ${answers.workstyle || "(not specified)"}
-- **Team:** ${answers.team || "(not specified)"}
+- **Working style:** ${workstyleToLine(answers.workstyle) || "(not specified)"}
+- **Team:** ${teamToLine(answers.team) || "(not specified)"}
 - **Key tools:** ${keyToolsStr}
 `;
 }
@@ -144,15 +215,14 @@ function buildMeContent(answers: Answers): string {
 function buildOrgContent(answers: Answers): string {
   const today = todayDate();
   const stakeholdersStr =
-    answers.stakeholders
-      .filter(Boolean)
+    stakeholderLines(answers.stakeholders)
       .map((s) => `- ${s}`)
       .join("\n") || "(none entered)";
   const glossaryStr = answers.glossary || "(none entered)";
   return `# Org · Updated: ${today}
 
 ## Team structure
-${answers.team || "(not specified)"}
+${teamToLine(answers.team) || "(not specified)"}
 
 ## Key stakeholders
 ${stakeholdersStr}

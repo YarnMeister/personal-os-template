@@ -1,0 +1,94 @@
+{
+  "id": "018",
+  "featureId": "f-onboarding-ux",
+  "title": "os-helper skill contract alignment — Removed-marker and handshake awareness",
+  "owner": "developer",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 3 ACs verified by grep; both commits scope-clean; no secrets; no contradictions with existing SKILL.md.",
+  "adrRefs": ["ADR-P6-008", "ADR-P6-009"],
+  "epicSource": "f-onboarding-ux · QA flag on story 013 · 2026-07-13",
+  "userStory": "As the os-helper AI assistant, I want my skill file to document exactly how to handle fact-level profile corrections and how to write the verification handshake, so that I apply Removed markers as deletions and produce the handshake file the wizard polls for.",
+  "acceptanceCriteria": [
+    {
+      "text": "Signal C in `skills/os-helper/SKILL.md` documents the fact-level `**Removed:**` convention from file-contracts.md §4.3. The action instructions for Signal C must distinguish two bullet types: (a) a bullet prefixed with `**Removed:**` means delete that fact from `context/profile.md`; (b) a bullet without the prefix carries the edited replacement text to apply in place. `grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md` returns at least one match inside the Signal C action block."
+    },
+    {
+      "text": "`skills/os-helper/SKILL.md` gains a subsection documenting the phase-2 verification handshake (file-contracts.md §3.2 / ADR-P6-008): when the user pastes the phase-2 verification prompt, the assistant must (a) answer the user's #1 priority question AND (b) write `docs/data/local/handshake.json` with the exact shape `{ \"verifiedAt\": \"<ISO 8601 timestamp>\", \"assistant\": \"<assistant name>\" }`, creating the `docs/data/local/` folder if it does not already exist. The exact file path `docs/data/local/handshake.json` appears verbatim in the skill text. `grep -n 'handshake.json' skills/os-helper/SKILL.md` returns at least one match."
+    },
+    {
+      "text": "The handshake subsection explicitly notes that (a) `docs/data/local/handshake.json` is gitignored and will not appear in `git status`, and (b) the handshake write is preferred but not required — assistants that cannot write files may simply answer the priority question; the user then ticks the manual-fallback checkbox. `grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md` returns at least one match in the handshake subsection."
+    }
+  ],
+  "technicalNotes": "Edit `skills/os-helper/SKILL.md` only — no app code changes in this story. Two edits: (1) Signal C action block (lines ~65–70): after the existing step 1 ('Apply the edited sections from the handoff block to context/profile.md — write the file and confirm when done'), add a clarifying note on the two fact-level bullet conventions from file-contracts.md §4.3: a bullet beginning `- **Removed:** ` (exact string, space after colon) is a delete instruction for that fact; any other bullet in an edited section block carries the replacement text to apply in place. Keep the step numbering and the rest of Signal C unchanged. (2) Handshake subsection: add under the 'Work HQ handoff — wizard-aware early exit' block (after Signal C, before the 'If any of signals A, B, or C are present' line, or as a standalone subsection titled e.g. '### Phase-2 verification handshake'). Document that the phase-2 verification prompt (file-contracts.md §4.4) instructs the assistant to write `docs/data/local/handshake.json` with shape `{ \"verifiedAt\": \"<ISO 8601 timestamp>\", \"assistant\": \"<name>\" }` after confirming the #1 priority. Note gitignore status and manual-fallback. The AGENTS.md under-200-lines rule does not apply to SKILL.md; however, keep the addition concise (under 15 lines).",
+  "dependencies": ["013", "015"],
+  "outOfScope": "Modifying any app code, server functions, or the wizard UI. Changing the handoff payload format or the marker string (governed by file-contracts.md §4.3 — implementer must copy the string verbatim). Adding new handoff signal letters (A, B, C remain; handshake is a subsection within phase-2 handling). Changing AGENTS.md.",
+  "verificationPlan": [
+    {
+      "command": "grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md",
+      "checks": "Returns at least one match with a line number inside the Signal C action block, confirming the exact deletion-marker string is documented."
+    },
+    {
+      "command": "grep -n 'handshake.json' skills/os-helper/SKILL.md",
+      "checks": "Returns at least one match confirming the handshake file path is documented verbatim in the skill file."
+    },
+    {
+      "command": "grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md",
+      "checks": "Returns at least one match confirming the gitignore note and manual-fallback caveat are present in the handshake subsection."
+    }
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — Signal C documents the **Removed:** deletion-marker convention from file-contracts.md §4.3",
+        "evidence": "ran `grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md` → line 67, inside Signal C action block (Signal C opens at line 63). Text distinguishes two bullet types exactly as §4.3 requires: (a) `**Removed:**`-prefixed bullet = delete that fact from context/profile.md; (b) bullet without prefix = replacement text to apply in place; unchanged facts omitted. Matches §4.3 verbatim."
+      },
+      {
+        "ac": "AC2 — Handshake subsection matches §3.2/§4.4 exactly (path, shape, folder-creation note, gitignored note, both assistant actions)",
+        "evidence": "ran `grep -n 'handshake.json' skills/os-helper/SKILL.md` → lines 74, 77, 83 — all within '### Phase-2 verification handshake' subsection (lines 72–84). Path `docs/data/local/handshake.json` appears verbatim. Shape `{ \"verifiedAt\": \"<ISO 8601 timestamp>\", \"assistant\": \"<your assistant name>\" }` documented at lines 79–81. Folder-creation note at line 81 ('Create the docs/data/local/ folder if it does not already exist'). Both required actions present: (1) answer user's #1 priority question; (2) write handshake.json. Matches §3.2 and §4.4 exactly."
+      },
+      {
+        "ac": "AC3 — Handshake subsection explicitly notes (a) gitignored, (b) preferred-but-not-required with manual-fallback",
+        "evidence": "ran `grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md` → line 83. Single Notes sentence carries all three: 'is gitignored and will not appear in git status' (gitignore note); 'assistants that cannot write files may simply answer the priority question' (cannot-write); 'user then ticks the manual-fallback checkbox' (manual-fallback). All three sub-criteria met in one line."
+      }
+    ],
+    "commandsRun": [
+      "grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md → PASS — line 67 in Signal C action block",
+      "grep -n 'handshake.json' skills/os-helper/SKILL.md → PASS — lines 74, 77, 83 in Phase-2 verification handshake subsection",
+      "grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md → PASS — line 83 matches all three patterns",
+      "git show --stat e341757 → PASS — touches only skills/os-helper/SKILL.md and docs/data/stories/018.json (2 files, 18 insertions, 4 deletions)",
+      "git show --stat 181334a → PASS — touches only docs/data/stories/018.json (25 insertions, 2 deletions)",
+      "secrets scan (grep -iE 'DATABASE_URL|API_KEY|SECRET|TOKEN|BEGIN (RSA|...' on both commits) → PASS — no matches"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no credentials, tokens, or private key headers in either commit. Migration check: N/A — docs-only story, no schema or DB changes.",
+    "riskNotes": "None. The Phase-2 verification handshake subsection is placed inside the 'Work HQ handoff — wizard-aware early exit' block but is not one of the A/B/C signals; the gate on line 85 ('If any of signals A, B, or C are present, do not proceed to Step 1') correctly applies only to those three signals. Placement is unusual but not contradictory — the assistant distinguishes the handshake trigger (a specific prompt wording) from the three handoff signals (block headers in chat).",
+    "recommendedFollowUps": "ADR-P6-009 consequences flagged a SKILL.md follow-up for the **Removed:** marker — this story resolves it. No outstanding follow-ups pinned to story 018 found in other story files.",
+    "fixRequests": []
+  },
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "e341757",
+    "filesTouched": [
+      "skills/os-helper/SKILL.md",
+      "docs/data/stories/018.json"
+    ],
+    "notes": "Two targeted edits to SKILL.md: (1) added the fact-level **Removed:** convention note as a sub-bullet under Signal C step 1; (2) added '### Phase-2 verification handshake' subsection documenting handshake.json shape, gitignore status, and manual-fallback. Version bumped to 2.2, last-updated set to 2026-07-13. No app code touched.",
+    "verificationRun": [
+      {
+        "command": "grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md",
+        "result": "PASS — line 67 inside Signal C action block"
+      },
+      {
+        "command": "grep -n 'handshake.json' skills/os-helper/SKILL.md",
+        "result": "PASS — lines 74, 77, 83 in Phase-2 verification handshake subsection"
+      },
+      {
+        "command": "grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md",
+        "result": "PASS — line 83 contains all three matches"
+      }
+    ]
+  }
+}

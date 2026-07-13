@@ -85,13 +85,13 @@ The eight most consequential decisions. Each lists the decision, why it was chos
 
 **Consequences.** The `memory/tools.md` routing policy remains shared and committed — it documents which MCP sources to use and in what order, regardless of how each user has configured them. Team onboarding includes a step to configure personal MCP servers in VS Code User settings.
 
-### AD-8 — Skills are versioned `SKILL.md` agents in `.github/skills/`, catalogued in a registry
+### AD-8 — Skills are versioned `SKILL.md` agents in `skills/`, catalogued in a registry
 
-**Decision.** Each repeatable workflow and each specialist agent is a `SKILL.md` file under `.github/skills/<skill-name>/`, with frontmatter (`name`, `description`, `version`, `last-updated`). A `REGISTRY.md` catalogues all skills. The shared repo uses git tags (`v1.0`, `v1.1`) for skill-set versions.
+**Decision.** Each repeatable workflow and each specialist agent is a `SKILL.md` file under `skills/<skill-name>/`, with frontmatter (`name`, `description`, `version`, `last-updated`). A `REGISTRY.md` catalogues all skills. The shared repo uses git tags (`v1.0`, `v1.1`) for skill-set versions.
 
-**Rationale.** `.github/skills/` is the location VS Code Copilot agent mode reads natively (since April 2026). Versioned, registered skills are hot-swappable across the team via `git pull`, and the registry prevents orphaned/divergent skills — the team-quality-drift risk.
+**Rationale.** `skills/` is the location VS Code Copilot agent mode reads natively (since April 2026). Versioned, registered skills are hot-swappable across the team via `git pull`, and the registry prevents orphaned/divergent skills — the team-quality-drift risk.
 
-**Rejected alternatives.** *Inline skills inside the constitution* (bloats Tier 1, can't be versioned independently). *A flat `skills/` directory* (not the path Copilot scans; the PRD's `skills/REGISTRY.md` path is reconciled to `.github/skills/REGISTRY.md` — OQ-7 — the single skills location with no orphan directory).
+**Rejected alternatives.** *Inline skills inside the constitution* (bloats Tier 1, can't be versioned independently). *A flat `skills/` directory* (not the path Copilot scans; the PRD's `skills/REGISTRY.md` path is reconciled to `skills/REGISTRY.md` — OQ-7 — the single skills location with no orphan directory).
 
 **Consequences.** Skill format and frontmatter must be standardised (a `templates/SKILL.template.md`) so Process-Builder output is consistent. The OS-Helper "review skills" ritual keeps the registry current. Skill content must be plain-English and assistant-agnostic (no CLI syntax) to honour G3.
 
@@ -115,7 +115,7 @@ flowchart TD
             T3["Tier 3 · projects/ · areas/\n(loaded by trigger phrase)"]
             Know["knowledge/this-week.md"]
             Backlog["BACKLOG.md\n(brain-dump inbox)"]
-            Skills[".github/skills/*/SKILL.md\n+ REGISTRY.md"]
+            Skills["skills/*/SKILL.md\n+ REGISTRY.md"]
             Templates["templates/"]
         end
         MCPcfg[".vscode/mcp.json\n(credential-free, ${input:...})"]
@@ -148,7 +148,7 @@ Each component is a file or file-group with exactly one responsibility. "Interfa
 
 | Component | Responsibility | Interface | Depends On | Notes |
 |---|---|---|---|---|
-| `AGENTS.md` (Constitution) | Hold the always-loaded standing orders and route to all lower tiers | Auto-loaded by assistant via `chat.useAgentsMdFile`; plain-English instructions + routing table | `context/active.md`, `memory/tools.md`, `memory/eval.md`, `rules/`, `.github/skills/` | Canonical and primary Tier 1; the only file shipped/maintained (OQ-10); hard 200-line ceiling (AD-2) |
+| `AGENTS.md` (Constitution) | Hold the always-loaded standing orders and route to all lower tiers | Auto-loaded by assistant via `chat.useAgentsMdFile`; plain-English instructions + routing table | `context/active.md`, `memory/tools.md`, `memory/eval.md`, `rules/`, `skills/` | Canonical and primary Tier 1; the only file shipped/maintained (OQ-10); hard 200-line ceiling (AD-2) |
 | `CLAUDE.md` | Redirect Claude-flavoured tools to the canonical constitution | Single `@AGENTS.md` import line | `AGENTS.md` | Compatibility shim only, no substantive content (AD-3, OQ-10) |
 | `CLAUDE.local.md` | Hold per-user personal constitution overrides | Auto-loaded; gitignored | `AGENTS.md` | Personal layer; never committed |
 | `README.md` | Explain the system in plain language for humans and serve as the AI's workspace map | Human-read; AI orientation | All top-level dirs | Doubles as fallback-mode documentation (AD-4); documents that Copilot agent mode does not need the Filesystem MCP (OQ-3), the data-governance policy, and the `@AGENTS.md` import-debug steps (OQ-1) |
@@ -166,13 +166,13 @@ Each component is a file or file-group with exactly one responsibility. "Interfa
 | `projects/<name>.md` | Be the deep-context brain for one project | Loaded by trigger phrase | Glean/Confluence MCP (refresh) | Tier 3; gitignored; Glean/Confluence proxy |
 | `areas/<name>.md` | Be the deep-context brain for one standing responsibility | Loaded by trigger phrase | — | Tier 3; gitignored |
 | `knowledge/this-week.md` | Hold the weekly consolidated reference | Written by Researcher consolidation ritual | Glean MCP | Turns live lookups into cheap local reads |
-| `.github/skills/chief-of-staff/SKILL.md` | Run daily orchestration (standup, priorities, updates, prep) | Natural-language invocation | `context/active.md`, `memory/usage-log.md` | Primary daily driver; reads `active.md` first |
-| `.github/skills/researcher/SKILL.md` | Route discovery queries and consolidate findings | Natural-language invocation | `memory/tools.md`, MCP servers, `projects/*`, `knowledge/` | Document-grader: <3 Glean hits → Confluence deep search |
-| `.github/skills/product-writer/SKILL.md` | Produce structured documents in org tone | Natural-language invocation | `context/me.md`, `context/org.md`, Confluence MCP | Publishing to Confluence (authoritative source of truth) is the preferred default, degrading to local-retain on MCP failure (OQ-6) |
-| `.github/skills/os-helper/SKILL.md` | Maintain the OS itself (onboard, audit, review, evolve) | Explicit invocation only | `context/org.md`, all files, `REGISTRY.md` | Blocked during work sessions; onboarding includes instructions to detect/debug a failed `@AGENTS.md` import (OQ-1) and to run the `mcp.json` credential migration + rotation (OQ-4) |
-| `.github/skills/process-builder/SKILL.md` | Turn a process description into doc + SKILL.md + checklist | Natural-language invocation | `templates/`, Confluence MCP | Grows the team skill library |
-| `.github/skills/<lenny>/SKILL.md` | Provide pre-packaged product domain expertise | Loaded on task match | — | Forked from RefoundAI/lenny-skills (7 starter skills) |
-| `.github/skills/REGISTRY.md` | Catalogue every skill with version/owner/last-used | OS-Helper updates monthly | `.github/skills/*`, `usage-log.md` | Canonical path is `.github/skills/REGISTRY.md`; the PRD's `skills/REGISTRY.md` is rejected (OQ-7) |
+| `skills/chief-of-staff/SKILL.md` | Run daily orchestration (standup, priorities, updates, prep) | Natural-language invocation | `context/active.md`, `memory/usage-log.md` | Primary daily driver; reads `active.md` first |
+| `skills/researcher/SKILL.md` | Route discovery queries and consolidate findings | Natural-language invocation | `memory/tools.md`, MCP servers, `projects/*`, `knowledge/` | Document-grader: <3 Glean hits → Confluence deep search |
+| `skills/product-writer/SKILL.md` | Produce structured documents in org tone | Natural-language invocation | `context/me.md`, `context/org.md`, Confluence MCP | Publishing to Confluence (authoritative source of truth) is the preferred default, degrading to local-retain on MCP failure (OQ-6) |
+| `skills/os-helper/SKILL.md` | Maintain the OS itself (onboard, audit, review, evolve) | Explicit invocation only | `context/org.md`, all files, `REGISTRY.md` | Blocked during work sessions; onboarding includes instructions to detect/debug a failed `@AGENTS.md` import (OQ-1) and to run the `mcp.json` credential migration + rotation (OQ-4) |
+| `skills/process-builder/SKILL.md` | Turn a process description into doc + SKILL.md + checklist | Natural-language invocation | `templates/`, Confluence MCP | Grows the team skill library |
+| `skills/<lenny>/SKILL.md` | Provide pre-packaged product domain expertise | Loaded on task match | — | Forked from RefoundAI/lenny-skills (7 starter skills) |
+| `skills/REGISTRY.md` | Catalogue every skill with version/owner/last-used | OS-Helper updates monthly | `skills/*`, `usage-log.md` | Canonical path is `skills/REGISTRY.md`; the PRD's `skills/REGISTRY.md` is rejected (OQ-7) |
 | `templates/*` | Provide starter templates per file type | Copied by AI/user | — | Includes `SKILL.template.md`, project-brief, decision-log |
 | `.vscode/mcp.json` | Declare MCP servers credential-free | Read by VS Code; `${input:...}` prompts | Glean/Confluence/Miro/GitHub/FS | Root key `servers`; force-included past `.gitignore`. Migrated from an existing plain-text-secret config; secrets rotated post-migration (AD-7, OQ-4) |
 | `.gitignore` | Enforce the shared/personal boundary | Git | All personal files | Security-critical (AD-5) |
@@ -187,7 +187,7 @@ There is no database. State is markdown files differentiated by *durability clas
 
 | Class | Definition | Git treatment | Examples |
 |---|---|---|---|
-| **Durable-shared** | Team-level truth, identical for everyone | Committed | `AGENTS.md`, `CLAUDE.md`, `.github/skills/**`, `REGISTRY.md`, `.vscode/mcp.json` (no creds), `templates/**`, `context/org.md`, `memory/tools.md`, `memory/eval.md`, `rules/**`, `README.md`, `BACKLOG.md` (empty template) |
+| **Durable-shared** | Team-level truth, identical for everyone | Committed | `AGENTS.md`, `CLAUDE.md`, `skills/**`, `REGISTRY.md`, `.vscode/mcp.json` (no creds), `templates/**`, `context/org.md`, `memory/tools.md`, `memory/eval.md`, `rules/**`, `README.md`, `BACKLOG.md` (empty template) |
 | **Durable-personal** | One user's private context and memory | Gitignored | `context/me.md`, `context/active.md`, `memory/learnings.md`, `memory/decisions.md`, `memory/usage-log.md`, `memory/golden-evals.md`, `projects/**`, `areas/**`, `knowledge/**`, `CLAUDE.local.md` |
 | **Ephemeral** | Exists only inside the active chat session | Never persisted | Loaded tier content in the context window; intermediate reasoning; un-saved drafts |
 
@@ -233,7 +233,7 @@ personal-os/
 │   ├── project-brief.md
 │   ├── decision-log.md
 │   └── meeting-notes.md
-├── .github/skills/
+├── skills/
 │   ├── REGISTRY.md               #                                        [shared]
 │   ├── chief-of-staff/SKILL.md
 │   ├── researcher/SKILL.md
@@ -299,7 +299,7 @@ Milestones are vertical slices: each ends with something the user can *do* and a
 #### Milestone 1 — The Morning Standup Works
 **Builds on:** Nothing (greenfield).
 **Goal:** In a fresh VS Code workspace, the user types "morning standup" and gets their top-3 priorities, blockers, and one suggested first action, read from their own context files.
-**Components touched:** `AGENTS.md`, `CLAUDE.md`, `README.md`, `context/me.md`, `context/active.md`, `.github/skills/chief-of-staff/SKILL.md`, `BACKLOG.md`.
+**Components touched:** `AGENTS.md`, `CLAUDE.md`, `README.md`, `context/me.md`, `context/active.md`, `skills/chief-of-staff/SKILL.md`, `BACKLOG.md`.
 **Acceptance criteria:**
 - [ ] `AGENTS.md` exists, is under 200 lines, contains a routing table pointing to `context/active.md`, and a sensitivity-check instruction.
 - [ ] `CLAUDE.md` contains only a `@AGENTS.md` import.
@@ -324,7 +324,7 @@ Milestones are vertical slices: each ends with something the user can *do* and a
 #### Milestone 3 — MCP-Backed Research & Project Brains
 **Builds on:** M2.
 **Goal:** The user can stand up a Project Brain from a one-time enterprise sweep and thereafter work from local context without live lookups.
-**Components touched:** `.vscode/mcp.json`, `memory/tools.md`, `.github/skills/researcher/SKILL.md`, `projects/<name>.md`, `areas/<name>.md`, `knowledge/this-week.md`, Glean/Confluence/Filesystem MCP.
+**Components touched:** `.vscode/mcp.json`, `memory/tools.md`, `skills/researcher/SKILL.md`, `projects/<name>.md`, `areas/<name>.md`, `knowledge/this-week.md`, Glean/Confluence/Filesystem MCP.
 **Acceptance criteria:**
 - [ ] The existing `.vscode/mcp.json` (which today stores Glean/Confluence/Miro/GitHub secrets in plain text) is **migrated** to the credential-free pattern: every secret becomes an `${input:token_name}` reference with a matching `inputs` declaration (`password: true`), preserving the full existing server set including Miro. VS Code prompts for each secret on first use; the migrated file survives a `git clone` (not gitignored).
 - [ ] **Security gate:** every secret that was present in the pre-migration plain-text `mcp.json` (Glean, Confluence, Miro, GitHub) is rotated/revoked after migration; the rotation is recorded (AD-7, OQ-4).
@@ -337,7 +337,7 @@ Milestones are vertical slices: each ends with something the user can *do* and a
 #### Milestone 4 — Quality Loop & Authoring
 **Builds on:** M3.
 **Goal:** The system measures its own quality monthly and can produce/publish structured documents in the user's voice.
-**Components touched:** `memory/golden-evals.md`, `.github/skills/product-writer/SKILL.md`, `templates/*`, Confluence MCP.
+**Components touched:** `memory/golden-evals.md`, `skills/product-writer/SKILL.md`, `templates/*`, Confluence MCP.
 **Acceptance criteria:**
 - [ ] `memory/golden-evals.md` holds 5 evals with `Last score: — / Date: —` fields, runnable by pasting into a fresh chat.
 - [ ] A golden-eval run records scores into `memory/usage-log.md`; a sub-3 score points to a named stale context file.
@@ -348,13 +348,13 @@ Milestones are vertical slices: each ends with something the user can *do* and a
 #### Milestone 5 — Packaged, Shareable, Self-Maintaining
 **Builds on:** M4.
 **Goal:** A second person clones the shared repo and completes setup to first successful standup in under 30 minutes, and the OS can maintain and grow itself.
-**Components touched:** `.gitignore`, `context/org.md`, `templates/SKILL.template.md`, `.github/skills/os-helper/SKILL.md`, `.github/skills/process-builder/SKILL.md`, `.github/skills/REGISTRY.md`, shared/personal git split, GitHub MCP.
+**Components touched:** `.gitignore`, `context/org.md`, `templates/SKILL.template.md`, `skills/os-helper/SKILL.md`, `skills/process-builder/SKILL.md`, `skills/REGISTRY.md`, shared/personal git split, GitHub MCP.
 **Acceptance criteria:**
 - [ ] `.gitignore` correctly excludes all durable-personal files (including `memory/learnings.md`, `memory/decisions.md`, `memory/usage-log.md`, `memory/golden-evals.md`) and force-includes `.vscode/mcp.json`, `memory/tools.md`, and `memory/eval.md` (OQ-5); a fresh clone contains no personal content and no credentials.
 - [ ] A fresh clone ships `AGENTS.md` as the primary constitution with `CLAUDE.md` as a thin `@AGENTS.md` shim; setup enables Copilot's `chat.useAgentsMdFile` so the constitution auto-loads (OQ-10), and onboarding includes the `@AGENTS.md` import-debug steps (OQ-1).
 - [ ] OS-Helper "onboard [name]" generates a personalised setup checklist and a starter `context/me.md`; "audit" lists stale files; "review skills" updates `REGISTRY.md`. OS-Helper refuses to run during a work-task prompt.
 - [ ] Process-Builder turns a plain-language process description into three artefacts: a Confluence-ready doc, a `SKILL.md` (valid frontmatter per `SKILL.template.md`), and a checklist.
-- [ ] `REGISTRY.md` lists every skill in `.github/skills/` with name, version, description, last-updated, last-used.
+- [ ] `REGISTRY.md` lists every skill in `skills/` with name, version, description, last-updated, last-used.
 - [ ] A second tester clones the repo and reaches a successful "morning standup" in under 30 minutes without developer help, with a written data-governance policy present in the repo.
 **Definition of Done:** All criteria pass; the repo is tagged `v1.0` and the 30-minute onboarding is verified by someone other than the author.
 
@@ -389,7 +389,7 @@ All ten previously-open technical questions have been resolved. Each answer is p
 | OQ-4 | Miro routing has no defined MCP server; secrets are in plain text. | Users already have a **fully configured `mcp.json` with plain-text secrets**, Miro included. The architecture **migrates** that file to the credential-free `${input:...}` pattern as part of M3 and **rotates every previously-exposed secret afterward.** Miro is in scope for V1 routing (read-only). | AD-7 (migration + rotation); §5 Miro MCP (new 4th integration) + intro; §3 mcp.json row; §4.3 tree; M3 criteria; §7 Security |
 | OQ-5 | Is `memory/tools.md` (and the routing policy) shared or personal? | **`memory/tools.md` is shared/committed** (consistent team routing; personal tuning via `CLAUDE.local.md`). **`memory/decisions.md` is personal/gitignored** — team decisions belong in Confluence. | AD-5 decision; §4.1 table + note; §4.3 tree; catalogue rows; M3 & M5 (gitignore force-include) |
 | OQ-6 | Is Confluence a living source of truth or a graveyard? | **Confluence is the authoritative team source of truth.** The OS **publishes to Confluence as the default** (not on-request); the local workspace is a personal sandbox. Confluence MCP is more load-bearing, but per AD-4 it degrades gracefully — local memory remains the primary sink. | AD-4 tension note; §4.4 harvest & publish flows; §5 Confluence MCP; Product-Writer row; M4 publish criterion |
-| OQ-7 | Registry path: `skills/REGISTRY.md` vs. `.github/skills/REGISTRY.md`? | **`.github/skills/REGISTRY.md`** — one skills location, no orphan directory. PRD inconsistency flagged for correction. | AD-8 rejected-alts; REGISTRY catalogue row; references throughout |
+| OQ-7 | Registry path: `skills/REGISTRY.md` vs. `skills/REGISTRY.md`? | **`skills/REGISTRY.md`** — one skills location, no orphan directory. PRD inconsistency flagged for correction. | AD-8 rejected-alts; REGISTRY catalogue row; references throughout |
 | OQ-8 | Filenames: descriptive plain names vs. emoji-prefixed names? | **No emoji in filenames — ever.** Plain, lowercase, kebab-case, descriptive paths. Human-facing labels live in the file `# <Title>` header. PRD emoji-filename suggestion rejected. | §4.3 naming-convention rule; §7 Portability; UX filename references replaced |
 | OQ-9 | Glean write-back / bidirectional memory: enable in V1 or defer? | **Deferred to post-V1 (V2).** Local `learnings.md` is the load-bearing sink (AD-4); Glean is **read-only for V1.** | §5 Glean MCP (read-only V1, write-back V2); §4.4 harvest flow; diagram |
 | OQ-10 | Canonical assistant and the AGENTS.md / copilot-instructions split? | **Ship `AGENTS.md` only** and rely on Copilot's `chat.useAgentsMdFile` setting. `CLAUDE.md` → `@AGENTS.md` remains a compatibility shim for Claude-based assistants; `AGENTS.md` is the primary file. | AD-3 decision; §2 overview; §3 AGENTS.md/CLAUDE.md rows; §7 Portability; M5 criterion |
