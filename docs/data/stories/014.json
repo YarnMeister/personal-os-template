@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "Structured controls for the manual interview and priorities",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": [],
@@ -46,5 +46,41 @@
       "checks": "Returns at least one match confirming structured stakeholder rows are implemented."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "b746b76",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "work-hq/src/server/scaffold-files.ts",
+      "docs/data/stories/014.json"
+    ],
+    "notes": "Replaced the phase-4 manual-path free-text controls and the phase-5 owner input with structured shadcn-primitive controls, each retaining a free-entry escape hatch (butler principle). New route-local components in onboarding.tsx: (1) RoleCombobox — single-value combobox = shadcn Command inside a Popover, seeded with 8 titles (ROLE_OPTIONS: Product Manager, Product Operations Lead, Program Manager, Chief of Staff, Operations Manager, Head of Product, Director of Product, Delivery Manager); typing a non-listed value surfaces a 'Create \"x\"' CommandItem that cmdk auto-highlights so Enter accepts free entry (AC1). (2) WorkstyleChips — toggleable chips styled via the design-system badgeVariants cva (default variant when selected, outline when not) as real <button aria-pressed> controls, seeded with 6 options (WORKSTYLE_OPTIONS), plus a free-entry input (Enter or Add) for custom chips; persists to answers.workstyle as string[] (AC2). (3) TeamControl — a shadcn Select with exactly four buckets (TEAM_SIZES 1–2/3–5/6–10/11+) rendered '<n> people' + a free-text descriptor input; persists answers.team as { size, descriptor } (AC3). (4) KeyToolsCombobox — multi-select Command/Popover seeded with common enterprise tools (GitHub Copilot, Jira, Confluence, Slack, Glean, Notion, Figma, GitHub, Linear, Asana) + a 'Add \"x\"' free-entry row; selected tools render as removable secondary Badge chips; stays answers.keyTools: string[] (no migration). (5) StakeholderRows — structured rows each with Name input, Role/Title input, and a Relationship Select (RELATIONSHIPS: Decision maker/Collaborator/Informed); 'Add stakeholder' appends an empty row, per-row × removes; persists answers.stakeholders as Array<{ name, role, relationship }> (AC4). (6) OwnerSelect (phase 5) — a Select whose options are ownerOptions = ['Me', ...stakeholderNames] (stakeholderNames derived from answers.stakeholders[].name, de-duped) plus a 'Someone else…' sentinel that reveals a free-entry input; an owner value not in the list opens in custom mode automatically (AC5). Answers type extended: workstyle string→string[], team string→{size,descriptor} (Team type), stakeholders string[]→Stakeholder[]; emptyAnswers updated. normalizeAnswers now runs normalizeWorkstyle (array kept minus empties; legacy CSV string split on commas into chips — lossless on rejoin; single string→one chip), normalizeTeam (object coerced key-by-key; legacy string→{size:'',descriptor:string}), normalizeStakeholders (objects coerced; legacy string[]→name-only rows), with the migrated keys placed AFTER the raw spread so legacy shapes always upgrade. Review-step summaries render structured data legibly via teamSummary (descriptor — <size> people) and stakeholderSummary ('Name (Role) — relationship'); workstyle joined comma-wise. scaffold-files.ts: answersSchema widened with unions (workstyle string|string[], team string|{size,descriptor}, stakeholders array of string|{name,role,relationship}) so the server stays valid for either shape; added coercion helpers workstyleToLine/teamToLine/stakeholderLines; buildMeContent + buildOrgContent now emit the coerced one-line/bullet forms — me.md '**Working style:**' one comma line, '**Team:**' descriptor + '<size> people'; org.md '## Team structure' descriptor line and '## Key stakeholders' bullets 'Name (Role) — relationship' with name-less rows dropped. Output uses parentheses only (never '['), preserving the file-contracts §1.1/§1.2 headings and the non-placeholder heuristic. Token-only styling (primary/border/card/muted/foreground/ring/destructive/secondary — no new tokens); shadcn primitives used via their existing wrappers (Command/Popover/Select/Badge) — no hand-rolled popovers. WCAG 2.2 AA: every control labelled (Field group labels + per-input <label htmlFor> in TeamControl/StakeholderRows, aria-label on combobox triggers via visible text and on remove/add buttons), combobox keyboard-operable with Check aria on selected items, chips aria-pressed, shared FOCUS_RING focus-visible rings, prefers-reduced-motion respected (no transition-all). No /style-guide route exists in this project (Mode A never run) and the new controls are route-local onboarding composites, not extracted design-system components, so no style-guide update applies. No backend/schema/migration work (scaffold-files change is answer-mapping coercion only, not new server logic).",
+    "verificationRun": [
+      {
+        "command": "npx tsc --noEmit (in work-hq/)",
+        "result": "PASS — no type errors."
+      },
+      {
+        "command": "npm run --prefix work-hq build",
+        "result": "PASS — client + server build ✓ (onboarding client chunk 127.25 kB gzip 29.21 kB); re-checked clean after prettier --write."
+      },
+      {
+        "command": "npx prettier --check src/routes/onboarding.tsx src/server/scaffold-files.ts",
+        "result": "PASS — both files match Prettier code style (onboarding.tsx formatted with --write, then re-checked)."
+      },
+      {
+        "command": "grep -n 'Command|Combobox|RoleCombobox' (AC1) ; 'workstyle|WorkstyleChips' (AC2) ; 'StakeholderRow|stakeholderRows|relationship' (AC4) ; 'ownerOptions|stakeholderNames|priorityOwner' (AC5)",
+        "result": "PASS — RoleCombobox defined + used inside PhaseFourManual About step; WorkstyleChips in the chip block; StakeholderRows + relationship field present; ownerOptions/stakeholderNames derived and passed to OwnerSelect in PhaseNow."
+      },
+      {
+        "command": "node scratchpad/verify-014.mjs — logic-mirror of scaffold-files coercion/builders + onboarding normalize* migrations",
+        "result": "PASS — 20/20 assertions. Structured answers → me/org/active with NO '[' placeholders; workstyle→one comma line; team→'descriptor — <size> people'; stakeholders→'Name (Role) — relationship' with name-less rows dropped; priority line format intact. Legacy migrations lossless: workstyle CSV→3 chips, team string→descriptor(empty size), stakeholders string[]→name-only rows, ['']→one empty row; migrated legacy answers still build markdown with no '['."
+      },
+      {
+        "command": "cat docs/data/local/onboarding-state.json → answers.team / answers.stakeholders shape (VP1)",
+        "result": "RUNTIME — the object/array shapes are written after a browser edit in phase 4; no headless-browser harness available in this environment. The persisted shapes are proven by the tsc types, normalizeAnswers migration, and the verify-014.mjs mirror; the on-disk file currently holds pre-story-014 flat shapes used to exercise the migration path on load."
+      }
+    ]
+  }
 }
