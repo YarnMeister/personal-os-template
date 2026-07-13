@@ -3,9 +3,9 @@
   "featureId": "f-onboarding-ux",
   "title": "Interactive orientation (phase 1)",
   "owner": "ui-dev",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "—",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; build + tsc pass; canned copy accurate vs SKILL.md.",
   "adrRefs": [],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a new user in phase 1, I want to explore the tier model by clicking cards and preview what a daily trigger phrase does before I type it, so that I understand the OS before committing to the setup steps.",
@@ -44,6 +44,50 @@
     }
   ],
   "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "commitNote": "impl.commit records 3cb8ded (pre-amend); authoritative commit verified as 598bdd4 — cosmetic discrepancy only, does not affect verdict.",
+    "perAc": [
+      {
+        "ac": "AC1 — Three tier cards clickable, selected state, one at a time, re-click deselects, selected reveals desc+chips, compact with affordance.",
+        "evidence": "grep -n 'selectedTier|activeTier|setSelectedTier' → 3 matches at lines 671, 732, 741 (all inside PhaseOrientation which spans 637–851). PhaseOrientation function body confirmed via `grep -n 'function Phase'` (next fn PhaseSeeding starts at 1000). Diff shows real <button> elements with `aria-pressed={selected}`, `onClick={() => setSelectedTier(selected ? null : i)}` (toggle — re-click deselects), selected branch renders desc + file chips, unselected branch renders 'Click to explore' affordance. `selectedTier: number | null` ensures at most one selected. FOCUS_RING applied (line 745)."
+      },
+      {
+        "ac": "AC2 — Tier cards keyboard accessible: <button> or tabIndex+role+onKeyDown for Enter/Space.",
+        "evidence": "grep -n 'onKeyDown|role=.button|tabIndex' → onKeyDown at line 742 inside PhaseOrientation. Cards are real `<button type='button'>` elements (native Enter/Space handling). onTierKeyDown (lines 676–687) adds ArrowDown/ArrowUp/Home/End roving focus via tierRefs array; preventDefault only on those keys — Tab is never intercepted so focus cannot trap. Developer note that grep checks semantic intent (keyboard operability) not impl guess: verified. aria-pressed={selected} on each card."
+      },
+      {
+        "ac": "AC3 — Trigger chips show canned user+assistant turns in mini-chat panel; switching replaces; no real assistant call.",
+        "evidence": "grep -n 'cannedResponse|miniChat|chatPanel|cannedReplies' → matches at lines 628 (module-level const cannedReplies: Record<string,string>) and 698 (used inside playTrigger). chatHistory state at line 695 (inside PhaseOrientation). playTrigger() at lines 696–699 calls setChatHistory([{role:'user',text:phrase},{role:'assistant',text:cannedReplies[phrase]}]) — replaces panel on every call (switch replaces). Mini-chat panel at lines 818–846 with aria-live='polite'. Canned copy cross-checked against skills/chief-of-staff/SKILL.md: standup reads context/active.md, returns top-3 priorities (title/owner/due date)+blockers+first action ✅; process-backlog reads BACKLOG.md, routes actions→active.md, project-notes→projects/, learnings→memory/learnings.md, reference→knowledge/this-week.md, clears BACKLOG.md ✅; end-session appends 1–3 patterns to memory/learnings.md, records decision in memory/decisions.md, logs row in memory/usage-log.md ✅. No saveOnboarding/set()/fetch inside PhaseOrientation."
+      },
+      {
+        "ac": "AC4 — Privacy/offline note visible at 1280px without scrolling; story 002 regression guard.",
+        "evidence": "grep -n 'stays local|works offline' → line 716 inside PhaseOrientation. DOM order confirmed by reading file lines 702–727: privacy note div (lines 713–722) renders immediately after the intro <p> and before the tier cards section (lines 724+). Privacy note is therefore the second element in the scroll area, well within any 1280x800 viewport. Story 002 regression guard preserved."
+      },
+      {
+        "ac": "AC5 — No user input, no set()/saveOnboarding in PhaseOrientation; Next advances without requiring tier/chat interaction.",
+        "evidence": "grep -n '<input|<textarea|<select' → first match at line 1167 (inside PhaseSeeding, which starts at 1000 — after PhaseOrientation ends at 851). grep -n 'set(|saveNow|saveOnboarding' → all matches inside OnboardingPage (lines 419, 452, 454) or PhaseSeeding+ (lines 1072+); none in PhaseOrientation body. nextDisabled logic at line 468: `(phase === 2 && !allWireChecks) || (phase === 3 && !answers.seedingPath)` — phase 1 evaluates false on both clauses; Next button always enabled in phase 1."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'selectedTier|activeTier|setSelectedTier' work-hq/src/routes/onboarding.tsx → PASS — 3 matches at lines 671, 732, 741 inside PhaseOrientation",
+      "grep -n 'cannedResponse|miniChat|chatPanel|cannedReplies' work-hq/src/routes/onboarding.tsx → PASS — lines 628, 698",
+      "grep -n 'stays local|works offline' work-hq/src/routes/onboarding.tsx → PASS — line 716",
+      "grep -n 'onKeyDown|role=.button|tabIndex' work-hq/src/routes/onboarding.tsx → PASS — line 742 inside PhaseOrientation",
+      "grep -n '<input|<textarea|<select' work-hq/src/routes/onboarding.tsx → PASS — first match at 1167 (outside PhaseOrientation)",
+      "grep -n 'set(|saveNow|saveOnboarding' work-hq/src/routes/onboarding.tsx → PASS — no matches inside PhaseOrientation body",
+      "grep -n 'FOCUS_RING|aria-pressed|aria-live' work-hq/src/routes/onboarding.tsx → PASS — FOCUS_RING at 745/805, aria-pressed at 740/801, aria-live='polite' at 820",
+      "grep -n 'function Phase' work-hq/src/routes/onboarding.tsx → PASS — PhaseOrientation at 637, PhaseSeeding at 1000 (boundary confirmation)",
+      "git show 598bdd4 -- work-hq/src/routes/onboarding.tsx (secrets scan for API_KEY|SECRET|TOKEN|DATABASE_URL|password|eyJ|BEGIN) → PASS — no matches",
+      "cd work-hq && npx tsc --noEmit → PASS — no output, exit 0",
+      "npm run --prefix work-hq build → PASS — built in 470ms"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no API keys, tokens, passwords, or JWT-shaped strings in diff. Migration check: N/A — no schema changes.",
+    "riskNotes": "aria-live='polite' region is conditionally rendered (mounts only when chatHistory.length > 0). When a user clicks a chip the first time, the region mounts with content already present rather than pre-existing in the DOM. Modern browser+screen-reader pairs (Chrome+NVDA, Safari+VoiceOver) generally handle this, but some legacy combinations may miss the announcement. Not an AC violation; flagged for awareness if a11y audit is conducted.",
+    "recommendedFollowUps": "Consider pre-mounting the aria-live region (empty) so first-click announcements are more reliably announced across all screen reader combinations — could be addressed in a follow-up a11y hardening story for f-onboarding-ux.",
+    "fixRequests": []
+  },
   "impl": {
     "branch": "f-onboarding-ux",
     "commit": "3cb8ded",
