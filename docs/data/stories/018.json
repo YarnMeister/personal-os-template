@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "os-helper skill contract alignment — Removed-marker and handshake awareness",
   "owner": "developer",
-  "status": "Approved",
+  "status": "In Progress",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-008", "ADR-P6-009"],
