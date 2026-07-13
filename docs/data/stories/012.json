@@ -3,9 +3,9 @@
   "featureId": "f-onboarding-ux",
   "title": "Action cards replace raw markdown handoff surfaces",
   "owner": "ui-dev",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "—",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified: no top-level <pre> in onboarding.tsx; ActionCard exported with correct props; <details> collapsed by default with focus rings; 1800 ms copied state and all three payload headers confirmed; PhaseFirst renders ActionCard (no HandoffDock); HandoffDock.tsx unmodified.",
   "impl": {
     "branch": "f-onboarding-ux",
     "commit": "bd1ed70",
@@ -88,5 +88,55 @@
       "change": "AC4 corrected: removed erroneous '## Work HQ handoff · profile-bootstrap' first-line assertion for the bootstrap payload; per file-contracts.md §4.2 the bootstrap payload is raw substituted template content (begins '# Bootstrap Profile Prompt'), not a buildHandoff block — the profile-corrections and onboarding payload header assertions are unchanged.",
       "reason": "ui-dev flagged spec/contract mismatch: implementation correctly preserved the byte-identical bootstrap payload per §4.2 and story outOfScope, but AC4 had asserted an incorrect first-line format for that payload."
     }
-  ]
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — No top-level <pre> visible by default in the onboarding route",
+        "evidence": "ran `grep -n '<pre' work-hq/src/routes/onboarding.tsx` → no output (zero matches). The sole <pre> in the route's component tree lives inside ActionCard.tsx line 129, which is nested inside the <details> disclosure (line 124-133) and is therefore collapsed by default."
+      },
+      {
+        "ac": "AC2 — ActionCard.tsx exists, exports ActionCard, accepts stepList, copyPayload, statusLine",
+        "evidence": "`grep -n 'export.*ActionCard' work-hq/src/components/work-hq/ActionCard.tsx` → line 19: `export function ActionCard({`. Props inspected: `stepList: string[]` (line 34), `copyPayload: string` (line 35), `statusLine?: ReactNode` (line 38). File read in full at work-hq/src/components/work-hq/ActionCard.tsx."
+      },
+      {
+        "ac": "AC3 — 'View raw prompt' <details>/<summary> disclosure, collapsed by default, keyboard-operable, focus-visible rings on summary and copy button",
+        "evidence": "`grep -n 'details\\|disclosure\\|View raw' work-hq/src/components/work-hq/ActionCard.tsx` → lines 11, 37, 41, 124, 127, 133. ActionCard.tsx line 124: `<details className=\"group mt-4\">` — no `open` attribute. Line 125: `<summary ...>View raw prompt</summary>` with `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`. Copy button (line 76) carries identical focus-visible ring classes. Native <details>/<summary> is keyboard-operable (Enter/Space) without additional ARIA. Step-number badges are aria-hidden (line 109)."
+      },
+      {
+        "ac": "AC4 — 1.8 s copied state; profile-corrections payload begins ## Work HQ handoff · profile-corrections · <date>; onboarding payload begins ## Work HQ handoff · onboarding · <date>; bootstrap payload begins # Bootstrap Profile Prompt",
+        "evidence": "ActionCard.tsx line 51: `setTimeout(() => setCopied(false), 1800)` — 1800 ms = 1.8 s. onboarding.tsx line 560: `const header = \\`## Work HQ handoff · profile-corrections · ${today}\\`` in buildProfileCorrectionsMarkdown. handoff.ts line 26: `const header = \\`## Work HQ handoff · ${kind} · ${today()}\\`` with kind='onboarding'. templates/bootstrap-profile-prompt.md first line: `# Bootstrap Profile Prompt · Updated: 2026-07-05` (begins '# Bootstrap Profile Prompt'). `git diff bd1ed70~1 bd1ed70 -- work-hq/src/lib/handoff.ts work-hq/src/server/read-bootstrap-prompt.ts` → empty (both unchanged). BootstrapCopyBlock passes `content` prop directly as `copyPayload={content}` (diff line +531); ActionCard writes `copyPayload` verbatim to clipboard (ActionCard.tsx line 48)."
+      },
+      {
+        "ac": "AC5 — PhaseFirst renders ActionCard (not HandoffDock); grep ActionCard returns match inside PhaseFirst; grep HandoffDock returns no match inside PhaseFirst",
+        "evidence": "`grep -n 'ActionCard\\|HandoffDock' work-hq/src/routes/onboarding.tsx` → ActionCard matched at lines 11 (import), 516, 530, 594, 610, 862, 2116, 2145; HandoffDock NOT present in file at all (zero matches). PhaseFirst function starts at line 2114; `<ActionCard` at line 2145 is inside its body (function closes at line 2157)."
+      },
+      {
+        "ac": "AC6 — HandoffDock.tsx unmodified by this story",
+        "evidence": "`git diff bd1ed70~1 bd1ed70 -- work-hq/src/components/work-hq/HandoffDock.tsx` → empty. `git diff HEAD -- work-hq/src/components/work-hq/HandoffDock.tsx` → empty."
+      }
+    ],
+    "commandsRun": [
+      "grep -n '<pre' work-hq/src/routes/onboarding.tsx → PASS — no output",
+      "grep -n 'export.*ActionCard' work-hq/src/components/work-hq/ActionCard.tsx → PASS — line 19",
+      "grep -n 'details\\|disclosure\\|View raw' work-hq/src/components/work-hq/ActionCard.tsx → PASS — lines 11, 37, 41, 124, 127, 133",
+      "grep -n 'open' work-hq/src/components/work-hq/ActionCard.tsx → PASS — only match is group-open:rotate-90 CSS class, not the HTML open attribute",
+      "grep -n 'focus-visible' work-hq/src/components/work-hq/ActionCard.tsx → PASS — lines 76 (copy button) and 125 (summary) both carry full ring-ring/ring-offset-background focus-visible chain",
+      "grep -n 'setTimeout\\|1800' work-hq/src/components/work-hq/ActionCard.tsx → PASS — line 51: setTimeout(() => setCopied(false), 1800)",
+      "grep -n 'ActionCard\\|HandoffDock' work-hq/src/routes/onboarding.tsx → PASS — ActionCard at lines 11, 530, 610, 2145; HandoffDock absent",
+      "git diff bd1ed70~1 bd1ed70 -- work-hq/src/components/work-hq/HandoffDock.tsx → PASS — empty",
+      "git diff bd1ed70~1 bd1ed70 -- work-hq/src/lib/handoff.ts work-hq/src/server/read-bootstrap-prompt.ts → PASS — empty (both builders unchanged)",
+      "git show bd1ed70 --stat → PASS — 2 files touched: ActionCard.tsx (+143 lines new), onboarding.tsx (289 insertions / 186 deletions)",
+      "git show bd1ed70 | grep -iE '(DATABASE_URL|API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE.?KEY|BEGIN RSA|eyJ)' → PASS — two false positives only (CSS design-token references in comments: 'Token-only styling' and 'tokens exclusively'); no credential material",
+      "git diff HEAD -- work-hq/src/components/work-hq/HandoffDock.tsx → PASS — empty",
+      "head -5 templates/bootstrap-profile-prompt.md → PASS — first line is '# Bootstrap Profile Prompt · Updated: 2026-07-05'",
+      "npm run --prefix work-hq build → PASS — client: ✓ built in 801ms; server: ✓ built in 540ms; no errors; onboarding server bundle 80.77 kB"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — `git show bd1ed70 | grep -iE '(DATABASE_URL|API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE.?KEY|BEGIN RSA|eyJ)'` returned two CSS design-token comment lines only; no credential or secret material present. Migration check: N/A — no database schema changes. Only files modified are ActionCard.tsx (new component), onboarding.tsx (route refactor), and 012.json (story metadata).",
+    "riskNotes": "1. Runtime clipboard verification not performed — no headless browser harness available. Payload byte-identity is confirmed by static analysis: (a) handoff.ts and read-bootstrap-prompt.ts are both unchanged (empty diff); (b) BootstrapCopyBlock passes its content prop directly as copyPayload; (c) ProfileCorrectionsDock passes buildProfileCorrectionsMarkdown output directly as copyPayload; (d) PhaseFirst passes buildHandoff output directly as copyPayload; (e) ActionCard writes copyPayload verbatim to clipboard (line 48). 2. buildHandoff's today() is evaluated at component render time, not at copy time. If the user leaves phase 6 open across midnight the date in the copied block is the previous day. This is a pre-existing limitation of buildHandoff used identically in HandoffDock across all other routes and is outside story 012's scope. 3. group-open:rotate-90 Tailwind utility on ChevronRight depends on the Tailwind v3+ group-open variant — confirmed functional since the production build succeeds with no CSS warnings.",
+    "recommendedFollowUps": "1. Follow-ups pinned to story 012 from earlier stories: none identified. Story 011's follow-ups were pinned to story 006 (already Done/Approved); story 006's QA report carried three items (scaffold-files integration test, org.md E2E write, profile.md change-between-loads) as REQUIRES NEW STORY — none reference story 012 and none are resolved by this story's scope. These remain open and require a dedicated test/maintenance story under f-onboarding-ux or a new feature. 2. FUTURE: Consider moving buildHandoff's today() call into the copy handler so the date stamp is captured at copy time rather than render time — closes the midnight edge case across all HandoffDock and ActionCard surfaces.",
+    "fixRequests": []
+  }
 }
