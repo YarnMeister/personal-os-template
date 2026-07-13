@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "Phase 2 observed verification handshake",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-008"],
@@ -43,5 +43,16 @@
       "checks": "Returns a match — docs/data/local/ is gitignored, so handshake.json will never be committed."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "ed9726b",
+    "filesTouched": [
+      "work-hq/src/server/check-handshake.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/015.json (status update)"
+    ],
+    "notes": "check-handshake.ts mirrors check-profile-exists.ts exactly (createServerFn GET, existsSync, resolve against process.cwd()). Returns { detected, verifiedAt, assistant } — null fields on absent or malformed JSON, never throws. PhaseWire gains handshakeDetected/verifiedAt/handshakeAssistant local state and two useEffects: immediate mount-time check (for pre-existing file, existence-only staleness rule) + 5s interval poll. On detection: testedPaste row replaced by locked div with Check icon and '✓ Assistant verified at HH:MM · <assistant>' text, input removed from DOM. Manual fallback: when handshake absent, testedPaste is a normal interactive checkbox. verificationPrompt replaced with §4.4 pinned wording verbatim (handshake.json path appears verbatim, AC1). docs/data/local/ is gitignored at .gitignore line 20 — no new rule needed.",
+    "verificationRun": "grep -n 'handshake.json' work-hq/src/routes/onboarding.tsx → PASS (3 matches in PhaseWire block); grep -n 'checkHandshake' work-hq/src/server/check-handshake.ts → PASS (line 30); grep 'data/local' .gitignore → PASS (docs/data/local/); git ls-files --error-unmatch docs/data/local/handshake.json → PASS (exit code 1, not tracked); npx tsc --noEmit → PASS (no errors); npm run --prefix work-hq build → PASS (built in ~700ms); malformed JSON test → PASS (detected:true, verifiedAt:null, assistant:null); array shape test → PASS; missing fields test → PASS"
+  }
 }
