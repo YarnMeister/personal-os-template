@@ -3,9 +3,48 @@
   "featureId": "f-onboarding-ux",
   "title": "Phase 4 review becomes per-fact triage",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "999cc1b",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "docs/data/stories/013.json"
+    ],
+    "notes": "Rebuilt phase-4 bootstrap review (PhaseReviewCorrect) as per-fact triage per ADR-P6-009 Option A. New pure parser parseFacts(body): Fact[] beside parseProfileSections/detectStatus — standalone status-label lines (e.g. **Confirmed**) are stripped and used as section status; lines starting with '- '/'* ' are bullet facts (a following non-bullet non-blank line is joined as a wrapped continuation); remaining non-bullet text is split on blank lines into paragraph blocks and each block under 200 chars (FACT_LENGTH_LIMIT) becomes one fact; blocks >=200 chars are omitted and left to the raw-edit escape hatch (never force-split). Helpers added: isLabelOnlyLine, isBulletLine, factStatusFor (per-fact detectStatus, falling back to section status when the fact carries no label — AC2), reconcileFacts (merge persisted decisions by id), isSettledFact (bucketing), sectionHasChanges (handoff selection). Fact/FactStatus/FactDecisionKind/FactDecision types added. New FactRow component: each fact renders text + per-fact StatusChip + three icon actions Accept(toggle, aria-pressed)/Edit(inline textarea with Save/Cancel)/Remove; removed facts render struck-through with an Undo (AC2/AC3). New FactSectionCard: needs-review facts (Derived/Unknown or any edited/removed fact) render first; settled facts (Confirmed status or user-Accepted) collapse into a native <details> 'N confirmed — click to expand' summary; retains the story-010 'Edit raw section' escape hatch (full-body textarea, rawOpen defaults true for already-raw-edited/migrated sections). Page-level review header shows 'N items need your review' + an 'M confirmed' count, both visible without scrolling (AC3); sections needing attention sort first. State: answers.editedSections extended to Record<string,{body;edited;facts?:FactDecision[]}> per file-contracts §3.1; normalizeAnswers now delegates to normalizeEditedSections + normalizeFactDecision which migrate the legacy {body,edited} shape (facts left undefined → surfaces as a raw-section edit) with no data loss — verified against a real legacy entry on disk. buildProfileCorrectionsMarkdown rebuilt from fact decisions per §4.3: a section appears only if raw-edited or holding an edited/removed fact; raw-edited sections emit the full body; fact-level sections emit ONLY edited facts as '- <new text>' and removed facts as '- **Removed:** <original text>'; zero-changes case unchanged ('No corrections — all sections accepted as is'); frozen header line unchanged; Ask updated to instruct 'update edited facts in place and delete any fact marked \"**Removed:**\"'. ProfileCorrectionsDock/ActionCard stepList and statusLine unchanged; copyPayload now fact-derived; meta count now counts changed sections (sectionHasChanges). Token-only styling (primary/fresh/warning/muted/border/ring/destructive/foreground/card — no new tokens); WCAG 2.2 AA: aria-labels on all icon buttons, aria-pressed on Accept toggle, sr-only labels tied to edit/raw textareas, shared FOCUS_RING (focus-visible ring-ring + ring-offset-background) on every control, native keyboard-operable <details>. No /style-guide route exists in this project (Mode A never run) and no new reusable design-system component was extracted (triage UI is route-local), so no style-guide update applies. No backend/schema/migration changes.",
+    "verificationRun": [
+      {
+        "command": "grep -n 'parseFacts\\|splitFacts\\|factRows' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — parseFacts defined at line 1163 and called at 1778 (plus a doc-comment ref)."
+      },
+      {
+        "command": "grep -n 'Edit raw\\|rawEdit\\|rawSection\\|editRaw' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — 'Edit raw section' button at line 1638 (+ rawId var 'raw-section-…' and doc refs); the story-010 escape hatch is retained."
+      },
+      {
+        "command": "grep -n 'normalizeAnswers' work-hq/src/routes/onboarding.tsx",
+        "result": "PASS — normalizeAnswers at line 191; delegates to normalizeEditedSections/normalizeFactDecision which handle both the legacy {body,edited} and new {body,edited,facts} shapes."
+      },
+      {
+        "command": "node migration check on real on-disk legacy entry (docs/data/local/onboarding-state.json)",
+        "result": "PASS — legacy {body,edited:true} entry migrated with body/edited preserved and facts left undefined (no data loss); surfaces via the raw-edit escape hatch."
+      },
+      {
+        "command": "tsx round-trip harness on __fixtures__/fictional-profile.ts (parseFacts + buildProfileCorrectionsMarkdown)",
+        "result": "PASS — 20 sections → 46 facts (prose/table sections >200 chars correctly yield 0 facts → raw-edit fallback). accept-all → 'No corrections — all sections accepted as is'; edit one fact → exactly one '- <new text>' bullet; remove one → exactly one '- **Removed:** <original>' bullet; header line intact."
+      },
+      {
+        "command": "cat docs/data/local/onboarding-state.json | python3 … (VP2)",
+        "result": "PARTIAL/RUNTIME — the extended per-fact shape is written at runtime after a browser edit in phase 4; no headless browser harness available. The written shape is confirmed via the tsx harness and static analysis; the on-disk file currently holds a legacy {body,edited} entry used to prove the migration path."
+      },
+      {
+        "command": "npx tsc --noEmit && npm run --prefix work-hq build",
+        "result": "PASS — typecheck clean; client + server build ✓ (onboarding server chunk 99.04 kB gzip 22.62 kB). Re-verified clean after prettier --write."
+      }
+    ]
+  },
   "adrRefs": ["ADR-P6-009"],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user reviewing my bootstrapped profile, I want to triage individual facts rather than entire sections, so that I can Accept, Edit, or Remove each claim precisely before the corrections handoff.",
