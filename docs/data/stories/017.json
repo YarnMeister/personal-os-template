@@ -27,6 +27,12 @@
     },
     {
       "text": "The `<button>` trigger element for the RoleCombobox and the `<button>` trigger element for the KeyToolsCombobox in `work-hq/src/routes/onboarding.tsx` each carry a programmatic label accessible to assistive technology — either `aria-labelledby` referencing the id of the visible `Field` label element, or an explicit `aria-label` attribute carrying the label text (e.g. `aria-label='Role'`, `aria-label='Key tools'`). This closes the WCAG SC 1.3.1 (Info and Relationships) gap flagged in story 014 QA follow-up #1. `grep -n 'aria-labelledby\\|aria-label' work-hq/src/routes/onboarding.tsx` returns at least two matches, one for the role combobox trigger and one for the key-tools combobox trigger."
+    },
+    {
+      "text": "The header comment in `work-hq/src/server/check-handshake.ts` (lines ~18–19) accurately states the malformed-JSON behavior: when `handshake.json` exists but contains malformed JSON, the function returns `{ detected: true, verifiedAt: null, assistant: null }` — not `detected: false`. The comment must reflect this (per ADR-P6-008 existence-only detection rule: file presence is sufficient; content validity is not required for detection). `grep -n 'detected: true\\|detected:.*true' work-hq/src/server/check-handshake.ts` returns at least one match confirming the corrected comment is present."
+    },
+    {
+      "text": "In the phase-2 locked verification state (when `handshakeDetected` is true), the lucide `<Check>` icon carries `aria-hidden={true}` so it is not announced redundantly by screen readers, and the visible confirmation text conveys the verification status textually without relying on the visual ✓ character — either via a `<span className='sr-only'>Verified:</span>` prefix, an `aria-label` on the containing element, or equivalent screen-reader-complete text. `grep -n 'aria-hidden' work-hq/src/routes/onboarding.tsx` returns at least one match inside the `PhaseWire` locked-state block. `grep -n 'sr-only\\|aria-label' work-hq/src/routes/onboarding.tsx` returns at least one match in the same block."
     }
   ],
   "technicalNotes": "Four distinct touch points. (1) `AppSidebar.tsx` lines 21–22: replace `const onbPhase = mock.onboardingSeed.phase` with a value sourced from `loadOnboarding`. The `_app.tsx` layout route already exists; add `loadOnboarding` to its route `loader` and pass the result as a prop to `AppSidebar`, or use TanStack Router's `useRouteContext`. (2) `onboarding.tsx` lines ~306–316: replace the six dot `<span>` elements with a labeled stepper using the `phases` array (line 130). Each step shows `p.title`; completed steps are `<button onClick={() => setPhase(p.n)}>`; locked steps are `<span aria-disabled>`. (3) `onboarding.tsx` `PhaseSeeding`: when `checkProfileExists` returns `{ exists: true }`, call `set('profileDetected', true)` in addition to the existing state update. Add `profileDetected: boolean` to the `Answers` type (line ~33) and `emptyAnswers` (line ~65), and to `normalizeAnswers` migration (line ~94). In `PhaseReviewCorrect`, check `answers.profileDetected` to skip the waiting state on reload. (4) `RitualLayout.tsx` line 31: remove the hardcoded string or accept a `savedAt?: string` prop and compute a relative time string (e.g. 'just now' / 'N min ago') using `Intl.RelativeTimeFormat` or a simple difference check. `AutosaveField.tsx` lines 24–29: the `first.current` guard is existing code — do not remove it; verify it is intact after any refactors to adjacent components.",
@@ -51,6 +57,11 @@
       "date": "2026-07-13",
       "change": "Added AC6: RoleCombobox and KeyToolsCombobox trigger buttons must carry aria-labelledby or aria-label to close WCAG SC 1.3.1 gap — grep-verifiable against onboarding.tsx.",
       "reason": "Story 014 QA follow-up #1 — QA approved 014 but flagged the combobox trigger aria-association gap as outside its AC scope; pre-implementation scope addition to 017."
+    },
+    {
+      "date": "2026-07-13",
+      "change": "Added AC7: check-handshake.ts header comment must correctly state detected: true (not detected: false) for malformed-JSON case, per ADR-P6-008 existence-only rule. Added AC8: phase-2 locked verification state Check icon must carry aria-hidden={true} and confirmation text must be screen-reader-complete without relying on the visual ✓ character.",
+      "reason": "Story 015 QA follow-ups #1 and #2 — QA approved 015 but flagged the misleading server comment and the locked-state icon a11y gap as outside 015 AC scope; pre-implementation scope additions to 017."
     }
   ]
 }
