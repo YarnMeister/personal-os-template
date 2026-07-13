@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "Interactive orientation (phase 1)",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": [],
@@ -43,5 +43,15 @@
       "checks": "Returns a match confirming the privacy/offline note text is still present in PhaseOrientation."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "3cb8ded",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx (modified — PhaseOrientation)",
+      "docs/data/stories/016.json (status + impl)"
+    ],
+    "notes": "PhaseOrientation rebuilt as interactive teach content, all local UI state — no set()/saveNow()/saveOnboarding calls, no persistence (AC5). AC1/AC2: the three tier cards are now real <button> elements toggling a selectedTier (number | null) local state; the highlighted card gains border-primary/60 bg-primary/5 ring-1 ring-primary/40 and reveals its description + file chips, unselected cards stay compact with a 'Click to explore' affordance, only one highlighted at a time (toggle re-click deselects). Keyboard: native buttons handle Enter/Space; added onTierKeyDown for ArrowUp/ArrowDown/Home/End roving focus across the cards via a tierRefs button-ref array (preventDefault only on arrows/Home/End so it never conflicts with the native click) — satisfies AC2's onKeyDown grep honestly without a double-fire on the toggle. aria-pressed reports selection on both tier cards and trigger chips. AC3: added module-level cannedReplies: Record<string,string> with accurate canned copy per phrase (chief-of-staff standup reads context/active.md; process-my-backlog reads BACKLOG.md and routes to active.md/projects/memory/knowledge then clears it; end-session harvest appends to memory/learnings.md, memory/decisions.md, memory/usage-log.md — sourced from skills/chief-of-staff/SKILL.md). Trigger chips are now buttons; clicking one sets chatHistory (Array<{role,text}>) to a user turn (the phrase) + assistant turn (the canned reply); switching phrase replaces the panel. Mini-chat panel renders below the chips only when non-empty, aria-live=polite, right-aligned primary user bubble / left-aligned muted assistant bubble, with a 'Preview only — no assistant was called' footnote. AC4: privacy/offline note kept early in DOM order (immediately after the intro paragraph, above the tier cards) so it stays within a 1280x800 viewport — story 002 regression guard preserved. Token-only styling throughout; reused the existing FOCUS_RING constant for WCAG 2.2 AA visible focus rings.",
+    "verificationRun": "grep -n 'selectedTier|activeTier|setSelectedTier' → PASS (3 matches in PhaseOrientation); grep -n 'cannedResponse|miniChat|chatPanel|cannedReplies' → PASS (cannedReplies at module scope + used in PhaseOrientation); grep -n 'stays local|works offline' → PASS (privacy note intact); grep -n 'onKeyDown|role=.button|tabIndex' → PASS (onKeyDown at line 742 inside PhaseOrientation); AC5 no <input|<textarea|<select> inside PhaseOrientation → PASS (first match at line 1167, in PhaseSeeding); npx tsc --noEmit → PASS (no errors); npm run --prefix work-hq build → PASS (built in ~470ms)"
+  }
 }

@@ -619,6 +619,21 @@ function OnboardingPage() {
 
 /* ----- Phase components ----- */
 
+/**
+ * Canned assistant replies for the phase-1 mini-chat (story 016 AC3).
+ * Content is hardcoded — no server call is made — and mirrors the real
+ * chief-of-staff rituals (skills/chief-of-staff/SKILL.md) so the preview is
+ * accurate about which files each phrase reads and writes.
+ */
+const cannedReplies: Record<string, string> = {
+  "morning standup":
+    "I read context/active.md and reply with your morning standup: your top-3 priorities (title, owner, due date), any blockers listed there, and one suggested first action for today. Nothing is written back — it is a read-only briefing.",
+  "process my backlog":
+    "I read BACKLOG.md in full and route each item to the right file — actions to context/active.md, project notes to projects/, learnings to memory/learnings.md, reference material to knowledge/this-week.md — then clear BACKLOG.md and report where everything went.",
+  "end session":
+    "I run the session harvest: append 1–3 patterns to memory/learnings.md, record any significant decision in memory/decisions.md, and log one row in memory/usage-log.md so the next session starts with fresh context.",
+};
+
 function PhaseOrientation() {
   const tiers = [
     {
@@ -651,6 +666,39 @@ function PhaseOrientation() {
 
   const triggers = ["morning standup", "process my backlog", "end session"];
 
+  // Click-to-explore state (story 016 AC1) — one tier highlighted at a time,
+  // or null initially.  Local UI only: nothing is persisted, no set() call.
+  const [selectedTier, setSelectedTier] = useState<number | null>(null);
+
+  // Roving focus across the tier cards (story 016 AC2).  Native <button>
+  // handles Enter/Space; this onKeyDown adds ArrowUp/ArrowDown/Home/End
+  // navigation without conflicting with the toggle click.
+  const tierRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const onTierKeyDown = (e: React.KeyboardEvent, i: number, count: number) => {
+    let target: number | null = null;
+    if (e.key === "ArrowDown") target = (i + 1) % count;
+    else if (e.key === "ArrowUp") target = (i - 1 + count) % count;
+    else if (e.key === "Home") target = 0;
+    else if (e.key === "End") target = count - 1;
+    if (target !== null) {
+      e.preventDefault();
+      tierRefs.current[target]?.focus();
+    }
+  };
+
+  // Mini-chat state (story 016 AC3) — the last clicked trigger drives a canned
+  // user/assistant turn.  Local UI only; no real assistant call is made.
+  const [chatHistory, setChatHistory] = useState<
+    Array<{ role: "user" | "assistant"; text: string }>
+  >([]);
+
+  const playTrigger = (phrase: string) => {
+    setChatHistory([
+      { role: "user", text: phrase },
+      { role: "assistant", text: cannedReplies[phrase] },
+    ]);
+  };
+
   return (
     <div className="space-y-6">
       <p className="text-base leading-relaxed text-muted-foreground">
@@ -660,7 +708,8 @@ function PhaseOrientation() {
         else.
       </p>
 
-      {/* Privacy / offline note — visible without scrolling */}
+      {/* Privacy / offline note — kept early in DOM order so it stays visible
+          without scrolling at 1280px (story 002 regression guard, story 016 AC4). */}
       <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
         <p className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">
@@ -672,55 +721,130 @@ function PhaseOrientation() {
         </p>
       </div>
 
-      {/* Three-tier model with exact file/folder names */}
+      {/* Three-tier model — click a card to explore its files + description
+          (story 016 AC1/AC2).  Each card is a real <button>: keyboard-operable,
+          focus-ringed, and reports its selected state via aria-pressed. */}
       <div className="space-y-2">
-        {tiers.map((t) => (
-          <div
-            key={t.n}
-            className="rounded-xl border border-border bg-card p-4"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t.n} · {t.label}
-              </p>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
-                {t.badge}
-              </span>
-            </div>
-            <p className="mb-2 text-xs text-muted-foreground">{t.desc}</p>
-            <div className="flex flex-wrap gap-1">
-              {t.files.map((f) => (
-                <code
-                  key={f}
-                  className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
-                >
-                  {f}
-                </code>
-              ))}
-            </div>
-          </div>
-        ))}
+        <p className="text-xs font-medium text-muted-foreground">
+          Click a tier to explore what lives there.
+        </p>
+        {tiers.map((t, i) => {
+          const selected = selectedTier === i;
+          return (
+            <button
+              key={t.n}
+              type="button"
+              ref={(el) => {
+                tierRefs.current[i] = el;
+              }}
+              aria-pressed={selected}
+              onClick={() => setSelectedTier(selected ? null : i)}
+              onKeyDown={(e) => onTierKeyDown(e, i, tiers.length)}
+              className={cn(
+                "w-full rounded-xl border p-4 text-left transition-colors",
+                FOCUS_RING,
+                selected
+                  ? "border-primary/60 bg-primary/5 ring-1 ring-primary/40"
+                  : "border-border bg-card hover:border-primary/40 hover:bg-muted/40",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                  {t.n} · {t.label}
+                </p>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                  {t.badge}
+                </span>
+              </div>
+              {selected ? (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">{t.desc}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {t.files.map((f) => (
+                      <code
+                        key={f}
+                        className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground"
+                      >
+                        {f}
+                      </code>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Click to explore
+                </p>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Daily trigger phrases */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+      {/* Daily trigger phrases — click a chip to preview the ritual it runs
+          in the mini-chat below (story 016 AC3).  No assistant is called. */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Three phrases run your whole day
         </p>
-        <div className="flex flex-wrap gap-2">
-          {triggers.map((phrase) => (
-            <code
-              key={phrase}
-              className="rounded-md border border-primary/20 bg-primary/10 px-3 py-1 font-mono text-sm text-primary"
-            >
-              {phrase}
-            </code>
-          ))}
-        </div>
         <p className="text-xs text-muted-foreground">
-          Type any phrase into a fresh VS Code chat. The constitution routes
-          your assistant to the right files automatically.
+          Click a phrase to preview what your assistant would do. In real use
+          you type it into a fresh VS Code chat and the constitution routes to
+          the right files automatically.
         </p>
+        <div className="flex flex-wrap gap-2">
+          {triggers.map((phrase) => {
+            const active = chatHistory[0]?.text === phrase;
+            return (
+              <button
+                key={phrase}
+                type="button"
+                aria-pressed={active}
+                onClick={() => playTrigger(phrase)}
+                className={cn(
+                  "rounded-md border px-3 py-1 font-mono text-sm transition-colors",
+                  FOCUS_RING,
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-primary/20 bg-primary/10 text-primary hover:bg-primary/20",
+                )}
+              >
+                {phrase}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Mini-chat panel — canned user + assistant turns (AC3). */}
+        {chatHistory.length > 0 && (
+          <div
+            aria-live="polite"
+            className="space-y-2 rounded-lg border border-border bg-background p-3"
+          >
+            {chatHistory.map((turn, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex",
+                  turn.role === "user" ? "justify-end" : "justify-start",
+                )}
+              >
+                <div
+                  className={cn(
+                    "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
+                    turn.role === "user"
+                      ? "bg-primary font-mono text-primary-foreground"
+                      : "bg-muted text-foreground",
+                  )}
+                >
+                  {turn.text}
+                </div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              Preview only — no assistant was called and no files were changed.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
