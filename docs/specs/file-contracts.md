@@ -1,4 +1,4 @@
-# File Contracts · Personal OS · v1.1
+# File Contracts · Personal OS · v1.2
 
 > Status: Live · Owner: Head of Product Operations · Last revised: 2026-07-13
 > Scope: Binding specifications for the durable files written or read by Work HQ and the onboarding wizard. These contracts govern what the wizard writes, what the AI assistant reads at runtime, and the handoff formats that connect the two.
@@ -166,10 +166,12 @@ Two runtime files live under `docs/data/local/` — gitignored as a directory at
   "phase": 4,
   "answers": {
     "role": "string",
-    "workstyle": "string",
-    "team": "string",
+    "workstyle": ["string"],
+    "team": { "size": "1–2 | 3–5 | 6–10 | 11+ | ''", "descriptor": "string" },
     "keyTools": ["string"],
-    "stakeholders": ["string"],
+    "stakeholders": [
+      { "name": "string", "role": "string", "relationship": "Decision maker | Collaborator | Informed | ''" }
+    ],
     "glossary": "string",
     "priorities": [
       { "title": "string", "owner": "string", "dueDate": "string" },
@@ -212,6 +214,9 @@ Two runtime files live under `docs/data/local/` — gitignored as a directory at
 **Field notes:**
 
 - `phase` — integer 1–6: the phase currently displayed in the wizard.
+- `answers.workstyle` — **current shape** `string[]` (story 014): the selected working-style chips, plus any free-entry chips. **Accepted legacy input:** a single `string` (the pre-014 CSV/free-text value); `normalizeAnswers` migrates it losslessly into the array.
+- `answers.team` — **current shape** `{ size, descriptor }` (story 014): `size` is one of `"1–2" | "3–5" | "6–10" | "11+"` (or `""` before selection); `descriptor` is the free-text team description. **Accepted legacy input:** a flat `string`; `normalizeAnswers` migrates it by placing the string into `descriptor` and leaving `size` empty.
+- `answers.stakeholders` — **current shape** `Array<{ name, role, relationship }>` (story 014): structured rows where `relationship` is one of `"Decision maker" | "Collaborator" | "Informed"` (or `""` before selection). **Accepted legacy input:** `string[]`; `normalizeAnswers` migrates each string to `{ name: <string>, role: "", relationship: "" }`. Phase-5 priority owner options are derived from these `name` values (prefixed with `"Me"`).
 - `answers.seedingPath` — `"bootstrap"` when the user chose the Glean path; `"manual"` for the interview path; `""` before the path is chosen.
 - `answers.editedSections` — map of section headings from `context/profile.md` to per-section review state. `body` + `edited` are the section-level raw-edit escape hatch (story 010): `body` holds the current full section text, `edited: true` marks a section the user changed. `facts` (optional, story 013 / ADR-P6-009) holds the per-fact triage decisions when the user reviews individual claims: each fact carries a stable `id`, its original `text`, a per-fact `status` (from `detectStatus`, defaulting to `Unknown`), a `decision` (`pending` | `accepted` | `edited` | `removed`), and `editedText` when `decision: "edited"`. `facts` is additive — legacy entries lacking it fall back to raw-body editing. `normalizeAnswers` migrates the old `{ body, edited }` shape by leaving `facts` undefined and preserving `body`/`edited` with no data loss. Only edited sections (and, within them, only changed facts) appear in the profile-corrections handoff (§4.3).
 - `completedPhases` — list of phase numbers that have been confirmed (Confirm button clicked). Drives the Health tile's progress indicator.

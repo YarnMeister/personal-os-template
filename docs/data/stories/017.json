@@ -24,6 +24,9 @@
     },
     {
       "text": "The `AutosaveField` 'Saving…/Saved' indicator does not flash on initial component mount. `grep -n 'first.current' work-hq/src/components/work-hq/AutosaveField.tsx` returns a match on a line that returns early before calling `setSaving(true)` — confirming the mount guard (lines ~24–29) is present and has not been accidentally removed by this story's surrounding refactors."
+    },
+    {
+      "text": "The `<button>` trigger element for the RoleCombobox and the `<button>` trigger element for the KeyToolsCombobox in `work-hq/src/routes/onboarding.tsx` each carry a programmatic label accessible to assistive technology — either `aria-labelledby` referencing the id of the visible `Field` label element, or an explicit `aria-label` attribute carrying the label text (e.g. `aria-label='Role'`, `aria-label='Key tools'`). This closes the WCAG SC 1.3.1 (Info and Relationships) gap flagged in story 014 QA follow-up #1. `grep -n 'aria-labelledby\\|aria-label' work-hq/src/routes/onboarding.tsx` returns at least two matches, one for the role combobox trigger and one for the key-tools combobox trigger."
     }
   ],
   "technicalNotes": "Four distinct touch points. (1) `AppSidebar.tsx` lines 21–22: replace `const onbPhase = mock.onboardingSeed.phase` with a value sourced from `loadOnboarding`. The `_app.tsx` layout route already exists; add `loadOnboarding` to its route `loader` and pass the result as a prop to `AppSidebar`, or use TanStack Router's `useRouteContext`. (2) `onboarding.tsx` lines ~306–316: replace the six dot `<span>` elements with a labeled stepper using the `phases` array (line 130). Each step shows `p.title`; completed steps are `<button onClick={() => setPhase(p.n)}>`; locked steps are `<span aria-disabled>`. (3) `onboarding.tsx` `PhaseSeeding`: when `checkProfileExists` returns `{ exists: true }`, call `set('profileDetected', true)` in addition to the existing state update. Add `profileDetected: boolean` to the `Answers` type (line ~33) and `emptyAnswers` (line ~65), and to `normalizeAnswers` migration (line ~94). In `PhaseReviewCorrect`, check `answers.profileDetected` to skip the waiting state on reload. (4) `RitualLayout.tsx` line 31: remove the hardcoded string or accept a `savedAt?: string` prop and compute a relative time string (e.g. 'just now' / 'N min ago') using `Intl.RelativeTimeFormat` or a simple difference check. `AutosaveField.tsx` lines 24–29: the `first.current` guard is existing code — do not remove it; verify it is intact after any refactors to adjacent components.",
@@ -43,5 +46,11 @@
       "checks": "After profile detection in phase 3, returns 'profileDetected: True' confirming the flag is persisted to disk."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [
+    {
+      "date": "2026-07-13",
+      "change": "Added AC6: RoleCombobox and KeyToolsCombobox trigger buttons must carry aria-labelledby or aria-label to close WCAG SC 1.3.1 gap — grep-verifiable against onboarding.tsx.",
+      "reason": "Story 014 QA follow-up #1 — QA approved 014 but flagged the combobox trigger aria-association gap as outside its AC scope; pre-implementation scope addition to 017."
+    }
+  ]
 }
