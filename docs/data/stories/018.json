@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "os-helper skill contract alignment — Removed-marker and handshake awareness",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-008", "ADR-P6-009"],
@@ -37,5 +37,28 @@
       "checks": "Returns at least one match confirming the gitignore note and manual-fallback caveat are present in the handshake subsection."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-onboarding-ux",
+    "commit": "e341757",
+    "filesTouched": [
+      "skills/os-helper/SKILL.md",
+      "docs/data/stories/018.json"
+    ],
+    "notes": "Two targeted edits to SKILL.md: (1) added the fact-level **Removed:** convention note as a sub-bullet under Signal C step 1; (2) added '### Phase-2 verification handshake' subsection documenting handshake.json shape, gitignore status, and manual-fallback. Version bumped to 2.2, last-updated set to 2026-07-13. No app code touched.",
+    "verificationRun": [
+      {
+        "command": "grep -n '\\*\\*Removed:\\*\\*' skills/os-helper/SKILL.md",
+        "result": "PASS — line 67 inside Signal C action block"
+      },
+      {
+        "command": "grep -n 'handshake.json' skills/os-helper/SKILL.md",
+        "result": "PASS — lines 74, 77, 83 in Phase-2 verification handshake subsection"
+      },
+      {
+        "command": "grep -n 'gitignore\\|manual.*fallback\\|cannot write' skills/os-helper/SKILL.md",
+        "result": "PASS — line 83 contains all three matches"
+      }
+    ]
+  }
 }
