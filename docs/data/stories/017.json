@@ -3,9 +3,6 @@
   "featureId": "f-onboarding-ux",
   "title": "Consistency and honesty fixes",
   "owner": "developer",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "—",
   "adrRefs": [],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user who has partially completed onboarding, I want the sidebar progress, the wizard stepper, and the save indicators to reflect true state rather than mock or hardcoded values, so that the UI I see matches what is actually happening.",
@@ -64,6 +61,66 @@
       "reason": "Story 015 QA follow-ups #1 and #2 — QA approved 015 but flagged the misleading server comment and the locked-state icon a11y gap as outside 015 AC scope; pre-implementation scope additions to 017."
     }
   ],
+  "qa": "Approved",
+  "qaNote": "All 8 ACs verified. Build and tsc pass. Feature phase advanced to Done.",
+  "status": "Done",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — AppSidebar derives onboarding progress from loadOnboarding, not mock.onboardingSeed",
+        "evidence": "grep -n 'onboardingSeed|mock.onboardingSeed' AppSidebar.tsx → no match (PASS). AppSidebar.tsx line 29: `const onbPhase = onboardingState?.phase ?? 1` and line 30: `(onboardingState?.completedPhases ?? []).includes(6)` — both driven by the loader-injected prop. _app.tsx line 8: `loader: async () => loadOnboarding()` passes `onboardingState` to AppSidebar (line 16)."
+      },
+      {
+        "ac": "AC2 — Top-rail dots replaced with labeled stepper; completed clickable via setPhase; aria-current on current; future locked",
+        "evidence": "grep 'labeledStep|stepButton' onboarding.tsx → matches lines 535–536 (comment keywords in the stepper block). onboarding.tsx lines 540–594: <nav aria-label='Onboarding progress'> wraps the stepper. Completed branch at lines 552–565: <button onClick={() => setPhase(p.n)}>. Current branch at lines 568–580: <span aria-current='step'>. Future branch at lines 582–593: <span aria-disabled='true'>."
+      },
+      {
+        "ac": "AC3 — profileDetected persisted to onboarding-state.json; phase 4 skips waiting state on reload",
+        "evidence": "grep 'profileDetected' onboarding.tsx → 9 matches. Line 136: added to Answers type. Line 173: emptyAnswers false. Line 344 (normalizeAnswers): `const profileDetected = a.profileDetected === true` — backward-compat coercion. Lines 1080–1081: local state seeded from answers.profileDetected. Line 1090: markDetected() calls `set('profileDetected', true)`. Runtime check: onboarding-state.json shows profileDetected: None (no detection event in this dev env) — expected; code path is correct per static analysis."
+      },
+      {
+        "ac": "AC4 — RitualLayout hardcoded 'Saved to LocalStorage · just now' removed",
+        "evidence": "grep -n 'Saved to LocalStorage|just now' RitualLayout.tsx → no match. File read in full (43 lines): no trace of the string. Option (a) of the AC applied."
+      },
+      {
+        "ac": "AC5 — AutosaveField first.current mount guard present and intact",
+        "evidence": "grep -n 'first.current' AutosaveField.tsx → lines 26 and 27. Line 26: `if (first.current) {` → line 27: `first.current = false; return;` — returns early before setSaving(true). Mount guard intact. File appears untouched by this story's diff."
+      },
+      {
+        "ac": "AC6 — RoleCombobox and KeyToolsCombobox trigger buttons carry programmatic aria-label",
+        "evidence": "grep -n 'aria-label' onboarding.tsx → line 2340: aria-label='Your role' on the RoleCombobox PopoverTrigger <button role='combobox'>. Line 2584: aria-label='Key tools' on the KeyToolsCombobox PopoverTrigger <button role='combobox'>. Both elements read in context at lines 2336–2347 and 2580–2593."
+      },
+      {
+        "ac": "AC7 — check-handshake.ts header comment states detected: true for malformed JSON",
+        "evidence": "grep -n 'detected: true|detected:.*true' check-handshake.ts → line 18 (header comment): 'Malformed JSON is treated as detected: true, verifiedAt: null'. Lines 61, 64, 67: code actually returns detected: true for all file-exists branches. Comment and code are consistent."
+      },
+      {
+        "ac": "AC8 — PhaseWire locked Check icon aria-hidden; sr-only 'Verified:' prefix",
+        "evidence": "grep -n 'aria-hidden' onboarding.tsx → line 3675: `aria-hidden={true}` on `<Check>` inside the handshakeDetected locked block (lines 3658–3686). grep -n 'sr-only' onboarding.tsx → line 3679: `<span className='sr-only'>Verified: </span>` in same block. Code read at lines 3660–3685 confirms both are inside `if (c.key === 'testedPaste' && handshakeDetected)` branch."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'onboardingSeed|mock.onboardingSeed' AppSidebar.tsx → PASS (no match)",
+      "grep -n 'Saved to LocalStorage|just now' RitualLayout.tsx → PASS (no match)",
+      "grep -n 'completedPhases.*click|phaseBack|labeledStep|stepButton' onboarding.tsx → PASS (lines 535–536)",
+      "grep -n 'profileDetected' onboarding.tsx → PASS (9 matches including Answers type, emptyAnswers, normalizeAnswers, PhaseSeeding init, set call)",
+      "grep -n 'first.current' AutosaveField.tsx → PASS (lines 26–27)",
+      "grep -n 'aria-labelledby|aria-label' onboarding.tsx → PASS (lines 2340 'Your role', 2584 'Key tools' among others)",
+      "grep -n 'detected: true|detected:.*true' check-handshake.ts → PASS (lines 18, 61, 64, 67)",
+      "grep -n 'aria-hidden' onboarding.tsx → PASS (line 3675 in PhaseWire locked block)",
+      "grep -n 'sr-only|aria-label' onboarding.tsx → PASS (line 3679 sr-only Verified: prefix in PhaseWire locked block)",
+      "npx tsc --noEmit (from work-hq/) → PASS (exit 0, no output)",
+      "npm run --prefix work-hq build → PASS (exit 0, built in 461ms)",
+      "cat docs/data/local/onboarding-state.json | python3 profileDetected check → profileDetected: None — expected (no detection event in dev env; code path confirmed by static analysis)",
+      "Secrets scan: git diff 4e02b79^..4e02b79 grep for SECRET|TOKEN|API_KEY|DATABASE_URL → PASS (no match)"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no secrets, tokens, API keys, or credentials found in the impl diff. Migration check: N/A — no database schema changes. profileDetected is a new field in a local JSON file (onboarding-state.json); normalizeAnswers handles absent field with === true coercion (backward compatible).",
+    "riskNotes": "AC3 runtime verification is limited to static code analysis. The verificationPlan command 'cat onboarding-state.json | python3 ... profileDetected' returned None (field absent), which is expected because no profile detection has occurred in this dev environment. The code path — markDetected() → set('profileDetected', true) → debounced save → written to disk — is clearly correct per static inspection. No test infrastructure exists in this project to simulate an end-to-end detection event.",
+    "recommendedFollowUps": "None. All prior follow-ups from stories 014 (AC6 aria-label gap) and 015 (AC7 comment, AC8 locked-state a11y) are resolved by this story's implementation.",
+    "fixRequests": []
+  },
   "impl": {
     "branch": "f-onboarding-ux",
     "commit": "4e02b7914d9f5edbca5fa2375b66db03110b4eb4",
