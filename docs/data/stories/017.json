@@ -66,7 +66,7 @@
   ],
   "impl": {
     "branch": "f-onboarding-ux",
-    "commit": "0e35ebb5dcdf8947c86562885b67e7991db67408",
+    "commit": "4e02b7914d9f5edbca5fa2375b66db03110b4eb4",
     "filesTouched": [
       "work-hq/src/routes/_app.tsx",
       "work-hq/src/components/work-hq/AppSidebar.tsx",
