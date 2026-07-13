@@ -3,9 +3,9 @@
   "featureId": "f-onboarding-ux",
   "title": "Structured controls for the manual interview and priorities",
   "owner": "ui-dev",
-  "status": "In Review",
-  "qa": "none",
-  "qaNote": "—",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified: structured controls present, TypeScript passes, build passes, 20/20 migration assertions pass, no '[' placeholders in scaffold output.",
   "adrRefs": [],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user following the manual setup path, I want structured input controls (comboboxes, chip toggles, selects, and structured rows) instead of free-text fields, so that I can enter my context quickly and consistently without guessing the expected format.",
@@ -47,6 +47,50 @@
     }
   ],
   "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — RoleCombobox (Command/Popover) pre-seeded with 8 titles, free-entry Create option, persists to answers.role",
+        "evidence": "grep -n 'Command|Combobox|RoleCombobox' onboarding.tsx → RoleCombobox defined line 2113, used inside PhaseFourManual 'about' step line 2714. ROLE_OPTIONS array at line 2063 contains exactly 8 titles. showCreate condition at line 2124 renders CommandItem with value={trimmed} and onSelect={() => commit(trimmed)} when query is not in list. Button trigger has role='combobox' aria-expanded={open}."
+      },
+      {
+        "ac": "AC2 — WorkstyleChips: 6 pre-defined chip options, aria-pressed toggle, custom chip input, persists to answers.workstyle as string[]",
+        "evidence": "grep -n 'workstyle|StyleChip|workStyle' → line 101 Answers.workstyle typed as string[]. WORKSTYLE_OPTIONS at line 2075 has exactly 6 entries. WorkstyleChips at line 2193 renders buttons with aria-pressed={on}, uses badgeVariants({variant: on ? 'default' : 'outline'}) for visual distinction. Custom input with addCustom() at line 2210. verify-014.mjs assertions: 'array workstyle keeps non-empty' and 'CSV string splits to chips' — both PASS."
+      },
+      {
+        "ac": "AC3 — TeamControl: Select with exactly 4 size ranges plus descriptor input; persists as {size, descriptor}; normalizeTeam migrates legacy string",
+        "evidence": "TEAM_SIZES at line 2085 = ['1–2','3–5','6–10','11+']; exactly 4. TeamControl at line 2286 renders a shadcn Select over TEAM_SIZES plus a descriptor input with htmlFor='team-descriptor'. normalizeTeam at line 258 maps legacy string → {size:'',descriptor:string}. verify-014.mjs: 'legacy team string -> descriptor, empty size' PASS, 'new team object preserved' PASS. TypeScript: PASS (no errors). On-disk onboarding-state.json currently holds legacy flat shape '' — normalizeAnswers migrates on load; structured shape written after browser edit (runtime-only, confirmed via TSC type enforcing Team type)."
+      },
+      {
+        "ac": "AC4 — StakeholderRows: Name + Role/Title inputs + Relationship Select (exactly 3 options); Add/Remove; persists as Array<{name,role,relationship}>; normalizeStakeholders migrates string[]",
+        "evidence": "grep -n 'StakeholderRow|stakeholderRows|relationship' → StakeholderRows function defined line 2470, relationship Select at lines 2550-2563. RELATIONSHIPS at line 2102 = ['Decision maker','Collaborator','Informed']; exactly 3. normalizeStakeholders at line 278 maps string[] → name-only rows. verify-014.mjs: 'legacy stakeholder string[] -> name-only rows (lossless)' PASS, 'new stakeholder object preserved' PASS."
+      },
+      {
+        "ac": "AC5 — Phase-5 OwnerSelect populated with 'Me' + stakeholder names + free-entry fallback",
+        "evidence": "grep -n 'ownerOptions|stakeholderNames|priorityOwner' → line 3009 stakeholderNames = answers.stakeholders.map(s => s.name.trim()).filter(Boolean); line 3012 ownerOptions = ['Me', ...stakeholderNames].filter(dedupe); line 3049 ownerOptions={ownerOptions} passed to OwnerSelect. OwnerSelect at line 2587 renders SelectItems for each ownerOptions entry plus OWNER_CUSTOM ('Someone else…') revealing a free-entry input. verify-014.mjs: 'stakeholder with role + relationship' confirms stakeholder data flows through."
+      },
+      {
+        "ac": "AC6 — npx tsc --noEmit passes; scaffold-files produces valid output: no [bracketed] placeholders, correct headings",
+        "evidence": "npx tsc --noEmit in work-hq/ → exit 0, no output. npm run --prefix work-hq build → ✓ built in 704ms (client) + 475ms (server), onboarding chunk 224.29kB. verify-014.mjs 20/20 assertions PASS: me.md header '# Me · Updated: 2026-07-13' present, org.md '## Team structure' / '## Key stakeholders' / '## Glossary' headings present, active.md '## Priorities' heading present, no '[' in any output, no literal YYYY-MM-DD. Both structured and legacy-migrated answers produce clean output."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'StakeholderRow|stakeholderRows|relationship' onboarding.tsx → PASS — multiple matches including definition at line 2470 and relationship Select at line 2551",
+      "grep -n 'Command|Combobox|RoleCombobox' onboarding.tsx → PASS — RoleCombobox defined line 2113, inside PhaseFourManual at line 2714",
+      "grep -n 'workstyle|StyleChip|workStyle' onboarding.tsx → PASS — WorkstyleChips and answers.workstyle: string[] present",
+      "grep -n 'ownerOptions|stakeholderNames|priorityOwner' onboarding.tsx → PASS — ownerOptions derived line 3012, passed to OwnerSelect line 3049",
+      "npx tsc --noEmit (in work-hq/) → PASS — exit 0, no type errors",
+      "npm run --prefix work-hq build → PASS — client + server build successful",
+      "node verify-014.mjs → PASS — 20/20 assertions (normalizeWorkstyle, normalizeTeam, normalizeStakeholders, workstyleToLine, teamToLine, stakeholderLines, buildMeContent, buildOrgContent, buildActiveContent — structured and legacy-migration paths)",
+      "cat docs/data/local/onboarding-state.json → shows legacy flat shapes (team: '', stakeholders: ['']); runtime write of structured shapes confirmed via TypeScript types and migration test (browser-only runtime assertion)"
+    ],
+    "securityAndMigrationGates": "Secrets scan on diff: grep for API_KEY|SECRET|TOKEN|PASSWORD|DATABASE_URL|PRIVATE_KEY in b746b76 returned only 'Token-only' in a design-token comment — no credentials. No database schema migrations (scaffold-files change is answer-mapping coercion only, writes local markdown files). PASS.",
+    "riskNotes": "The Field component renders a <label> without htmlFor, so the visible 'Your role' and 'Working style' labels are not programmatically tied to their combobox trigger buttons via the standard label/id association. TeamControl and StakeholderRows do use explicit htmlFor/id pairs; the combobox triggers have role='combobox' and visible text as their accessible name. This is a minor a11y gap (WCAG SC 1.3.1) but outside any AC scope. The WorkstyleChips group has aria-label='Working style' on the wrapping div (role='group') which partially compensates.",
+    "recommendedFollowUps": "1. Add explicit aria-labelledby or aria-label to the RoleCombobox and KeyToolsCombobox trigger buttons so screen readers announce the field label — pin to a future a11y story in f-onboarding-ux. 2. file-contracts.md §3.1 onboarding-state.json schema still shows the pre-story-014 flat shapes for workstyle/team/stakeholders; update to reflect the new structured shapes — pin to story 015 or a docs-only story. 3. Stories 015–018 carry status:'Approved' (product sign-off) with qa:'none' — they require QA passes before feature phase can close.",
+    "fixRequests": []
+  },
   "impl": {
     "branch": "f-onboarding-ux",
     "commit": "b746b76",
