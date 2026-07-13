@@ -1,0 +1,50 @@
+{
+  "id": "014",
+  "featureId": "f-onboarding-ux",
+  "title": "Structured controls for the manual interview and priorities",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a user following the manual setup path, I want structured input controls (comboboxes, chip toggles, selects, and structured rows) instead of free-text fields, so that I can enter my context quickly and consistently without guessing the expected format.",
+  "acceptanceCriteria": [
+    {
+      "text": "Phase 4 manual path Role field renders a combobox (shadcn Command/Popover pattern) pre-seeded with at least 8 common titles (e.g. 'Product Manager', 'Product Operations Lead', 'Program Manager', 'Chief of Staff', 'Operations Manager', 'Head of Product', 'Director of Product', 'Delivery Manager'). Typing a value not in the list and pressing Enter or selecting a 'Create' option accepts it as a free-entry value. The selected value persists to `onboarding-state.json` under `answers.role`. `grep -n 'Command\\|Combobox\\|RoleCombobox' work-hq/src/routes/onboarding.tsx` returns at least one match inside the `PhaseFourManual` block."
+    },
+    {
+      "text": "Working style field renders at least 6 pre-defined chip options (e.g. 'async-first', 'deep-work mornings', 'meeting-heavy', 'batched afternoons', 'structured days', 'flex schedule'). Clicking a chip toggles its selected state (selected chips render with a distinct filled/highlighted visual treatment). A free-entry input adds custom chips. Selected values persist to `onboarding-state.json` under `answers.workstyle`. `grep -n 'workstyle\\|StyleChip\\|workStyle' work-hq/src/routes/onboarding.tsx` returns a match in the chip-selector block."
+    },
+    {
+      "text": "Team field renders a size Select with exactly four options ('1–2', '3–5', '6–10', '11+') plus a free-text descriptor input below it. Both values persist to `onboarding-state.json` under `answers.team` as an object `{ size: string; descriptor: string }`. `normalizeAnswers` migrates the old flat `team: string` shape by placing the string into `descriptor` and leaving `size` empty. `cat docs/data/local/onboarding-state.json` after saving phase 4 shows `answers.team` as an object with both keys."
+    },
+    {
+      "text": "Stakeholders field renders structured rows, each with: Name (text input), Role/Title (text input), and Relationship (Select with exactly three options: 'Decision maker', 'Collaborator', 'Informed'). An 'Add stakeholder' button appends a new empty row; a Remove (×) button deletes a row. Values persist to `onboarding-state.json` under `answers.stakeholders` as an array of `{ name: string; role: string; relationship: string }` objects. `normalizeAnswers` migrates old `stakeholders: string[]` by treating each string as `{ name: string, role: '', relationship: '' }`. `grep -n 'StakeholderRow\\|stakeholderRows\\|relationship' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "Phase 5 priority owner field renders a Select pre-populated with 'Me' plus each stakeholder name from `answers.stakeholders`, plus a free-entry fallback option. Verify: complete phase 4 with stakeholders named 'Alice Chen' and 'Bob Park', navigate to phase 5 — the owner Select for each priority shows at minimum 'Me', 'Alice Chen', 'Bob Park'. `grep -n 'ownerOptions\\|stakeholderNames\\|priorityOwner' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "`npx tsc --noEmit` in `work-hq/` returns no type errors after this story. After completing phases 4–5 with the new structured controls, the `scaffold-files` server function still produces valid output: `cat context/me.md` shows real content with no `[bracketed]` placeholders, and `cat context/active.md` shows the three priorities each with a title, owner, and due date."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseFourManual` in `work-hq/src/routes/onboarding.tsx` (story 003). shadcn/ui is already configured (`work-hq/components.json`); use its `Select`, `Command`, `Popover`, and `Badge` primitives per the existing design system. Role: shadcn `Command`-based combobox in a `Popover`. Workstyle: custom chip-toggle component using `Badge` primitives; `answers.workstyle` shape (currently `string`) may remain a CSV string for backward compat or be migrated to `string[]` — define the shape in `normalizeAnswers` explicitly. Key tools: same combobox pattern as Role, pre-seeded with Jira, Confluence, Slack, Glean, Notion, Figma, GitHub, Linear, Asana plus free-entry; persists to `answers.keyTools: string[]` (already an array, no migration required). Stakeholders: replace `stakeholders: string[]` with `Array<{ name: string; role: string; relationship: string }>`. Team: replace `team: string` with `{ size: string; descriptor: string }`. Both shape changes require entries in `normalizeAnswers` (line ~94). Phase 5 `PhaseNow`: derive `ownerOptions` from `answers.stakeholders.map(s => s.name)` prepended with 'Me'. All controls must retain a free-text escape hatch per the butler principle (os-helper SKILL.md).",
+  "dependencies": [],
+  "outOfScope": "The ActionCard component (story 012). Phase 4 seeded-path per-fact triage (story 013). Rewriting the `scaffold-files` server function — only the data shape it receives must remain valid. Phase 1, 2, and 3 controls.",
+  "verificationPlan": [
+    {
+      "command": "cat docs/data/local/onboarding-state.json | python3 -c \"import sys,json; d=json.load(sys.stdin); print('team:', d['answers']['team']); print('stakeholders:', d['answers']['stakeholders'])\"",
+      "checks": "team is an object with keys size and descriptor; stakeholders is an array of objects each with keys name, role, relationship."
+    },
+    {
+      "command": "npx tsc --noEmit",
+      "checks": "Exits with code 0 and no output — no TypeScript type errors introduced."
+    },
+    {
+      "command": "grep -n 'StakeholderRow\\|stakeholderRows\\|relationship' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match confirming structured stakeholder rows are implemented."
+    }
+  ],
+  "revisionLog": []
+}

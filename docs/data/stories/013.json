@@ -1,0 +1,50 @@
+{
+  "id": "013",
+  "featureId": "f-onboarding-ux",
+  "title": "Phase 4 review becomes per-fact triage",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a user reviewing my bootstrapped profile, I want to triage individual facts rather than entire sections, so that I can Accept, Edit, or Remove each claim precisely before the corrections handoff.",
+  "acceptanceCriteria": [
+    {
+      "text": "Each profile section's body is parsed into individual fact rows: bullet lines (starting with `- ` or `* `) and short paragraphs (non-bullet, under 200 chars). A `parseFacts` (or equivalent) function exists in `work-hq/src/routes/onboarding.tsx`. `grep -n 'parseFacts\\|factRows\\|splitFacts' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "Each fact row renders three action controls: Accept (marks the fact accepted), Edit (replaces the fact text with an inline `<input>` or `<textarea>`), and Remove (marks the fact for removal). The status chip (Confirmed / Derived / Unknown) is detected per-fact using the same label-scan priority as `detectStatus` on the fact text, defaulting to Unknown. In browser: clicking Edit replaces the fact's text with an editable field; clicking Accept restores text display and marks it Accepted; clicking Remove visually marks or removes the fact row."
+    },
+    {
+      "text": "Facts with status Derived or Unknown are sorted to appear first, under a header labelled 'N items need your review' (where N is the count of non-Confirmed/non-Accepted facts). Facts with status Confirmed or user-Accepted collapse into a summarized group (e.g. '8 confirmed — click to expand'). Both the 'N items' header and the Confirmed summary are visible without scrolling when facts exist in both states."
+    },
+    {
+      "text": "Fact-level decisions persist to `onboarding-state.json`. The `editedSections` answers shape is extended to include per-fact decisions; `normalizeAnswers` migrates the old `{ body: string; edited: boolean }` shape to the new shape without data loss. `cat docs/data/local/onboarding-state.json` after editing a fact shows the extended shape under `editedSections`. `grep -n 'normalizeAnswers' work-hq/src/routes/onboarding.tsx` returns a match confirming the migration handles both old and new shapes."
+    },
+    {
+      "text": "The profile-corrections ActionCard (story 012) payload is rebuilt from fact-level decisions: edited facts appear with their new text, removed facts appear with a removal flag. The header format is unchanged: the payload's first line is exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>`. Verify by clicking Copy after editing one fact and removing another, then pasting into a text editor and confirming only the changed facts appear."
+    },
+    {
+      "text": "Each section card retains an 'Edit raw section' fallback button that reveals the complete section body in a textarea (the story 010 escape hatch for content the fact parser cannot split cleanly). `grep -n 'Edit raw\\|rawEdit\\|rawSection\\|editRaw' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    }
+  ],
+  "technicalNotes": "Extend `PhaseReviewCorrect` in `work-hq/src/routes/onboarding.tsx`. The existing section-level parser is `parseProfileSections` (lines ~927–940) and `detectStatus` (lines ~908–921). Add a `parseFacts(body: string): Fact[]` function that splits a section body into individual items (lines beginning with `- ` or `* ` are bullets; any remaining non-empty paragraph segment under 200 chars is a short-paragraph fact). Each `Fact` carries: `id` (stable, e.g. index), `text` (original), `status` (per-fact label scan, defaulting to Unknown), and `decision`: `'pending' | 'accepted' | 'edited' | 'removed'` plus optional `editedText`. Extend `editedSections` in the `Answers` type (line ~62): `Record<string, { body: string; edited: boolean; facts?: FactDecision[] }>` — `body` and `edited` keys are preserved for backward compat and for the raw-section escape hatch. `normalizeAnswers` (line ~94) must handle entries that lack `facts`. Update `buildProfileCorrectionsMarkdown` (line ~589) to emit edited fact text and mark removed facts, rather than entire section bodies. Story 012 ships first; the ProfileCorrectionsDock surface is already ActionCard by the time this story lands.",
+  "dependencies": ["012"],
+  "outOfScope": "The ActionCard component itself (story 012). Changing the profile-corrections handoff header format or the AGENTS.md routing-table. Phase 4 manual-path interview fields (story 014). Writing any OS file from within this phase.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'parseFacts\\|splitFacts\\|factRows' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match confirming the fact-parser function is defined in the file."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json | python3 -c \"import sys,json; d=json.load(sys.stdin); print(list(d['answers']['editedSections'].values())[0])\"",
+      "checks": "Output shows the extended per-fact shape (contains a 'facts' key) after editing at least one fact in phase 4."
+    },
+    {
+      "command": "grep -n 'Edit raw\\|rawEdit\\|rawSection\\|editRaw' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match confirming the per-section escape hatch is still present."
+    }
+  ],
+  "revisionLog": []
+}

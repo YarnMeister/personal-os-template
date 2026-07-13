@@ -1,0 +1,47 @@
+{
+  "id": "016",
+  "featureId": "f-onboarding-ux",
+  "title": "Interactive orientation (phase 1)",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a new user in phase 1, I want to explore the tier model by clicking cards and preview what a daily trigger phrase does before I type it, so that I understand the OS before committing to the setup steps.",
+  "acceptanceCriteria": [
+    {
+      "text": "Each of the three tier cards (Tier 1 · Constitution, Tier 2 · Living context, Tier 3 · Deep files) is clickable and renders a selected state (e.g. distinct border-primary ring or highlighted background). Clicking a card marks it selected and makes its files list and full description prominently visible. Only one card may be highlighted at a time. `grep -n 'selectedTier\\|activeTier\\|setSelectedTier' work-hq/src/routes/onboarding.tsx` returns at least one match inside the `PhaseOrientation` function body."
+    },
+    {
+      "text": "Tier cards are keyboard accessible: each renders as a `<button>` element or carries `tabIndex={0}` plus `role='button'` and an `onKeyDown` handler for Enter and Space. `grep -n 'onKeyDown\\|role=.button\\|tabIndex' work-hq/src/routes/onboarding.tsx` returns at least one match inside the `PhaseOrientation` function body."
+    },
+    {
+      "text": "Clicking any trigger-phrase chip ('morning standup', 'process my backlog', 'end session') displays a canned assistant response in a visible mini-chat panel below the chips section. The panel shows the clicked phrase as the user turn and the canned response as the assistant turn. No real assistant call is made. `grep -n 'cannedResponse\\|miniChat\\|chatPanel\\|cannedReplies' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "The privacy/offline note ('Your data stays local and works offline') remains visible at a viewport width of 1 280 px without vertical scrolling — the story 002 regression guard. Open `/onboarding` (phase 1) at 1 280×800; the note element is within the initial viewport. `grep -n 'stays local\\|works offline' work-hq/src/routes/onboarding.tsx` returns a match confirming the note text is still present."
+    },
+    {
+      "text": "Phase 1 collects no user input and calls neither `set()` nor `saveOnboarding`. `grep -n '<input\\|<textarea\\|<select' work-hq/src/routes/onboarding.tsx` returns no match whose line number falls inside the `PhaseOrientation` function body. The Next phase button advances to phase 2 without requiring any interaction with the tier cards or mini-chat."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseOrientation` in `work-hq/src/routes/onboarding.tsx` (lines ~406–511). The `tiers` array (lines ~407–434) currently renders static `<div>` cards — convert each to a `<button>` and track `selectedTier: number | null` in local `useState`. The `triggers` array (line ~436) currently renders `<code>` chips — convert each to a `<button>`. Add a `cannedReplies: Record<string, string>` constant with one short canned response per trigger phrase describing what that ritual does (source: os-helper SKILL.md Modes). Track `chatHistory: Array<{ role: 'user'|'assistant'; text: string }>` in local state and render conditionally below the triggers section when non-empty. The privacy note (lines ~447–457) must stay above the interactive tier cards so it remains in the viewport at 1 280 px; do not reorder elements above it. Phase 1 must not call `set()`, `saveNow()`, or `saveOnboarding` — it is read-only teach content.",
+  "dependencies": [],
+  "outOfScope": "Making trigger-phrase chips actually invoke the assistant. Collecting any user answers or answers state changes in phase 1. Changing the tier model content (file paths, badge labels, or descriptions). Animating the mini-chat panel.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'selectedTier\\|activeTier\\|setSelectedTier' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match inside the PhaseOrientation block confirming click-to-explore state is implemented."
+    },
+    {
+      "command": "grep -n 'cannedResponse\\|miniChat\\|chatPanel\\|cannedReplies' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match confirming the canned-response map and mini-chat panel state are present."
+    },
+    {
+      "command": "grep -n 'stays local\\|works offline' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match confirming the privacy/offline note text is still present in PhaseOrientation."
+    }
+  ],
+  "revisionLog": []
+}

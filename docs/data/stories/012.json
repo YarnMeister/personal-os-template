@@ -1,0 +1,50 @@
+{
+  "id": "012",
+  "featureId": "f-onboarding-ux",
+  "title": "Action cards replace raw markdown handoff surfaces",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a user completing onboarding, I want the three handoff surfaces to present a human-readable summary and a single Copy button, so that I never see raw markdown as primary UI content.",
+  "acceptanceCriteria": [
+    {
+      "text": "No `<pre>` element displaying markdown content is visible by default anywhere in the onboarding route. After implementation, loading `/onboarding` in a browser and inspecting the DOM shows no top-level `<pre>` element outside a collapsed disclosure. `grep -n '<pre' work-hq/src/routes/onboarding.tsx` returns only lines that fall inside an ActionCard disclosure block."
+    },
+    {
+      "text": "`work-hq/src/components/work-hq/ActionCard.tsx` exists and exports `ActionCard`. The component accepts at minimum: `stepList: string[]`, `copyPayload: string`, and optional `statusLine?: React.ReactNode`. `grep -n 'export.*ActionCard' work-hq/src/components/work-hq/ActionCard.tsx` returns a match."
+    },
+    {
+      "text": "ActionCard includes a 'View raw prompt' disclosure — HTML `<details>`/`<summary>` or equivalent ARIA pattern — that is collapsed by default (the `open` attribute is absent on first render). Clicking it expands to show the full markdown payload; clicking again collapses it. `grep -n 'details\\|disclosure\\|View raw' work-hq/src/components/work-hq/ActionCard.tsx` returns a match."
+    },
+    {
+      "text": "The Copy button transitions to a 'Copied' success state for approximately 1.8 s after click, matching the timing from the replaced components. All three onboarding ActionCard payloads preserve their exact handoff-header format (docs/specs/file-contracts.md §4): the bootstrap-prompt payload begins exactly `## Work HQ handoff · profile-bootstrap · <YYYY-MM-DD>`, the profile-corrections payload begins exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>`, and the phase-6 onboarding payload begins exactly `## Work HQ handoff · onboarding · <YYYY-MM-DD>`. Verify each by clicking Copy and pasting into a text editor."
+    },
+    {
+      "text": "Phase 6 component (`PhaseFirst`) renders `ActionCard` instead of `HandoffDock`. `grep -n 'ActionCard' work-hq/src/routes/onboarding.tsx` returns at least one match whose line number falls inside the `PhaseFirst` function body. `grep -n 'HandoffDock' work-hq/src/routes/onboarding.tsx` returns no match whose line number falls inside the `PhaseFirst` function body."
+    },
+    {
+      "text": "The generic `HandoffDock` component file (`work-hq/src/components/work-hq/HandoffDock.tsx`) is unmodified by this story. After implementation, `git diff HEAD -- work-hq/src/components/work-hq/HandoffDock.tsx` returns no output."
+    }
+  ],
+  "technicalNotes": "Three surfaces to replace in `work-hq/src/routes/onboarding.tsx`: (1) `BootstrapCopyBlock` (lines ~521–578) — currently renders a `<pre>` with the first line highlighted in `<code>` then raw content; (2) `ProfileCorrectionsDock` (lines ~632–703) — same `<pre>` pattern; (3) `PhaseFirst` HandoffDock usage (line ~2218). Create `ActionCard` as a new shared component at `work-hq/src/components/work-hq/ActionCard.tsx`. ActionCard renders: (a) `stepList` as a short human-readable bullet list of what the assistant will do — always visible above the Copy button; (b) a prominent Copy button with 1.8 s copied-state feedback; (c) an optional `statusLine` ReactNode slot for polling-based feedback (e.g. '✓ Profile detected'); (d) the full `copyPayload` markdown inside a `<details><summary>View raw prompt</summary>…</details>` block, collapsed by default. The `buildProfileCorrectionsMarkdown` function (lines ~589–626) and `readBootstrapPrompt` server function remain unchanged — their output is passed unchanged as `copyPayload` to ActionCard. The phase-6 HandoffDock spec is also passed through ActionCard's `copyPayload` using the existing `buildHandoff` utility from `work-hq/src/lib/handoff.ts`. Do not modify `HandoffDock.tsx`.",
+  "dependencies": [],
+  "outOfScope": "Changing the handoff payload content, header format, or markdown structure (docs/specs/file-contracts.md §4 is frozen). Applying ActionCard to any route other than /onboarding. Modifying HandoffDock.tsx or any other route component.",
+  "verificationPlan": [
+    {
+      "command": "grep -n '<pre' work-hq/src/routes/onboarding.tsx",
+      "checks": "Every match falls inside the ActionCard disclosure block (within a `<details>` element). Zero top-level `<pre>` elements render by default."
+    },
+    {
+      "command": "grep -n 'export.*ActionCard' work-hq/src/components/work-hq/ActionCard.tsx",
+      "checks": "Returns a match confirming the component is exported from the expected path."
+    },
+    {
+      "command": "git diff HEAD -- work-hq/src/components/work-hq/HandoffDock.tsx",
+      "checks": "Returns no output — HandoffDock.tsx is unmodified by this story."
+    }
+  ],
+  "revisionLog": []
+}

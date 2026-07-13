@@ -1,0 +1,47 @@
+{
+  "id": "017",
+  "featureId": "f-onboarding-ux",
+  "title": "Consistency and honesty fixes",
+  "owner": "developer",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a user who has partially completed onboarding, I want the sidebar progress, the wizard stepper, and the save indicators to reflect true state rather than mock or hardcoded values, so that the UI I see matches what is actually happening.",
+  "acceptanceCriteria": [
+    {
+      "text": "`AppSidebar` derives onboarding progress from `onboarding-state.json` via `loadOnboarding` (or a loader-injected prop passed through the `_app.tsx` layout), not from `mock.onboardingSeed`. `grep -n 'onboardingSeed\\|mock.onboardingSeed' work-hq/src/components/work-hq/AppSidebar.tsx` returns no match. After advancing the wizard to phase 3, the sidebar progress bar and 'Phase N of 6' label show phase 3 without restarting the dev server."
+    },
+    {
+      "text": "The onboarding stepper in the wizard top rail (currently six plain `<span className='size-1.5 rounded-full …'/>` dot elements at lines ~306–316 of onboarding.tsx) is replaced with labeled step indicators showing each phase title from the `phases` array (lines ~131–137). Phases present in `completedPhases` render as clickable elements — clicking one calls `setPhase(p.n)` to navigate back. Phases with `n > currentPhase` render as non-interactive locked indicators. `grep -n 'completedPhases.*click\\|phaseBack\\|labeledStep\\|stepButton' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "`profileDetected` — the boolean that becomes true when the phase 3 `checkProfileExists` poll finds `context/profile.md` — is persisted to `onboarding-state.json` (e.g. as `answers.profileDetected: boolean`). After detection and a page refresh, phase 4 renders section cards immediately without re-showing the waiting state. `cat docs/data/local/onboarding-state.json` after profile detection shows a `profileDetected: true` value. `grep -n 'profileDetected' work-hq/src/routes/onboarding.tsx` returns at least one match confirming the flag is saved via `set()` or `saveNow()`."
+    },
+    {
+      "text": "`RitualLayout`'s header save-status line is truthful: either (a) the hardcoded string 'Saved to LocalStorage · just now' is removed — `grep -n 'Saved to LocalStorage\\|just now' work-hq/src/components/work-hq/RitualLayout.tsx` returns no match — or (b) the string is replaced with a real relative-time display driven by a `savedAt?: string` ISO-timestamp prop, which visibly changes as time passes (e.g. from 'just now' to '1 min ago' after 60 s)."
+    },
+    {
+      "text": "The `AutosaveField` 'Saving…/Saved' indicator does not flash on initial component mount. `grep -n 'first.current' work-hq/src/components/work-hq/AutosaveField.tsx` returns a match on a line that returns early before calling `setSaving(true)` — confirming the mount guard (lines ~24–29) is present and has not been accidentally removed by this story's surrounding refactors."
+    }
+  ],
+  "technicalNotes": "Four distinct touch points. (1) `AppSidebar.tsx` lines 21–22: replace `const onbPhase = mock.onboardingSeed.phase` with a value sourced from `loadOnboarding`. The `_app.tsx` layout route already exists; add `loadOnboarding` to its route `loader` and pass the result as a prop to `AppSidebar`, or use TanStack Router's `useRouteContext`. (2) `onboarding.tsx` lines ~306–316: replace the six dot `<span>` elements with a labeled stepper using the `phases` array (line 130). Each step shows `p.title`; completed steps are `<button onClick={() => setPhase(p.n)}>`; locked steps are `<span aria-disabled>`. (3) `onboarding.tsx` `PhaseSeeding`: when `checkProfileExists` returns `{ exists: true }`, call `set('profileDetected', true)` in addition to the existing state update. Add `profileDetected: boolean` to the `Answers` type (line ~33) and `emptyAnswers` (line ~65), and to `normalizeAnswers` migration (line ~94). In `PhaseReviewCorrect`, check `answers.profileDetected` to skip the waiting state on reload. (4) `RitualLayout.tsx` line 31: remove the hardcoded string or accept a `savedAt?: string` prop and compute a relative time string (e.g. 'just now' / 'N min ago') using `Intl.RelativeTimeFormat` or a simple difference check. `AutosaveField.tsx` lines 24–29: the `first.current` guard is existing code — do not remove it; verify it is intact after any refactors to adjacent components.",
+  "dependencies": [],
+  "outOfScope": "Replacing mock data for adrs, questions, priorities, learnings, or the user chip (name/initials) in AppSidebar — those remain mock until a future story. Any changes to the Today, Backlog, or Wrap-Up ritual routes beyond RitualLayout's save indicator. Adding real user identity to the sidebar.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'onboardingSeed\\|mock.onboardingSeed' work-hq/src/components/work-hq/AppSidebar.tsx",
+      "checks": "Returns no match — AppSidebar no longer references the mock onboarding seed."
+    },
+    {
+      "command": "grep -n 'Saved to LocalStorage\\|just now' work-hq/src/components/work-hq/RitualLayout.tsx",
+      "checks": "Returns no match (string removed) or returns a match on a line that is inside a dynamic expression driven by a real timestamp prop."
+    },
+    {
+      "command": "cat docs/data/local/onboarding-state.json | python3 -c \"import sys,json; d=json.load(sys.stdin); print('profileDetected:', d.get('answers', {}).get('profileDetected'))\"",
+      "checks": "After profile detection in phase 3, returns 'profileDetected: True' confirming the flag is persisted to disk."
+    }
+  ],
+  "revisionLog": []
+}

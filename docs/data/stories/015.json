@@ -1,0 +1,47 @@
+{
+  "id": "015",
+  "featureId": "f-onboarding-ux",
+  "title": "Phase 2 observed verification handshake",
+  "owner": "developer",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
+  "userStory": "As a user wiring my assistant in phase 2, I want the wizard to detect when my assistant has confirmed its setup rather than asking me to self-attest, so that verification is observed rather than taken on trust.",
+  "acceptanceCriteria": [
+    {
+      "text": "The phase 2 verification prompt visible on screen instructs the AI assistant to write `docs/data/local/handshake.json` with the exact shape `{ \"verifiedAt\": \"<ISO 8601 timestamp>\", \"assistant\": \"<assistant name>\" }`. The file path `docs/data/local/handshake.json` appears verbatim in the on-screen prompt text. `grep -n 'handshake.json' work-hq/src/routes/onboarding.tsx` returns at least one match inside the `PhaseWire` component block."
+    },
+    {
+      "text": "`work-hq/src/server/check-handshake.ts` exists, exports `checkHandshake` as a `createServerFn` GET handler, and returns `{ detected: boolean; verifiedAt: string | null; assistant: string | null }`. `grep -n 'checkHandshake\\|handshake.json' work-hq/src/server/check-handshake.ts` returns matches for both the function name and the file path. The implementation follows the `check-profile-exists.ts` pattern (createServerFn + existsSync + resolve relative to process.cwd())."
+    },
+    {
+      "text": "While phase 2 is active and `docs/data/local/handshake.json` does not exist, polling runs at 5 000 ms intervals calling `checkHandshake`. When the file is detected, polling stops and the third checkbox (`testedPaste`) transitions to a locked confirmation line displaying '✓ Assistant verified at <HH:MM>'. The checkbox `<input>` is `disabled` or removed from the DOM in this locked state. `grep -n 'checkHandshake\\|handshakeDetected\\|verifiedAt' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "text": "Manual fallback is preserved: when `docs/data/local/handshake.json` does not exist and the user ticks the third checkbox by hand, `answers.checks.testedPaste` is set to `true` and persisted to `onboarding-state.json`. Verify: delete `docs/data/local/handshake.json`, reload phase 2, tick the checkbox manually, run `cat docs/data/local/onboarding-state.json` — `checks.testedPaste` is `true` and the user was not blocked from proceeding."
+    },
+    {
+      "text": "`docs/data/local/handshake.json` is covered by the existing `.gitignore` entry for `docs/data/local/`. `grep 'data/local' .gitignore` returns a match. `git ls-files --error-unmatch docs/data/local/handshake.json` exits with a non-zero code confirming the file is not tracked."
+    }
+  ],
+  "technicalNotes": "Edit `PhaseWire` (phase 2) in `work-hq/src/routes/onboarding.tsx`. The third checkbox (key `testedPaste`, label 'I've sent the verification prompt…') becomes a dual-state component: (a) interactive checkbox when `handshakeDetected` is false; (b) locked confirmation line ('✓ Assistant verified at <HH:MM>') when `handshakeDetected` is true. Track `handshakeDetected` and `verifiedAt` in local component state. The polling `useEffect` follows the same `setInterval`/`clearInterval` pattern used in `PhaseSeeding` for `checkProfileExists` (lines ~713–750 in onboarding.tsx). Create `work-hq/src/server/check-handshake.ts` by following `work-hq/src/server/check-profile-exists.ts` exactly (lines 1–22): use `createServerFn`, `existsSync`, and `resolve(process.cwd(), '../docs/data/local/handshake.json')`. The server function is read-only — the wizard never writes `handshake.json`. `docs/data/local/` is gitignored at `.gitignore` line 20 — no new gitignore entry required.",
+  "dependencies": [],
+  "outOfScope": "Writing `docs/data/local/handshake.json` from within the wizard (only the AI assistant writes it). Changing the first two setup checkboxes (installed, contextOpen) or their labels. Modifying the verification prompt wording beyond adding the handshake.json instruction.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'handshake.json' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match confirming the handshake file path is referenced inside the PhaseWire component block."
+    },
+    {
+      "command": "grep -n 'checkHandshake' work-hq/src/server/check-handshake.ts",
+      "checks": "Returns a match confirming the server function is defined and exported."
+    },
+    {
+      "command": "grep 'data/local' .gitignore",
+      "checks": "Returns a match — docs/data/local/ is gitignored, so handshake.json will never be committed."
+    }
+  ],
+  "revisionLog": []
+}
