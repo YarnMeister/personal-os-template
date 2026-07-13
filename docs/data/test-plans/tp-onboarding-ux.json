@@ -14,8 +14,8 @@
       "result": null
     },
     {
-      "label": "Bootstrap prompt Copy payload: header format preserved",
-      "instruction": "Click the Copy button on the bootstrap-prompt ActionCard. Paste into a text editor. Expected: the first line is exactly `## Work HQ handoff · profile-bootstrap · <today's date in YYYY-MM-DD format>`. The payload content matches the substituted bootstrap prompt with the user's name in place of any placeholder.",
+      "label": "Bootstrap prompt Copy payload: raw template content, not a handoff block",
+      "instruction": "Click the Copy button on the bootstrap-prompt ActionCard. Paste into a text editor. Expected: the first line begins `# Bootstrap Profile Prompt` (the raw substituted template content per file-contracts.md §4.2) — NOT a `## Work HQ handoff` header line. The user's name appears substituted in place of any placeholder. The payload is byte-identical to the readBootstrapPrompt server function output.",
       "result": null
     },
     {
@@ -106,6 +106,16 @@
     {
       "label": "RitualLayout save indicator is truthful or absent",
       "instruction": "Navigate to the Today view. Look at the header save-status area. Expected: either (a) no save-status label appears at all, or (b) a relative-time label is present that changes as time passes (e.g. updates from 'just now' to '1 min ago' after 60 seconds). The static string 'Saved to LocalStorage · just now' must NOT remain permanently fixed regardless of when data was last written.",
+      "result": null
+    },
+    {
+      "label": "os-helper applies Removed-marker as a deletion",
+      "instruction": "Using phase 4 fact triage, mark at least one fact for removal and edit the text of another. Click Copy on the corrections ActionCard and paste the block into VS Code Copilot Chat (os-helper active). Expected: the assistant (a) deletes the Removed-marked fact from context/profile.md — after the assistant confirms, run `grep '<original removed fact text>' context/profile.md` and confirm no match; (b) applies the edited fact's new text in place in the same file — `grep '<new fact text>' context/profile.md` returns a match. Lines without the `**Removed:**` prefix were applied as replacements, not deletions.",
+      "result": null
+    },
+    {
+      "label": "os-helper writes handshake.json on phase-2 verification prompt",
+      "instruction": "Delete `docs/data/local/handshake.json` if it exists. Copy the phase-2 verification prompt from Work HQ and paste it into VS Code Copilot Chat (os-helper / constitution active). Expected: the assistant (a) states the user's #1 priority AND (b) writes `docs/data/local/handshake.json`. Verify: `cat docs/data/local/handshake.json` returns valid JSON with keys `verifiedAt` (ISO 8601 string) and `assistant` (non-empty string). Back in Work HQ, the third phase-2 checkbox automatically locks to '✓ Assistant verified at <HH:MM>' within the next polling cycle (up to 5 s).",
       "result": null
     }
   ]
