@@ -4,8 +4,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronRight,
+  Pencil,
   RefreshCw,
+  RotateCcw,
   Sparkles,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { ActionCard } from "@/components/work-hq/ActionCard";
@@ -29,6 +34,33 @@ export const Route = createFileRoute("/onboarding")({
 
 /** A single priority entry — story 003 AC4. */
 type Priority = { title: string; owner: string; dueDate: string };
+
+/** Per-fact review status — mirrors detectStatus's return type (story 013). */
+type FactStatus = "Confirmed" | "Derived" | "Unknown";
+
+/** The triage decision a user makes on a single fact (story 013 / ADR-P6-009). */
+type FactDecisionKind = "pending" | "accepted" | "edited" | "removed";
+
+/**
+ * A single parsed fact from a profile section body plus its triage state
+ * (story 013 / ADR-P6-009).
+ * - `id` — stable per-section index.
+ * - `text` — original parsed fact text (for round-tripping / removal marker).
+ * - `status` — per-fact label (detectStatus on the fact, falling back to the
+ *   section-level status when the fact carries no label).
+ * - `decision` — the user's triage choice.
+ * - `editedText` — the corrected text when `decision === "edited"`.
+ */
+interface Fact {
+  id: string;
+  text: string;
+  status: FactStatus;
+  decision: FactDecisionKind;
+  editedText?: string;
+}
+
+/** Persisted fact decision (onboarding-state.json, file-contracts §3.1). */
+type FactDecision = Fact;
 
 type Answers = {
   role: string;
@@ -54,12 +86,19 @@ type Answers = {
   /** AC3: work email collected before generating the bootstrap prompt */
   workEmail: string;
   /**
-   * AC3 (story 010): edited section bodies and flags from the Review & correct
-   * phase.  Keys are section headings from context/profile.md; values hold the
-   * current body text (possibly user-edited) and an `edited` flag.
-   * Persisted in onboarding-state.json so edits survive a page refresh.
+   * Story 010 + story 013 (ADR-P6-009): review state from the Review & correct
+   * phase.  Keys are section headings from context/profile.md.
+   * - `body` + `edited` — the section-level raw-edit escape hatch (story 010):
+   *   `body` holds the current full section text, `edited: true` marks a section
+   *   the user changed via the raw textarea.
+   * - `facts` — optional per-fact triage decisions (story 013).  Additive:
+   *   legacy `{ body, edited }` entries lack it and fall back to raw-body
+   *   editing.  Persisted in onboarding-state.json so decisions survive refresh.
    */
-  editedSections: Record<string, { body: string; edited: boolean }>;
+  editedSections: Record<
+    string,
+    { body: string; edited: boolean; facts?: FactDecision[] }
+  >;
 };
 
 const emptyAnswers: Answers = {
@@ -85,11 +124,74 @@ const emptyAnswers: Answers = {
   editedSections: {},
 };
 
+const FACT_STATUSES: FactStatus[] = ["Confirmed", "Derived", "Unknown"];
+const FACT_DECISIONS: FactDecisionKind[] = [
+  "pending",
+  "accepted",
+  "edited",
+  "removed",
+];
+
+/** Coerce one raw persisted fact into a valid FactDecision. */
+function normalizeFactDecision(
+  raw: Record<string, unknown>,
+  i: number,
+): FactDecision {
+  const status = FACT_STATUSES.includes(raw.status as FactStatus)
+    ? (raw.status as FactStatus)
+    : "Unknown";
+  const decision = FACT_DECISIONS.includes(raw.decision as FactDecisionKind)
+    ? (raw.decision as FactDecisionKind)
+    : "pending";
+  const fact: FactDecision = {
+    id: typeof raw.id === "string" ? raw.id : String(i),
+    text: typeof raw.text === "string" ? raw.text : "",
+    status,
+    decision,
+  };
+  if (decision === "edited" && typeof raw.editedText === "string") {
+    fact.editedText = raw.editedText;
+  }
+  return fact;
+}
+
+/**
+ * Normalise the editedSections map (story 010 + story 013 migration).
+ * Handles both the legacy `{ body, edited }` shape (leaves `facts` undefined —
+ * the section falls back to raw-body editing, and any legacy raw edit still
+ * surfaces in the corrections handoff) and the new `{ body, edited, facts }`
+ * shape.  No data loss on either path.
+ */
+function normalizeEditedSections(raw: unknown): Answers["editedSections"] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Answers["editedSections"] = {};
+  for (const [heading, value] of Object.entries(
+    raw as Record<string, unknown>,
+  )) {
+    if (!value || typeof value !== "object") continue;
+    const entry = value as Record<string, unknown>;
+    const normalized: Answers["editedSections"][string] = {
+      body: typeof entry.body === "string" ? entry.body : "",
+      edited: typeof entry.edited === "boolean" ? entry.edited : false,
+    };
+    if (Array.isArray(entry.facts)) {
+      normalized.facts = entry.facts
+        .filter(
+          (f): f is Record<string, unknown> => !!f && typeof f === "object",
+        )
+        .map((f, i) => normalizeFactDecision(f, i));
+    }
+    out[heading] = normalized;
+  }
+  return out;
+}
+
 /**
  * Normalise a raw answers blob loaded from disk or localStorage.
  * Migrates the old flat-string priorities format
  * (i.e. priorities: [string, string, string]) to the structured object format
- * introduced in story 003.
+ * introduced in story 003, and the old `editedSections` `{ body, edited }`
+ * shape to the story-013 `{ body, edited, facts? }` shape.
  */
 function normalizeAnswers(raw: unknown): Answers {
   if (!raw || typeof raw !== "object") return emptyAnswers;
@@ -110,14 +212,8 @@ function normalizeAnswers(raw: unknown): Answers {
     priorities = migrated as [Priority, Priority, Priority];
   }
 
-  // Normalise editedSections: default to {} if missing or malformed.
-  const rawEditedSections = a.editedSections;
-  const editedSections: Answers["editedSections"] =
-    rawEditedSections &&
-    typeof rawEditedSections === "object" &&
-    !Array.isArray(rawEditedSections)
-      ? (rawEditedSections as Answers["editedSections"])
-      : {};
+  // Normalise editedSections, migrating the legacy { body, edited } shape.
+  const editedSections = normalizeEditedSections(a.editedSections);
 
   return {
     ...emptyAnswers,
@@ -272,9 +368,10 @@ function OnboardingPage() {
   // PhaseReviewCorrect acts as the escape hatch.
   const hideNextButton = phase === 4 || phase === 5;
 
-  // Count edited sections for the dynamic phase 4 bootstrap heading (AC3).
+  // Count changed sections for the dynamic phase 4 bootstrap heading (AC3) —
+  // a section counts when raw-edited or carrying an edited/removed fact (story 013).
   const editedCount = Object.values(answers.editedSections).filter(
-    (s) => s.edited,
+    sectionHasChanges,
   ).length;
 
   // Dynamic subtitle for phase 4 bootstrap path — shows edited-section count.
@@ -545,9 +642,15 @@ function BootstrapCopyBlock({
 /**
  * Build the profile-corrections handoff block markdown (§4.3 file-contracts.md).
  *
- * - Only sections with `edited: true` are included in the body.
- * - When no sections were edited, the body states "No corrections — all sections
- *   accepted as is" as required by story 011 AC2.
+ * Rebuilt at fact level (story 013 / ADR-P6-009, file-contracts §4.3):
+ * - A section appears only if it has changes — a raw-section edit (`edited`),
+ *   or at least one edited/removed fact.  Untouched sections are omitted.
+ * - Raw-edited sections emit their full corrected body (escape hatch, story 010).
+ * - Fact-triaged sections list ONLY changed facts: an edited fact as a plain
+ *   bullet with its NEW text (`- <new text>`); a removed fact with the removal
+ *   marker (`- **Removed:** <original text>`).  Unchanged facts are omitted.
+ * - When nothing changed, the body states "No corrections — all sections
+ *   accepted as is" (story 011 AC2 — unchanged zero-changes wording).
  * - The Ask always appears, covering: apply corrections → first-person conversion
  *   → distil me/org/active (sensitivity gate per AGENTS.md §Sensitivity check).
  */
@@ -559,15 +662,16 @@ function buildProfileCorrectionsMarkdown(
   // The kind string "profile-corrections" must appear in this file for AC verification.
   const header = `## Work HQ handoff · profile-corrections · ${today}`;
 
-  const editedEntries = Object.entries(editedSections).filter(
-    ([, v]) => v.edited,
+  const changedEntries = Object.entries(editedSections).filter(([, v]) =>
+    sectionHasChanges(v),
   );
 
   const nameRef = fullName.trim() ? ` for ${fullName.trim()}` : "";
 
   // The sensitivity gate phrase must match AGENTS.md §Sensitivity check exactly.
   const askText =
-    `Apply the corrections above to context/profile.md (write the file, confirm when done). ` +
+    `Apply the corrections above to context/profile.md — update edited facts in place ` +
+    `and delete any fact marked "**Removed:**" (write the file, confirm when done). ` +
     `Then run the first-person conversion: rewrite the corrected profile as a polished ` +
     `first-person assistant context document${nameRef} — preserve all strong evidence, ` +
     `keep uncertain items marked as "Needs my confirmation", rewrite in a professional ` +
@@ -577,15 +681,31 @@ function buildProfileCorrectionsMarkdown(
     `no personnel data, unreleased roadmap items, or commercial terms in the committed ` +
     `org.md), and context/active.md seeds from the updated profile. Confirm each file is written.`;
 
+  // Build one markdown block per changed section.
+  const sectionBlock = ([heading, entry]: [
+    string,
+    Answers["editedSections"][string],
+  ]): string => {
+    // Raw-section escape hatch wins: emit the full corrected body verbatim.
+    if (entry.edited) {
+      return `**${heading}**\n${entry.body.trim()}`;
+    }
+    // Fact level: only edited and removed facts, in original order.
+    const lines = (entry.facts ?? [])
+      .filter((f) => f.decision === "edited" || f.decision === "removed")
+      .map((f) =>
+        f.decision === "removed"
+          ? `- **Removed:** ${f.text.trim()}`
+          : `- ${(f.editedText ?? f.text).trim()}`,
+      );
+    return `**${heading}**\n${lines.join("\n")}`;
+  };
+
   const body =
-    editedEntries.length === 0
+    changedEntries.length === 0
       ? `No corrections — all sections accepted as is\n\n**Ask**\n${askText}`
-      : editedEntries
-          .map(
-            ([heading, { body: sectionBody }]) =>
-              `**${heading}**\n${sectionBody.trim()}`,
-          )
-          .join("\n\n") + `\n\n**Ask**\n${askText}`;
+      : changedEntries.map(sectionBlock).join("\n\n") +
+        `\n\n**Ask**\n${askText}`;
 
   return `${header}\n\n${body}\n`;
 }
@@ -993,6 +1113,155 @@ function parseProfileSections(content: string): ProfileSection[] {
     .filter((s) => s.heading.length > 0);
 }
 
+/* ----- Fact parser — story 013 / ADR-P6-009 ----- */
+
+/**
+ * Paragraph blocks at or over this length are NOT force-split into a fact;
+ * they are left to the per-section raw-edit escape hatch (ADR-P6-009).
+ */
+const FACT_LENGTH_LIMIT = 200;
+
+/** A line that is nothing but a status label, e.g. `**Confirmed**`. */
+function isLabelOnlyLine(line: string): boolean {
+  return /^\s*\*{0,2}\s*(Confirmed|Derived|Unknown(\s*\/\s*needs validation)?)\s*\*{0,2}\s*$/i.test(
+    line,
+  );
+}
+
+/** A markdown bullet line: starts (after optional indent) with `- ` or `* `. */
+function isBulletLine(line: string): boolean {
+  return /^\s*[-*]\s+/.test(line);
+}
+
+/**
+ * Per-fact status: reuse detectStatus when the fact text carries a label,
+ * otherwise fall back to the section-level status (story 013 AC2).
+ */
+function factStatusFor(text: string, sectionStatus: FactStatus): FactStatus {
+  return /Confirmed|Derived|Unknown/.test(text)
+    ? detectStatus(text)
+    : sectionStatus;
+}
+
+/**
+ * Split a section body into individual facts (ADR-P6-009, Option A).
+ *
+ * Splitting rule (applied exactly):
+ * - Standalone status-label lines (e.g. `**Confirmed**`) are section markers,
+ *   not facts — they are stripped and used as the section-level status.
+ * - Lines beginning with `- ` or `* ` are each one bullet fact; an immediately
+ *   following non-bullet, non-blank line is treated as a wrapped continuation
+ *   of that bullet.
+ * - Remaining non-bullet text is segmented into paragraph blocks (split on
+ *   blank lines); each block under FACT_LENGTH_LIMIT characters becomes one
+ *   short-paragraph fact.  Blocks at/over the limit are omitted (left to the
+ *   raw-section escape hatch) rather than force-split.
+ *
+ * Each fact carries a stable per-section `id` (index), original `text`, a
+ * per-fact `status`, and an initial `decision` of `"pending"`.
+ */
+function parseFacts(body: string): Fact[] {
+  const sectionStatus = detectStatus(body);
+  const lines = body.split("\n");
+  const collected: Array<{ text: string; status: FactStatus }> = [];
+
+  let bulletBuf: string[] | null = null;
+  let paraBuf: string[] = [];
+
+  const push = (raw: string) => {
+    const text = raw.trim();
+    if (!text) return;
+    collected.push({ text, status: factStatusFor(text, sectionStatus) });
+  };
+  const flushBullet = () => {
+    if (bulletBuf) {
+      push(bulletBuf.join(" "));
+      bulletBuf = null;
+    }
+  };
+  const flushPara = () => {
+    const text = paraBuf.join(" ").trim();
+    paraBuf = [];
+    if (text && text.length < FACT_LENGTH_LIMIT) push(text);
+  };
+
+  for (const line of lines) {
+    if (isLabelOnlyLine(line)) {
+      flushBullet();
+      flushPara();
+      continue;
+    }
+    if (isBulletLine(line)) {
+      flushPara();
+      flushBullet();
+      bulletBuf = [line.replace(/^\s*[-*]\s+/, "")];
+      continue;
+    }
+    if (line.trim() === "") {
+      flushBullet();
+      flushPara();
+      continue;
+    }
+    // Non-blank, non-bullet, non-label line.
+    if (bulletBuf) {
+      bulletBuf.push(line.trim()); // wrapped continuation of the open bullet
+    } else {
+      paraBuf.push(line);
+    }
+  }
+  flushBullet();
+  flushPara();
+
+  return collected.map((f, i) => ({
+    id: String(i),
+    text: f.text,
+    status: f.status,
+    decision: "pending" as const,
+  }));
+}
+
+/**
+ * Reconcile freshly-parsed facts with any persisted decisions (matched by id).
+ * Parsed text/status stay authoritative; persisted decision/editedText win.
+ */
+function reconcileFacts(parsed: Fact[], persisted?: FactDecision[]): Fact[] {
+  if (!persisted || persisted.length === 0) return parsed;
+  return parsed.map((f) => {
+    const p = persisted.find((x) => x.id === f.id);
+    if (!p) return f;
+    return {
+      ...f,
+      decision: p.decision,
+      editedText: p.decision === "edited" ? p.editedText : undefined,
+    };
+  });
+}
+
+/**
+ * A fact is "settled" (folded into the confirmed/accepted summary) when the
+ * user accepted it, or it is a still-pending Confirmed claim.  Everything else
+ * — pending Derived/Unknown, plus any edited or removed fact — needs review.
+ */
+function isSettledFact(f: Fact): boolean {
+  if (f.decision === "removed" || f.decision === "edited") return false;
+  if (f.decision === "accepted") return true;
+  return f.status === "Confirmed";
+}
+
+/**
+ * Whether a section carries any correction to hand off — a raw-section edit, or
+ * at least one edited/removed fact (story 013 selection rule, file-contracts §4.3).
+ */
+function sectionHasChanges(entry: {
+  edited: boolean;
+  facts?: FactDecision[];
+}): boolean {
+  if (entry.edited) return true;
+  return (entry.facts ?? []).some(
+    (f) => f.decision === "edited" || f.decision === "removed",
+  );
+}
+
 /* ----- StatusChip ----- */
 
 function StatusChip({
@@ -1017,32 +1286,228 @@ function StatusChip({
   );
 }
 
-/* ----- SectionCard ----- */
+/* ----- FactRow (story 013) ----- */
+
+/** Shared focus-ring utility for icon/text action buttons (WCAG 2.2 AA). */
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 /**
- * Editable card for a single ## section from context/profile.md.
- * Shows the section heading, current body in a textarea, and a live status
- * chip (re-detected from the current body text).  Displays an "Edited" badge
- * when `isEdited` is true (AC2, AC3).
+ * A single triage-able fact row (story 013 AC2).
+ * Renders the fact text with a per-fact status chip and three action controls:
+ * Accept (toggle), Edit (inline textarea), and Remove.  A removed fact renders
+ * struck-through with an Undo control (AC3).  All controls are keyboard-reachable
+ * with visible focus rings and carry aria-labels.
  */
-function SectionCard({
+function FactRow({
+  fact,
+  onAccept,
+  onEdit,
+  onRemove,
+  onUndoRemove,
+}: {
+  fact: Fact;
+  /** Toggle accepted <-> pending. */
+  onAccept: () => void;
+  onEdit: (text: string) => void;
+  onRemove: () => void;
+  onUndoRemove: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(fact.editedText ?? fact.text);
+
+  const display = fact.editedText ?? fact.text;
+  const accepted = fact.decision === "accepted";
+  const edited = fact.decision === "edited";
+
+  // Removed — struck-through with an Undo (AC3).
+  if (fact.decision === "removed") {
+    return (
+      <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+        <p className="min-w-0 text-sm leading-relaxed text-muted-foreground line-through">
+          {fact.text}
+        </p>
+        <button
+          type="button"
+          onClick={onUndoRemove}
+          aria-label={`Undo removal of "${fact.text}"`}
+          className={cn(
+            "flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+            FOCUS_RING,
+          )}
+        >
+          <RotateCcw className="size-3.5" /> Undo
+        </button>
+      </div>
+    );
+  }
+
+  // Inline edit mode (AC2).
+  if (editing) {
+    return (
+      <div className="space-y-2 rounded-lg border border-primary/40 bg-background px-3 py-2">
+        <label htmlFor={`fact-edit-${fact.id}`} className="sr-only">
+          Edit fact text
+        </label>
+        <textarea
+          id={`fact-edit-${fact.id}`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={2}
+          autoFocus
+          className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onEdit(draft);
+              setEditing(false);
+            }}
+            className={cn(
+              "flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110",
+              FOCUS_RING,
+            )}
+          >
+            <Check className="size-3.5" /> Save
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(fact.editedText ?? fact.text);
+              setEditing(false);
+            }}
+            className={cn(
+              "flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            <X className="size-3.5" /> Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm leading-relaxed text-foreground">{display}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusChip status={fact.status} />
+          {accepted && (
+            <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-fresh">
+              <Check className="size-3" /> Accepted
+            </span>
+          )}
+          {edited && (
+            <span className="font-mono text-[10px] uppercase tracking-widest text-primary">
+              Edited
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={onAccept}
+          aria-pressed={accepted}
+          aria-label={
+            accepted
+              ? `Undo accept of "${display}"`
+              : `Accept fact "${display}"`
+          }
+          title={accepted ? "Accepted — click to undo" : "Accept"}
+          className={cn(
+            "flex size-8 items-center justify-center rounded-md",
+            accepted
+              ? "bg-fresh/15 text-fresh"
+              : "text-muted-foreground hover:bg-fresh/10 hover:text-fresh",
+            FOCUS_RING,
+          )}
+        >
+          <Check className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(fact.editedText ?? fact.text);
+            setEditing(true);
+          }}
+          aria-label={`Edit fact "${display}"`}
+          title="Edit"
+          className={cn(
+            "flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary",
+            FOCUS_RING,
+          )}
+        >
+          <Pencil className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove fact "${display}"`}
+          title="Remove"
+          className={cn(
+            "flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+            FOCUS_RING,
+          )}
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ----- FactSectionCard (story 013) ----- */
+
+/**
+ * Card for one ## section, rendering per-fact triage (story 013 AC2/AC3).
+ * Needs-review facts (Derived/Unknown, or any edited/removed fact) render first;
+ * settled facts (Confirmed status or user-accepted) collapse into a "N confirmed"
+ * disclosure.  Every card retains the story-010 "Edit raw section" escape hatch
+ * (a full-body textarea) for content the fact parser cannot split cleanly.
+ */
+function FactSectionCard({
   heading,
-  body,
-  isEdited,
-  onChange,
+  sectionStatus,
+  facts,
+  rawBody,
+  isRawEdited,
+  hasChanges,
+  onUpdateFact,
+  onRawEdit,
+  onResetRaw,
 }: {
   heading: string;
-  body: string;
-  isEdited: boolean;
-  onChange: (body: string) => void;
+  sectionStatus: FactStatus;
+  facts: Fact[];
+  rawBody: string;
+  isRawEdited: boolean;
+  hasChanges: boolean;
+  onUpdateFact: (
+    id: string,
+    decision: FactDecisionKind,
+    editedText?: string,
+  ) => void;
+  onRawEdit: (body: string) => void;
+  onResetRaw: () => void;
 }) {
-  const status = detectStatus(body);
+  // Open the raw-edit escape hatch by default for sections already raw-edited
+  // (covers migrated legacy { body, edited } entries — ADR-P6-009).
+  const [rawOpen, setRawOpen] = useState(isRawEdited);
+
+  const reviewFacts = facts.filter((f) => !isSettledFact(f));
+  const settledFacts = facts.filter(isSettledFact);
+
+  const rawId = `raw-section-${heading.replace(/\W+/g, "-")}`;
 
   return (
     <div
       className={cn(
         "rounded-xl border bg-card p-4 space-y-3 transition",
-        isEdited ? "border-primary/50" : "border-border",
+        hasChanges ? "border-primary/50" : "border-border",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1050,37 +1515,150 @@ function SectionCard({
           {heading}
         </h3>
         <div className="flex shrink-0 items-center gap-2">
-          {isEdited && (
+          {hasChanges && (
             <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
-              Edited
+              Changed
             </span>
           )}
-          <StatusChip status={status} />
+          <StatusChip status={sectionStatus} />
         </div>
       </div>
-      <textarea
-        value={body}
-        onChange={(e) => onChange(e.target.value)}
-        rows={4}
-        className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-      />
+
+      {rawOpen ? (
+        /* Raw-section escape hatch (story 010, retained per ADR-P6-009). */
+        <div className="space-y-2">
+          <label htmlFor={rawId} className="sr-only">
+            Raw section body for {heading}
+          </label>
+          <textarea
+            id={rawId}
+            value={rawBody}
+            onChange={(e) => onRawEdit(e.target.value)}
+            rows={6}
+            className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onResetRaw();
+              setRawOpen(false);
+            }}
+            className={cn(
+              "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            ← Discard raw edit &amp; return to fact review
+          </button>
+        </div>
+      ) : (
+        <>
+          {reviewFacts.length > 0 ? (
+            <div className="space-y-2">
+              {reviewFacts.map((f) => (
+                <FactRow
+                  key={f.id}
+                  fact={f}
+                  onAccept={() =>
+                    onUpdateFact(
+                      f.id,
+                      f.decision === "accepted" ? "pending" : "accepted",
+                    )
+                  }
+                  onEdit={(text) =>
+                    onUpdateFact(
+                      f.id,
+                      text.trim() === f.text.trim() ? "pending" : "edited",
+                      text,
+                    )
+                  }
+                  onRemove={() => onUpdateFact(f.id, "removed")}
+                  onUndoRemove={() => onUpdateFact(f.id, "pending")}
+                />
+              ))}
+            </div>
+          ) : facts.length === 0 ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              This section couldn&apos;t be split into individual facts. Use{" "}
+              <strong className="text-foreground">Edit raw section</strong>{" "}
+              below to correct it directly.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Every fact in this section is confirmed — nothing needs your
+              review.
+            </p>
+          )}
+
+          {settledFacts.length > 0 && (
+            <details className="group rounded-lg border border-border/60 bg-muted/20">
+              <summary
+                className={cn(
+                  "flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground",
+                  FOCUS_RING,
+                )}
+              >
+                <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+                {settledFacts.length} confirmed — click to expand
+              </summary>
+              <div className="space-y-2 border-t border-border/60 px-3 py-2">
+                {settledFacts.map((f) => (
+                  <FactRow
+                    key={f.id}
+                    fact={f}
+                    onAccept={() =>
+                      onUpdateFact(
+                        f.id,
+                        f.decision === "accepted" ? "pending" : "accepted",
+                      )
+                    }
+                    onEdit={(text) =>
+                      onUpdateFact(
+                        f.id,
+                        text.trim() === f.text.trim() ? "pending" : "edited",
+                        text,
+                      )
+                    }
+                    onRemove={() => onUpdateFact(f.id, "removed")}
+                    onUndoRemove={() => onUpdateFact(f.id, "pending")}
+                  />
+                ))}
+              </div>
+            </details>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setRawOpen(true)}
+            className={cn(
+              "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            Edit raw section
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
-/* ----- PhaseReviewCorrect (phase 4, bootstrap path) — story 010 ----- */
+/* ----- PhaseReviewCorrect (phase 4, bootstrap path) — story 010 / 013 ----- */
 
 /**
  * PhaseReviewCorrect — phase 4 of the onboarding wizard, bootstrap path
- * (story 010).
+ * (story 010, rebuilt as per-fact triage in story 013 / ADR-P6-009).
  *
  * Waiting state: context/profile.md not found → shows instruction text,
  *   a Refresh button (AC1), and a subtle Continue link as an escape hatch.
  *   Auto-polls every 5 s via check-profile-exists (reused from story 009).
  *
- * Review state: profile parsed → renders one SectionCard per ## section (AC2).
- *   Editing a card updates answers.editedSections and marks it as edited (AC3).
- *   "Confirm all" / "Looks good" button saves + advances to phase 5 (AC4).
+ * Review state: profile parsed into sections, each section into per-fact rows
+ *   (parseFacts).  Each fact can be Accepted / Edited / Removed; needs-review
+ *   facts surface first under an "N items need your review" header and confirmed
+ *   facts collapse into a per-section summary.  A per-section "Edit raw section"
+ *   escape hatch remains for un-splittable content.  Decisions persist to
+ *   answers.editedSections; "Confirm all" / "Looks good" saves + advances (AC4).
  */
 function PhaseReviewCorrect({
   answers,
@@ -1181,49 +1759,161 @@ function PhaseReviewCorrect({
     );
   }
 
-  // AC2: Review state — parse profile.md and render editable section cards.
+  // Review state — parse profile.md into sections, then each section into
+  // per-fact triage rows (story 013 AC1).
   const sections = parseProfileSections(profileContent);
 
-  // Count sections the user has edited for the Confirm button label (AC4).
-  const editedCount = Object.values(answers.editedSections).filter(
-    (s) => s.edited,
+  // Persist a single section's decisions, preserving the raw-edit escape hatch.
+  const writeSection = (
+    heading: string,
+    value: Answers["editedSections"][string],
+  ) => set("editedSections", { ...answers.editedSections, [heading]: value });
+
+  // Build per-section view data + running totals for the review header (AC3).
+  let totalReview = 0;
+  let totalSettled = 0;
+
+  const sectionData = sections.map((section) => {
+    const saved = answers.editedSections[section.heading];
+    const parsed = parseFacts(section.body);
+    const facts = reconcileFacts(parsed, saved?.facts);
+    const rawBody = saved?.body ?? section.body;
+    const isRawEdited = saved?.edited ?? false;
+    const hasChanges = saved ? sectionHasChanges(saved) : false;
+    const reviewCount = facts.filter((f) => !isSettledFact(f)).length;
+
+    // Raw-edited sections aren't in fact-triage mode — don't count their facts.
+    if (!isRawEdited) {
+      totalReview += reviewCount;
+      totalSettled += facts.length - reviewCount;
+    }
+
+    return {
+      section,
+      facts,
+      rawBody,
+      isRawEdited,
+      hasChanges,
+      reviewCount,
+      sectionStatus: detectStatus(section.body),
+    };
+  });
+
+  // AC3: sort sections that need attention (review facts or a raw edit) first.
+  const ordered = [...sectionData].sort(
+    (a, b) =>
+      (a.isRawEdited || a.reviewCount > 0 ? 0 : 1) -
+      (b.isRawEdited || b.reviewCount > 0 ? 0 : 1),
+  );
+
+  // Sections carrying a correction, for the handoff label + Confirm button.
+  const changedCount = Object.values(answers.editedSections).filter(
+    sectionHasChanges,
   ).length;
+
+  const updateFact = (
+    heading: string,
+    facts: Fact[],
+    rawBody: string,
+    isRawEdited: boolean,
+    id: string,
+    decision: FactDecisionKind,
+    editedText?: string,
+  ) => {
+    const nextFacts: FactDecision[] = facts.map((f) => {
+      if (f.id !== id) {
+        const d: FactDecision = {
+          id: f.id,
+          text: f.text,
+          status: f.status,
+          decision: f.decision,
+        };
+        if (f.decision === "edited" && f.editedText !== undefined)
+          d.editedText = f.editedText;
+        return d;
+      }
+      const d: FactDecision = {
+        id: f.id,
+        text: f.text,
+        status: f.status,
+        decision,
+      };
+      if (decision === "edited" && editedText !== undefined)
+        d.editedText = editedText;
+      return d;
+    });
+    writeSection(heading, {
+      body: rawBody,
+      edited: isRawEdited,
+      facts: nextFacts,
+    });
+  };
 
   return (
     <div className="space-y-4">
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Review each section your assistant wrote. Edit any section to correct
-        errors — edited sections are highlighted and saved automatically.
+        Review each claim your assistant wrote. Accept, edit, or remove
+        individual facts — your decisions are saved automatically and only your
+        changes are sent to your assistant.
       </p>
 
-      {sections.map((section) => {
-        const saved = answers.editedSections[section.heading];
-        // AC3: show saved body if edited; otherwise show original parsed body.
-        const currentBody = saved !== undefined ? saved.body : section.body;
-        const isEdited = saved?.edited ?? false;
+      {/* AC3: review header — needs-review count + confirmed count, both visible. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <p className="text-sm font-semibold text-foreground">
+          {totalReview > 0
+            ? `${totalReview} item${totalReview === 1 ? "" : "s"} need${
+                totalReview === 1 ? "s" : ""
+              } your review`
+            : "Nothing left to review — every fact is confirmed"}
+        </p>
+        {totalSettled > 0 && (
+          <p className="font-mono text-[10px] uppercase tracking-widest text-fresh">
+            {totalSettled} confirmed
+          </p>
+        )}
+      </div>
 
-        return (
-          <SectionCard
-            key={section.heading}
-            heading={section.heading}
-            body={currentBody}
-            isEdited={isEdited}
-            onChange={(newBody) => {
-              // AC3: mark as edited only when the text differs from original.
-              const isNowEdited = newBody !== section.body;
-              set("editedSections", {
-                ...answers.editedSections,
-                [section.heading]: { body: newBody, edited: isNowEdited },
-              });
-            }}
-          />
-        );
-      })}
+      {ordered.map((d) => (
+        <FactSectionCard
+          key={d.section.heading}
+          heading={d.section.heading}
+          sectionStatus={d.sectionStatus}
+          facts={d.facts}
+          rawBody={d.rawBody}
+          isRawEdited={d.isRawEdited}
+          hasChanges={d.hasChanges}
+          onUpdateFact={(id, decision, editedText) =>
+            updateFact(
+              d.section.heading,
+              d.facts,
+              d.rawBody,
+              d.isRawEdited,
+              id,
+              decision,
+              editedText,
+            )
+          }
+          onRawEdit={(newBody) =>
+            writeSection(d.section.heading, {
+              body: newBody,
+              edited: newBody.trim() !== d.section.body.trim(),
+              facts: answers.editedSections[d.section.heading]?.facts,
+            })
+          }
+          onResetRaw={() =>
+            writeSection(d.section.heading, {
+              body: d.section.body,
+              edited: false,
+              facts: answers.editedSections[d.section.heading]?.facts,
+            })
+          }
+        />
+      ))}
 
-      {/* story 011 AC1/AC2: Collect & Copy block for the profile-corrections handoff. */}
+      {/* story 011 AC1/AC2 + story 013 AC5: profile-corrections handoff (fact-level). */}
       <ProfileCorrectionsDock
         editedSections={answers.editedSections}
-        editedCount={editedCount}
+        editedCount={changedCount}
         fullName={answers.fullName}
       />
 
@@ -1237,7 +1927,7 @@ function PhaseReviewCorrect({
           }}
           className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] hover:brightness-110"
         >
-          {editedCount === 0 ? "Looks good" : "Confirm all"}{" "}
+          {changedCount === 0 ? "Looks good" : "Confirm all"}{" "}
           <ArrowRight className="size-4" />
         </button>
       </div>
