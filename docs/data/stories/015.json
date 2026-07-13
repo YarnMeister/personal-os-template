@@ -3,7 +3,7 @@
   "featureId": "f-onboarding-ux",
   "title": "Phase 2 observed verification handshake",
   "owner": "developer",
-  "status": "Approved",
+  "status": "In Progress",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-008"],

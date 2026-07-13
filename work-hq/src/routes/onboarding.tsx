@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { loadOnboarding } from "@/server/load-onboarding";
 import { saveOnboarding } from "@/server/save-onboarding";
 import { checkProfileExists } from "@/server/check-profile-exists";
+import { checkHandshake } from "@/server/check-handshake";
 import { checkContextFiles } from "@/server/check-context-files";
 import { scaffoldFiles } from "@/server/scaffold-files";
 import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
@@ -3239,9 +3240,55 @@ function PhaseWire({
   const [showDebug, setShowDebug] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // AC2: exact verification prompt text — hardcoded, not user-editable.
+  // Story 015: observed handshake state — local to this component, not persisted.
+  const [handshakeDetected, setHandshakeDetected] = useState(false);
+  const [verifiedAt, setVerifiedAt] = useState<string | null>(null);
+  const [handshakeAssistant, setHandshakeAssistant] = useState<string | null>(
+    null,
+  );
+
+  // Story 015 AC3: poll checkHandshake every 5 s while phase 2 is active and
+  // handshake has not yet been detected — mirrors the PhaseSeeding poll for
+  // checkProfileExists. Clear interval on detection or unmount.
+  useEffect(() => {
+    if (handshakeDetected) return;
+    const id = setInterval(() => {
+      void checkHandshake().then(({ detected, verifiedAt: vAt, assistant }) => {
+        if (detected) {
+          setHandshakeDetected(true);
+          setVerifiedAt(vAt);
+          setHandshakeAssistant(assistant);
+          // Auto-set testedPaste persisted state so phase confirm is unblocked.
+          set("checks", { ...answers.checks, testedPaste: true });
+        }
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handshakeDetected]);
+
+  // Story 015: also run an immediate check on mount so a pre-existing handshake
+  // file is detected without waiting for the first 5 s tick (existence-only
+  // staleness rule — a handshake from a prior session still counts).
+  useEffect(() => {
+    void checkHandshake().then(({ detected, verifiedAt: vAt, assistant }) => {
+      if (detected) {
+        setHandshakeDetected(true);
+        setVerifiedAt(vAt);
+        setHandshakeAssistant(assistant);
+        set("checks", { ...answers.checks, testedPaste: true });
+      }
+    });
+  // Run once on mount only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // §4.4 pinned wording (story 015 / ADR-P6-008) — copy VERBATIM from
+  // docs/specs/file-contracts.md §4.4. Must not be edited without a contract
+  // change. The file path docs/data/local/handshake.json must appear verbatim
+  // (AC1).
   const verificationPrompt =
-    "Confirm you can read my constitution and context/active.md — tell me my #1 priority.";
+    'Confirm you can read my constitution and context/active.md — tell me my #1 priority. Then write docs/data/local/handshake.json with this exact shape: { "verifiedAt": "<the current time as an ISO 8601 timestamp>", "assistant": "<your assistant name>" }. Create the docs/data/local/ folder if it does not already exist.';
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(verificationPrompt);
@@ -3403,25 +3450,58 @@ function PhaseWire({
 
       {/* Confirmation checkboxes — same three keys for both branches */}
       <div className="space-y-2">
-        {checkItems.map((c) => (
-          <label
-            key={c.key}
-            className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-4"
-          >
-            <input
-              type="checkbox"
-              checked={answers.checks[c.key]}
-              onChange={(e) =>
-                set("checks", { ...answers.checks, [c.key]: e.target.checked })
-              }
-              className="size-4 accent-primary"
-            />
-            <span className="text-sm">{c.label}</span>
-            {answers.checks[c.key] && (
-              <Check className="ml-auto size-4 text-fresh" />
-            )}
-          </label>
-        ))}
+        {checkItems.map((c) => {
+          // Story 015 AC3: testedPaste becomes a locked observed-verified line
+          // when the assistant has written handshake.json. The input is removed
+          // from the DOM (not merely disabled) so it cannot be unchecked.
+          if (c.key === "testedPaste" && handshakeDetected) {
+            const timeLabel = verifiedAt
+              ? new Date(verifiedAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : null;
+            return (
+              <div
+                key={c.key}
+                className="flex items-center gap-3 rounded-lg border border-fresh/40 bg-fresh/5 p-4"
+              >
+                <Check className="size-4 shrink-0 text-fresh" />
+                <span className="text-sm font-medium text-fresh">
+                  {timeLabel
+                    ? `Assistant verified at ${timeLabel}`
+                    : "Assistant verified"}
+                  {handshakeAssistant ? ` · ${handshakeAssistant}` : ""}
+                </span>
+              </div>
+            );
+          }
+
+          // Manual / normal checkbox (all other keys, and testedPaste when no
+          // handshake file is present — manual fallback preserved per AC4).
+          return (
+            <label
+              key={c.key}
+              className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-4"
+            >
+              <input
+                type="checkbox"
+                checked={answers.checks[c.key]}
+                onChange={(e) =>
+                  set("checks", {
+                    ...answers.checks,
+                    [c.key]: e.target.checked,
+                  })
+                }
+                className="size-4 accent-primary"
+              />
+              <span className="text-sm">{c.label}</span>
+              {answers.checks[c.key] && (
+                <Check className="ml-auto size-4 text-fresh" />
+              )}
+            </label>
+          );
+        })}
       </div>
 
       {/* Verification prompt (AC2) — copyable block */}
