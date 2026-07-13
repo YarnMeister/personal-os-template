@@ -1,6 +1,6 @@
-# File Contracts · Personal OS · v1.0
+# File Contracts · Personal OS · v1.1
 
-> Status: Live · Owner: Head of Product Operations · Last revised: 2026-07-05
+> Status: Live · Owner: Head of Product Operations · Last revised: 2026-07-13
 > Scope: Binding specifications for the durable files written or read by Work HQ and the onboarding wizard. These contracts govern what the wizard writes, what the AI assistant reads at runtime, and the handoff formats that connect the two.
 
 ---
@@ -149,7 +149,11 @@ Every section labels its content with one of:
 
 ---
 
-## 3. onboarding-state.json shape
+## 3. Local runtime state files (gitignored)
+
+Two runtime files live under `docs/data/local/` — gitignored as a directory at `.gitignore` line 20, so neither is ever committed. The wizard writes and reads the first; the user's AI assistant writes the second and the wizard only reads it.
+
+### 3.1 onboarding-state.json shape
 
 **Path:** `docs/data/local/onboarding-state.json` (gitignored)
 
@@ -185,7 +189,19 @@ Every section labels its content with one of:
     "fullName": "string",
     "workEmail": "string",
     "editedSections": {
-      "<section heading>": { "body": "string", "edited": "boolean" }
+      "<section heading>": {
+        "body": "string",
+        "edited": "boolean",
+        "facts": [
+          {
+            "id": "string",
+            "text": "string",
+            "status": "Confirmed | Derived | Unknown",
+            "decision": "pending | accepted | edited | removed",
+            "editedText": "string"
+          }
+        ]
+      }
     }
   },
   "completedPhases": [1, 2, 3],
@@ -197,9 +213,42 @@ Every section labels its content with one of:
 
 - `phase` — integer 1–6: the phase currently displayed in the wizard.
 - `answers.seedingPath` — `"bootstrap"` when the user chose the Glean path; `"manual"` for the interview path; `""` before the path is chosen.
-- `answers.editedSections` — map of section headings from `context/profile.md` to their current body text and an `edited` flag. Only sections the user has changed from the original parsed body carry `edited: true`. Only edited sections appear in the profile-corrections handoff.
+- `answers.editedSections` — map of section headings from `context/profile.md` to per-section review state. `body` + `edited` are the section-level raw-edit escape hatch (story 010): `body` holds the current full section text, `edited: true` marks a section the user changed. `facts` (optional, story 013 / ADR-P6-009) holds the per-fact triage decisions when the user reviews individual claims: each fact carries a stable `id`, its original `text`, a per-fact `status` (from `detectStatus`, defaulting to `Unknown`), a `decision` (`pending` | `accepted` | `edited` | `removed`), and `editedText` when `decision: "edited"`. `facts` is additive — legacy entries lacking it fall back to raw-body editing. `normalizeAnswers` migrates the old `{ body, edited }` shape by leaving `facts` undefined and preserving `body`/`edited` with no data loss. Only edited sections (and, within them, only changed facts) appear in the profile-corrections handoff (§4.3).
 - `completedPhases` — list of phase numbers that have been confirmed (Confirm button clicked). Drives the Health tile's progress indicator.
+- `answers.profileDetected` — `boolean` (story 017): set `true` once the phase-3 `checkProfileExists` poll finds `context/profile.md`. Persisted so phase 4 renders section cards immediately on reload without re-showing the waiting state.
 - `updatedAt` — ISO 8601 timestamp of the last write.
+
+---
+
+### 3.2 handshake.json shape
+
+**Path:** `docs/data/local/handshake.json` (gitignored)
+
+**Purpose:** The observed phase-2 verification handshake (story 015 / ADR-P6-008). It lets the wizard detect that the user's AI assistant has confirmed it loaded the constitution, replacing self-attestation. The wizard **never** writes this file — only the assistant does.
+
+**Schema:**
+
+```json
+{
+  "verifiedAt": "2026-07-13T09:41:00.000Z",
+  "assistant": "GitHub Copilot"
+}
+```
+
+| Field | Type | Content |
+|---|---|---|
+| `verifiedAt` | string | ISO 8601 timestamp of when the assistant confirmed verification |
+| `assistant` | string | Human-readable name of the assistant that verified (e.g. `GitHub Copilot`) |
+
+**Writer:** The user's AI assistant, instructed by the phase-2 verification prompt (§4.4). The assistant creates `docs/data/local/` if absent and writes the file after confirming it can read the constitution and `context/active.md`.
+
+**Reader:** The wizard's `checkHandshake` server function (`work-hq/src/server/check-handshake.ts`), a read-only `createServerFn` GET modelled exactly on `check-profile-exists.ts`. It returns `{ detected: boolean; verifiedAt: string | null; assistant: string | null }`. `PhaseWire` polls it on a 5 000 ms interval while phase 2 is active and `handshake.json` is absent; on detection, polling stops and the `testedPaste` checkbox locks to `✓ Assistant verified at <HH:MM>`.
+
+**Gitignore:** Personal (never committed). Covered by the existing `docs/data/local/` rule (`.gitignore` line 20); `git ls-files --error-unmatch docs/data/local/handshake.json` must exit non-zero.
+
+**Staleness rule:** Existence-only detection, mirroring `check-profile-exists` (which never inspects mtime). A handshake written in a **previous** session still counts — the wizard does not gate on `verifiedAt` recency. Rationale (ADR-P6-008): the file is gitignored and single-workspace, so its presence means this workspace's assistant was verified at least once; the real `verifiedAt` is shown to the user, who retains the manual fallback if they distrust a stale value. `verifiedAt` is returned for display only, never for gating.
+
+**Manual fallback:** If `handshake.json` never appears (assistant cannot write files), the `testedPaste` checkbox stays interactive; the user ticks it by hand, `answers.checks.testedPaste` persists to `onboarding-state.json`, and they are not blocked. The observed handshake is preferred, not required.
 
 ---
 
@@ -213,53 +262,32 @@ Work HQ's Collect & Copy blocks emit a standard markdown header:
 
 Each kind is versioned independently. The version label is embedded in the `kind` field as documented below.
 
+> **Presentation note (story 012).** In the onboarding route, handoff payloads may be presented behind a collapsed `ActionCard` disclosure ("View raw prompt") with a human-readable step summary shown above it — raw markdown is never the primary UI. This is purely a display wrapper: the string placed on the clipboard by the Copy button remains **byte-identical** to the contract below (same header line, same section order, same body). Any change to the copied bytes is a contract change, not a UI change.
+
 ---
 
-### 4.1 Onboarding handoff — `first-standup`
+### 4.1 Onboarding handoff — `onboarding`
 
-**Version:** v1.0  
-**Emitted by:** Phase 6 (First standup) — `HandoffDock` component with `kind: "first-standup"`.  
-**Purpose:** Delivered to the user's AI assistant to run the first standup and optionally write initial context files.
+**Version:** v1.1  
+**Emitted by:** Phase 6 (Finish) — passed through `ActionCard` (story 012) as its `copyPayload`, built via `buildHandoff` with `kind: "onboarding"`. (Superseded the phase-6 `HandoffDock` usage; the generic `HandoffDock` component itself is unchanged.)  
+**Purpose:** Delivered to the user's AI assistant to **verify** the already-scaffolded context files and run the first standup. By phase 6 the OS files are already written — this handoff never instructs the assistant to write or "initialize" anything.
 
 ```markdown
-## Work HQ handoff · first-standup · YYYY-MM-DD
+## Work HQ handoff · onboarding · YYYY-MM-DD
 
-**Role**
-<role text>
-
-**Workstyle**
-<workstyle text>
-
-**Team**
-<team text>
-
-**Key tools**
-- <tool 1>
-- <tool 2>
-
-**Stakeholders**
-- <stakeholder 1>
-- <stakeholder 2>
-
-**Glossary**
-<glossary text>
-
-**Top 3 priorities**
-- 1. <priority title> — <owner> by <dueDate>
-- 2. <priority title> — <owner> by <dueDate>
-- 3. <priority title> — <owner> by <dueDate>
-
-**Blockers**
-<blockers text>
-
-**Open questions**
-<open questions text>
+**Scaffolded files**
+- context/me.md
+- context/org.md
+- context/active.md
 
 **Ask**
-Please initialize my context/ and memory/ files from the above and confirm you understand my context.
+(a) Verify these files are in place and contain real content — confirm each is present.
+(b) Run my first "morning standup".
 ```
 
-Sections with empty values are omitted. The `Ask` section always appears last.
+Sections with empty values are omitted. The `Ask` section always appears last. The word "initialize" and any file-write instruction are deliberately absent (story 006 AC1).
+
+> **Drift note (2026-07-13):** This section previously documented a `first-standup` kind whose `Ask` said "Please initialize my context/ and memory/ files…". The shipped phase-6 implementation (story 006) emits `kind: "onboarding"` with the verify-and-standup ask above. The contract is corrected here to match reality; the drift was flagged in story 006's QA report. The full profile/answers summary that the old block carried is not emitted by phase 6 — the files it would have described are already scaffolded on disk.
 
 ---
 
@@ -288,25 +316,56 @@ The template source is committed at `templates/bootstrap-profile-prompt.md`. Its
 
 ### 4.3 Profile corrections handoff — `profile-corrections`
 
-**Version:** v1.0  
-**Emitted by:** Phase 4 (Review & correct), bootstrap path — planned for story 011 (lock-in handoff).  
-**Purpose:** Delivered to the user's AI assistant to apply the user's section edits to `context/profile.md`, then distil `context/me.md`, `context/org.md`, and `context/active.md` from it.
+**Version:** v1.1  
+**Emitted by:** Phase 4 (Review & correct), bootstrap path — built by `buildProfileCorrectionsMarkdown` and passed through `ActionCard` (story 012) as its `copyPayload`.  
+**Purpose:** Delivered to the user's AI assistant to apply the user's corrections to `context/profile.md`, then distil `context/me.md`, `context/org.md`, and `context/active.md` from it.
+
+**Two granularities.** Section-level (raw-edit escape hatch, story 010) and fact-level (per-fact triage, story 013 / ADR-P6-009) share the same header and `Ask`. The first line is always exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>`.
+
+**Section-level (escape-hatch) block** — a section the user edited via the raw textarea emits its full corrected body:
+
+```markdown
+**<Edited section heading>**
+<corrected body text>
+```
+
+**Fact-level block** (story 013). When the user triages individual facts, the section block lists **only the facts that changed** — unchanged facts are omitted. Implementers emit exactly:
+
+- an **edited** fact → a plain markdown bullet carrying its **new** text: `- <new fact text>`
+- a **removed** fact → a bullet with the explicit removal marker: `- **Removed:** <original fact text>`
 
 ```markdown
 ## Work HQ handoff · profile-corrections · YYYY-MM-DD
 
 **<Edited section heading>**
-<corrected body text>
-
-**<Edited section heading>**
-<corrected body text>
+- <edited fact new text>
+- **Removed:** <original removed fact text>
 
 **Ask**
-Apply the corrections above to context/profile.md, then distil context/me.md,
+Apply the corrections above to context/profile.md — update edited facts in place
+and delete any fact marked "**Removed:**" — then distil context/me.md,
 context/org.md (through the sensitivity gate — no personnel data), and
 context/active.md seeds from the updated profile. Confirm each file is written.
 ```
 
-**Selection rule:** Only sections where `edited: true` in `onboarding-state.json:answers.editedSections` appear in the handoff. Sections the user left unchanged are omitted.
+**`**Removed:**` convention (binding).** The literal string `- **Removed:** ` prefixes the fact's **original** text and is the assistant's instruction to delete that fact from `context/profile.md`. Edited facts carry no marker — their bullet is the desired final text. This is the only removal signal; implementers must emit it verbatim.
+
+**Selection rule:** Only sections with changes appear (`edited: true`, or at least one non-`pending`/non-`accepted` fact decision in `onboarding-state.json:answers.editedSections`). Within an appearing section, only edited and removed facts are listed. Unchanged facts and untouched sections are omitted, so the assistant never rewrites text the user did not touch (round-trip safety).
 
 **Sensitivity gate:** The `Ask` instruction includes an explicit reminder that `context/org.md` must not contain personnel data, unreleased roadmap items, or commercial terms before being committed.
+
+---
+
+### 4.4 Phase-2 verification prompt (pinned wording)
+
+**Version:** v1.1 (story 015 / ADR-P6-008 appends the handshake instruction)  
+**Displayed by:** `PhaseWire` (phase 2) as a copyable, non-editable block.  
+**Purpose:** The user pastes this into their assistant to verify the constitution loaded; the appended instruction asks the assistant to write the observed handshake (§3.2).
+
+Exact wording (implementers copy verbatim):
+
+```text
+Confirm you can read my constitution and context/active.md — tell me my #1 priority. Then write docs/data/local/handshake.json with this exact shape: { "verifiedAt": "<the current time as an ISO 8601 timestamp>", "assistant": "<your assistant name>" }. Create the docs/data/local/ folder if it does not already exist.
+```
+
+The first sentence is unchanged from the shipped prompt; only the handshake instruction is appended (story 015 out-of-scope forbids other wording changes). The file path `docs/data/local/handshake.json` must appear verbatim in the on-screen text (story 015 AC1). Assistants that cannot write files simply confirm the priority; the user then uses the manual-fallback checkbox (§3.2).

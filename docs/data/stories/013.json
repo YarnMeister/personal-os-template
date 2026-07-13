@@ -6,7 +6,7 @@
   "status": "Approved",
   "qa": "none",
   "qaNote": "—",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-009"],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user reviewing my bootstrapped profile, I want to triage individual facts rather than entire sections, so that I can Accept, Edit, or Remove each claim precisely before the corrections handoff.",
   "acceptanceCriteria": [

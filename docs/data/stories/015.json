@@ -6,7 +6,7 @@
   "status": "Approved",
   "qa": "none",
   "qaNote": "—",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-008"],
   "epicSource": "f-onboarding-ux · UX overhaul proposal approved 2026-07-13",
   "userStory": "As a user wiring my assistant in phase 2, I want the wizard to detect when my assistant has confirmed its setup rather than asking me to self-attest, so that verification is observed rather than taken on trust.",
   "acceptanceCriteria": [

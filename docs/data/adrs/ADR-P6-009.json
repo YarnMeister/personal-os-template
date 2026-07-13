@@ -1,0 +1,57 @@
+{
+  "id": "ADR-P6-009",
+  "title": "Phase-4 review splits profile sections into per-fact rows by deterministic line parsing",
+  "status": "Proposed",
+  "phase": "f-onboarding-ux — Onboarding UX Overhaul",
+  "date": "2026-07-13",
+  "context": "ADR-P6-007 shipped phase-4 review as section-level editing: parseProfileSections splits context/profile.md on '## ' boundaries, and each section renders as a SectionCard with one textarea over the whole body and a single section-level status chip (detectStatus scans the body for the first of Confirmed/Derived/Unknown). editedSections in onboarding-state.json maps heading -> { body, edited }, and buildProfileCorrectionsMarkdown emits whole edited section bodies. The UX-overhaul goal (story 013) is finer-grained: the user should Accept, Edit, or Remove individual claims, with Derived/Unknown facts triaged to the top ('N items need your review') and Confirmed facts collapsed. That requires splitting a section body into individual facts, detecting per-fact status, and rebuilding the corrections handoff from fact-level decisions — without corrupting untouched profile text and while migrating the existing editedSections shape without data loss. The profile bodies are author-controlled markdown from the bootstrap prompt: mostly bullet lists, occasionally short paragraphs, occasionally prose the wizard cannot safely atomise. The question: how do we split a section body into facts reliably enough to triage, with no new dependency and a safe escape hatch for content that will not split cleanly?",
+  "options": [
+    {
+      "label": "A",
+      "summary": "Deterministic line-based split: bullet lines ('- ', '* ') each become a fact, non-bullet paragraph blocks under a length threshold become single facts; every section keeps a raw-edit escape hatch for content the splitter mangles",
+      "pros": [
+        "Zero dependency and fully deterministic — a pure string function (parseFacts) sitting next to the existing parseProfileSections/detectStatus, testable without a browser or LLM",
+        "Matches the actual shape of bootstrap output (predominantly markdown bullets), so the common case atomises cleanly and predictably",
+        "Reuses detectStatus verbatim for per-fact status (scan each fact's text, default Unknown) — consistent with the section-level chip logic already shipped",
+        "The per-section 'Edit raw section' escape hatch (story 010's textarea) is retained, so any body the line splitter handles badly is still fully editable — no content is ever trapped",
+        "Round-trips safely: only changed facts travel in the handoff, untouched facts and untouched sections are simply omitted, so the assistant never rewrites text the user did not touch"
+      ],
+      "cons": [
+        "A prose paragraph over the threshold, or a fact wrapped across lines, may split imperfectly — mitigated by the raw-section escape hatch and the length guard",
+        "Heuristic boundaries (bullet markers, a char threshold) are a convention implementers must apply consistently, not a formal grammar"
+      ]
+    },
+    {
+      "label": "B",
+      "summary": "Full markdown AST parse (remark/mdast): walk list items and paragraph nodes as facts",
+      "pros": [
+        "Handles nested lists, wrapped lines, and mixed content more robustly than a line scan",
+        "Well-specified node model instead of string heuristics"
+      ],
+      "cons": [
+        "Adds a remark/unified dependency tree to a local-first app that currently parses markdown with a one-line String.split — a significant footprint and bundle cost for a review screen",
+        "Introduces an asynchronous/heavier parse where a synchronous pure function suffices; overkill for author-controlled, mostly-flat bullet content",
+        "No existing precedent in the codebase for AST tooling — a consistency break for marginal robustness the escape hatch already covers"
+      ]
+    },
+    {
+      "label": "C",
+      "summary": "Ask the assistant to restructure the profile into fact-level JSON before the wizard displays it",
+      "pros": [
+        "The assistant could produce clean, pre-atomised facts with status already attached",
+        "No client-side parser at all"
+      ],
+      "cons": [
+        "Adds a second assistant round-trip and a new JSON artefact/contract mid-onboarding — more moving parts, more to keep in sync, more to fail",
+        "Non-deterministic: the same profile could atomise differently each run, making the review UI unstable and hard to test",
+        "The wizard already has profile.md on disk; a deterministic local split needs no assistant at all — Option C spends an LLM round-trip to avoid a pure function"
+      ]
+    }
+  ],
+  "chosen": "A",
+  "decision": "Adopt Option A. Add a pure `parseFacts(body: string): Fact[]` beside parseProfileSections in work-hq/src/routes/onboarding.tsx. Splitting rule (implementers apply exactly): lines beginning with '- ' or '* ' are each one bullet fact; remaining non-empty, non-bullet text is segmented into paragraph blocks (split on blank lines) and each block under 200 characters becomes one short-paragraph fact; blocks at/over 200 chars are left to the raw-section escape hatch rather than force-split. Each Fact carries `{ id, text, status, decision, editedText? }` where id is a stable per-section index, status = detectStatus(fact text) defaulting to Unknown, and decision is one of 'pending' | 'accepted' | 'edited' | 'removed'. Derived/Unknown (and not-yet-Accepted) facts sort first under an 'N items need your review' header; Confirmed/Accepted facts collapse into a summarized group. STATE-SHAPE MIGRATION: editedSections becomes `Record<string, { body: string; edited: boolean; facts?: FactDecision[] }>`. The body/edited keys are preserved verbatim for backward compatibility and for the raw-section escape hatch; facts is additive and optional. normalizeAnswers must accept legacy entries that lack facts (leave facts undefined — the section falls back to raw-body editing) and must not drop body/edited. No data loss on either the old->new or new-read-by-old paths. CORRECTIONS-HANDOFF REBUILD: buildProfileCorrectionsMarkdown is rebuilt from fact decisions, emitting ONLY changed facts within ONLY edited sections (unchanged facts and untouched sections are omitted — round-trip safety). Within each appearing section block: an edited fact renders as a plain markdown bullet with its NEW text (`- <new text>`); a removed fact renders with an explicit removal marker `- **Removed:** <original fact text>` — the assistant reads this as an instruction to delete that fact from context/profile.md. The unchanged '**Ask**' block and sensitivity gate are retained. The header first line stays exactly `## Work HQ handoff · profile-corrections · <YYYY-MM-DD>` (frozen by story 012/013). Per-fact status reuses detectStatus verbatim; the section-level chip logic is unchanged for the raw-edit fallback.",
+  "consequences": "PhaseReviewCorrect gains a per-fact triage UI; parseFacts and a Fact/FactDecision type are added to onboarding.tsx. buildProfileCorrectionsMarkdown changes output (fact-level, with the '**Removed:**' convention) but keeps the frozen header. onboarding-state.json editedSections entries gain an optional facts array; normalizeAnswers migrates legacy entries. New/updated file contract: docs/specs/file-contracts.md §4.3 documents the fact-level corrections convention and the exact '**Removed:**' marker; §3.1 (onboarding-state) documents the extended editedSections shape. os-helper's Signal-C handling already applies 'the edited sections' to profile.md; the '**Removed:**' marker is a refinement it must honour (delete flagged facts) — flag for a follow-up SKILL.md note. The raw-section escape hatch (story 010) is explicitly retained as the safety valve for un-splittable prose. Forecloses nothing; a future AST parser could supersede parseFacts if profile bodies grow structurally complex, but the escape hatch keeps Option A safe until then.",
+  "costCapacity": "No new recurring cost. Pure client-side string parsing on already-loaded local content; no dependency added, no metered operations, no network or MCP calls.",
+  "relatedStoryIds": ["013"],
+  "relatedOqIds": []
+}

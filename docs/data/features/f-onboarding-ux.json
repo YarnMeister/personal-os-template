@@ -4,6 +4,6 @@
   "branch": "f-onboarding-ux",
   "phase": "In Progress",
   "goal": "Turn the functionally-complete wizard into a guided, interactive experience where raw markdown never appears as primary UI, inputs use structured controls (dropdowns/comboboxes/chips), and verification is observed rather than self-attested.",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-008", "ADR-P6-009"],
   "order": 2
 }
