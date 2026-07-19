@@ -969,8 +969,14 @@ function BootstrapCopyBlock({
  * - Fact-triaged sections list ONLY changed facts: an edited fact as a plain
  *   bullet with its NEW text (`- <new text>`); a removed fact with the removal
  *   marker (`- **Removed:** <original text>`).  Unchanged facts are omitted.
- * - When nothing changed, the body states "No corrections — all sections
- *   accepted as is" (story 011 AC2 — unchanged zero-changes wording).
+ * - The `Tools, systems, and domains` section is suppressed from the review UI
+ *   (story 019) and unconditionally queued for deletion here (story 023 /
+ *   file-contracts §4.3): every handoff emits the block-level section-removal
+ *   directive `**Removed section:** Tools, systems, and domains` and appends the
+ *   exact removal sentence to the Ask. Because that directive is always present,
+ *   the handoff is never empty — the legacy "No corrections — all sections
+ *   accepted as is" branch (story 011) can no longer occur and is removed
+ *   (§4.3 no-empty-handoff clause).
  * - The Ask always appears, covering: apply corrections → first-person conversion
  *   → distil me/org/active (sensitivity gate per AGENTS.md §Sensitivity check).
  */
@@ -987,6 +993,20 @@ function buildProfileCorrectionsMarkdown(
   );
 
   const nameRef = fullName.trim() ? ` for ${fullName.trim()}` : "";
+
+  // Section-level removal directive (story 023 / file-contracts §4.3): a
+  // BLOCK-LEVEL line (not a bullet) instructing the assistant to delete the
+  // entire named section from context/profile.md. Emitted unconditionally for
+  // `Tools, systems, and domains`, which is suppressed from the review UI
+  // (story 019). Heading text carries no `##` prefix, mirroring the
+  // `**<Edited section heading>**` block label.
+  const removalSectionDirective =
+    "**Removed section:** Tools, systems, and domains";
+
+  // Appended verbatim to the Ask (story 023 / §4.3) — casing, punctuation, and
+  // the `##` prefix are exact.
+  const removalAskSentence =
+    "Remove the ## Tools, systems, and domains section from context/profile.md entirely.";
 
   // The sensitivity gate phrase must match AGENTS.md §Sensitivity check exactly.
   const askText =
@@ -1021,11 +1041,16 @@ function buildProfileCorrectionsMarkdown(
     return `**${heading}**\n${lines.join("\n")}`;
   };
 
+  // The unconditional section-removal directive always trails the changed
+  // section blocks, so the handoff is never empty (§4.3 no-empty-handoff
+  // clause). The Ask always appears last, with the removal sentence appended
+  // after the existing ask text.
+  const blocks = [
+    ...changedEntries.map(sectionBlock),
+    removalSectionDirective,
+  ];
   const body =
-    changedEntries.length === 0
-      ? `No corrections — all sections accepted as is\n\n**Ask**\n${askText}`
-      : changedEntries.map(sectionBlock).join("\n\n") +
-        `\n\n**Ask**\n${askText}`;
+    blocks.join("\n\n") + `\n\n**Ask**\n${askText}\n\n${removalAskSentence}`;
 
   return `${header}\n\n${body}\n`;
 }

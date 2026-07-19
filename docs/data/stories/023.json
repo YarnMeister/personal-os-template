@@ -3,7 +3,7 @@
   "featureId": "f-review-ux",
   "title": "Suppress 'Tools, systems, and domains' from review UI and queue it for handoff removal",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-010"],
@@ -48,5 +48,24 @@
       "checks": "Returns at least one match — confirming the SKILL.md note about section-level deletion is present after the Signal C block."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "bbf55505a3e31b239d752a7a3795f6a290105b25",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "skills/os-helper/SKILL.md",
+      "docs/data/stories/023.json"
+    ],
+    "notes": "AC1/AC4 (review-UI suppression) were already satisfied by story 019: HEADING_OVERRIDE_MAP maps 'Tools, systems, and domains' -> 'suppressed' (onboarding.tsx ~1713); suppressed sections are excluded from review/confirmed totals (~3289-3300) and filtered from the render list (~3319), so no card and no visible text render for that heading. AC2/AC3: buildProfileCorrectionsMarkdown now unconditionally emits the block-level directive '**Removed section:** Tools, systems, and domains' as the trailing section block (per file-contracts §4.3, not a bullet) and appends the exact Ask sentence 'Remove the ## Tools, systems, and domains section from context/profile.md entirely.' after the existing Ask text. The dead 'No corrections — all sections accepted as is' branch (story 011) was removed per §4.3's no-empty-handoff clause — the handoff always carries at least the removal directive. AC5: skills/os-helper/SKILL.md Signal C block gains a section-level removal note distinguishing '**Removed section:** <heading>' (delete the entire ## section) from '- **Removed:** <fact>' (delete one bullet); SKILL.md version bumped 2.2 -> 2.3, header date refreshed. No new design tokens or components; this story is handoff-string + docs only.",
+    "verificationRun": [
+      "npx tsc --noEmit -> PASS (no output, exit 0)",
+      "npm run --prefix work-hq build -> PASS (built in ~0.6s, exit 0)",
+      "grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx -> PASS (matches in HEADING_OVERRIDE_MAP ~1713 and buildProfileCorrectionsMarkdown ~1004/1009)",
+      "grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx -> PASS (exact Ask sentence at ~1009)",
+      "grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md -> PASS (Signal C section-level note at line 68)",
+      "harness (replica of buildProfileCorrectionsMarkdown): zero-edits -> directive + Ask sentence present, dead literal absent, header regex intact; with-edits -> directive coexists with '- New scope' and '- **Removed:** Stale duty', unchanged fact omitted -> 10/10 PASS",
+      "bundle grep: emitted 'No corrections' runtime literal absent from client bundle; only remaining server-bundle hit is the JSDoc comment text (not an emitted value)"
+    ]
+  }
 }
