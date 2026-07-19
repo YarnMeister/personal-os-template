@@ -49,6 +49,50 @@
     }
   ],
   "revisionLog": [],
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; 18/18 harness assertions pass; tsc + build clean; SKILL.md note present; feature phase set to Done.",
+  "status": "Done",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — PhaseReviewCorrect never renders a card for suppressed sections; 'Tools, systems, and domains' in HEADING_OVERRIDE_MAP mapped to 'suppressed'",
+        "evidence": "grep returns 7 matches: heading string at line 1713 inside HEADING_OVERRIDE_MAP; render filter at line 3344 `.filter((d) => d.renderer !== 'suppressed')`; totals loop (lines 3314-3325) only accumulates for item-list/kv-grid/taxonomy-picker — suppressed renderer never enters any accumulation branch. Harness D1/D2/D3 confirm selectRenderer returns 'suppressed' for empty and non-empty body alike."
+      },
+      {
+        "ac": "AC2 — buildProfileCorrectionsMarkdown unconditionally emits block-level directive '**Removed section:** Tools, systems, and domains' following §4.3 format",
+        "evidence": "onboarding.tsx line 1003-1004: `const removalSectionDirective = \"**Removed section:** Tools, systems, and domains\"`. Line 1048-1050: blocks array always appends it regardless of changedEntries. File-contracts §4.3 block-level format: `**Removed section:** <section heading text>` — directive matches verbatim. Harness A1/A2/B1/B6 confirm it is present and is NOT prefixed with a bullet (`- `). grep verificationPlan command 1 returns matches at lines 1000 and 1004 inside buildProfileCorrectionsMarkdown."
+      },
+      {
+        "ac": "AC3 — Ask block appended with exact sentence 'Remove the ## Tools, systems, and domains section from context/profile.md entirely.'",
+        "evidence": "onboarding.tsx line 1008-1009: `const removalAskSentence = \"Remove the ## Tools, systems, and domains section from context/profile.md entirely.\"`. Line 1053: body construction appends `removalAskSentence` after `askText`. File-contracts §4.3 pinned sentence matches verbatim (casing, punctuation, `##` prefix). grep verificationPlan command 2 returns line 1009. Harness A3/B5/C2 confirm sentence is present and appears after the **Ask** block."
+      },
+      {
+        "ac": "AC4 — Suppression driven by heading string alone via HEADING_OVERRIDE_MAP; not by body content",
+        "evidence": "onboarding.tsx lines 1726-1728: `selectRenderer` checks HEADING_OVERRIDE_MAP first; if the heading has an override it returns immediately without inspecting body. HEADING_OVERRIDE_MAP line 1710-1714 shows the key `\"Tools, systems, and domains\": \"suppressed\"` in the map declaration — not in any body-parsing conditional. Harness D1: selectRenderer('Tools, systems, and domains', '') === 'suppressed' PASS. D2: selectRenderer('Tools, systems, and domains', '- some bullet') === 'suppressed' PASS. D3: both return identical result."
+      },
+      {
+        "ac": "AC5 — SKILL.md Signal C block gains section-level removal note distinguishing directive from fact-level bullet; under 8 lines; version bumped; grep returns match",
+        "evidence": "skills/os-helper/SKILL.md line 68 (diff +1 line in Signal C step 1): 'Section-level removal directive (file-contracts.md §4.3). A block-level line `**Removed section:** <heading>` (not a bullet) instructs you to delete the **entire** named `## <heading>` section — heading line and all body content — from context/profile.md. Do not edit or replace it; delete it.' Note is 1 line (under 8). Version 2.2 → 2.3, last-updated → 2026-07-19, header `# OS Helper · Updated: 2026-07-19`. grep verificationPlan command 3 returns line 67 ('entire.*section') and line 68 ('section.*remov'). No contradiction with existing fact-level note at line 67."
+      }
+    ],
+    "commandsRun": [
+      "grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx → PASS — 7 matches; lines 972, 975, 1000, 1004, 1009 inside buildProfileCorrectionsMarkdown and line 1713 in HEADING_OVERRIDE_MAP",
+      "grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx → PASS — line 1009: exact Ask sentence inside buildProfileCorrectionsMarkdown",
+      "grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md → PASS — line 67 ('entire.*section'), line 68 ('section.*remov')",
+      "node harness.mjs → PASS — 18/18 assertions (Scenarios A-D: zero-edits, mixed-edits, directive placement, selectRenderer suppression)",
+      "npx tsc --noEmit → PASS — exit 0, no output",
+      "npm run --prefix work-hq build → PASS — exit 0; client + SSR bundles emitted",
+      "grep -n 'No corrections\\|all sections accepted' work-hq/src/routes/onboarding.tsx → only JSDoc comment at line 977 (not a runtime string literal); not present in tp-review-ux.json",
+      "grep 'No corrections' work-hq/dist/ (bundle check) → only JSDoc comment line in server bundle; no runtime string path",
+      "stories 019-022 status check → all Done"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — diff contains no DATABASE_URL, API_KEY, SECRET, TOKEN, JWT-shaped strings, or private key headers. Migration check: N/A — no schema or database changes; story touches only onboarding.tsx string logic and SKILL.md.",
+    "riskNotes": "impl.commit in story JSON records pre-amend SHA bbf55505 while authoritative commit is 74ddb22 — cosmetic discrepancy only; diff content verified against 74ddb22 directly. The removalAskSentence appears after the main askText separated by a blank line (`\\n\\n`), which places it outside the Ask paragraph in some markdown renderers — this is a presentation note only and does not affect the clipboard payload or its correctness per §4.3.",
+    "recommendedFollowUps": "None. ADR-P6-010 reconciliation drift fields are still placeholder ('filled at phase-end reconciliation') — should be completed as a post-feature housekeeping task, pinned to any f-review-ux follow-up story or as a standalone chore.",
+    "fixRequests": []
+  }
   "impl": {
     "branch": "f-review-ux",
     "commit": "bbf55505a3e31b239d752a7a3795f6a290105b25",
