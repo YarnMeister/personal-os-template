@@ -1567,6 +1567,70 @@ function reconcileFacts(parsed: Fact[], persisted?: FactDecision[]): Fact[] {
   });
 }
 
+/* ----- Line-prose item parser (story 021) ----- */
+
+/**
+ * Split a bullet-less item-list section body into one Fact per line (story 021
+ * AC4). Used for sections routed to `'item-list'` via {@link HEADING_OVERRIDE_MAP}
+ * whose bodies contain no bullet lines (currently only 'Derived work style',
+ * whose body is soft-wrapped prose under a `**Derived**` label). It splits the
+ * body on `\n`, drops blank lines and status-label lines, and yields one pending
+ * Fact per remaining non-blank line — `text` is the trimmed line, `status` is the
+ * section-level status ({@link detectStatus} on the body), and `id` is the line's
+ * index in the filtered sequence (stable while the body is unchanged).
+ *
+ * Label lines are matched with {@link isLabelOnlyLine} (the shared helper, which
+ * covers `**Derived**` and the bare-word `Derived` variants) as well as AC4's
+ * `/^\*\*.+\*\*$/` bold-only pattern, so any bold-only marker line is skipped.
+ */
+function parseLineItems(body: string): Fact[] {
+  const sectionStatus = detectStatus(body);
+  return body
+    .split("\n")
+    .filter(
+      (l) =>
+        l.trim() !== "" &&
+        !isLabelOnlyLine(l) &&
+        !/^\*\*.+\*\*$/.test(l.trim()),
+    )
+    .map((l, i) => ({
+      id: String(i),
+      text: l.trim(),
+      status: sectionStatus,
+      decision: "pending" as const,
+    }));
+}
+
+/**
+ * Facts for an `'item-list'` section (story 021). A body carrying bullet lines
+ * reuses the story-013 bullet extractor ({@link parseFacts}) unchanged; a
+ * bullet-less overridden body (e.g. 'Derived work style') is split per line via
+ * {@link parseLineItems} so each prose line becomes an individually triageable
+ * item rather than one over-length paragraph the fact parser would drop.
+ */
+function parseItemFacts(body: string): Fact[] {
+  return body.split("\n").some(isBulletLine)
+    ? parseFacts(body)
+    : parseLineItems(body);
+}
+
+/**
+ * Reconcile item-list facts with persisted decisions (story 021). Like
+ * {@link reconcileFacts}, but a persisted fact whose `id` matches no freshly
+ * parsed item is a user-added item (the "Add item" affordance, AC3) and is
+ * appended so it survives reload and reaches the corrections handoff.
+ */
+function reconcileItemFacts(
+  parsed: Fact[],
+  persisted?: FactDecision[],
+): Fact[] {
+  const base = reconcileFacts(parsed, persisted);
+  if (!persisted || persisted.length === 0) return base;
+  const parsedIds = new Set(parsed.map((f) => f.id));
+  const added = persisted.filter((p) => !parsedIds.has(p.id));
+  return added.length > 0 ? [...base, ...added] : base;
+}
+
 /**
  * A fact is "settled" (folded into the confirmed/accepted summary) when the
  * user accepted it, or it is a still-pending Confirmed claim.  Everything else
@@ -1794,9 +1858,9 @@ function toFactDecision(f: Fact): FactDecision {
 /**
  * A grid row is "settled" (folded into the confirmed count) when it is pending
  * and carries a value. Injected empty rows (identity min-keys awaiting input),
- * edited rows, and removed rows all still "need review" (story 020 AC9) — this
- * mirrors {@link isSettledFact} so the review/confirmed header totals stay
- * consistent across renderers.
+ * edited rows, and removed rows all still "need review" (story 020 review
+ * totals) — this mirrors {@link isSettledFact} so the review/confirmed header
+ * totals stay consistent across renderers.
  */
 function isSettledGridRow(f: Fact): boolean {
   if (f.decision === "edited" || f.decision === "removed") return false;
@@ -2262,6 +2326,290 @@ function FactSectionCard({
           >
             Edit raw section
           </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ----- ItemListCard (story 021) ----- */
+
+/**
+ * An unsaved "Add item" row (story 021 AC3). Renders an autofocused textarea
+ * seeded empty, with Save (button or Enter) and Cancel (button or Escape). Save
+ * commits the trimmed text as a new item; Cancel — or Save with only whitespace
+ * — discards the row without persisting. Kept as its own component so each new
+ * row owns its draft state and mounts with focus, whether opened by mouse or
+ * keyboard.
+ */
+function NewItemRow({
+  id,
+  onSave,
+  onCancel,
+}: {
+  id: string;
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const commit = () => {
+    if (draft.trim()) onSave(draft.trim());
+    else onCancel();
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/40 bg-background px-3 py-2">
+      <label htmlFor={id} className="sr-only">
+        New item text
+      </label>
+      <textarea
+        id={id}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        rows={2}
+        autoFocus
+        placeholder="Describe the item…"
+        className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={commit}
+          className={cn(
+            "flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110",
+            FOCUS_RING,
+          )}
+        >
+          <Check className="size-3.5" /> Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cn(
+            "flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
+            FOCUS_RING,
+          )}
+        >
+          <X className="size-3.5" /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Card for one `'item-list'` ## section (story 021). Extends the story-013
+ * fact-triage card: it wraps the same {@link FactRow} per item — Accept / inline
+ * Edit / Remove with {@link StatusChip} chips — with needs-review items first and
+ * confirmed items collapsed into an "N confirmed" disclosure, and every card
+ * keeps the story-010 "Edit raw section" escape hatch. It adds an always-visible
+ * "Add item" affordance (never gated on item status): activating it opens an
+ * autofocused {@link NewItemRow}; saving persists the entry as a new `Fact`
+ * (`decision: 'edited'`) that flows into the corrections handoff as a new bullet.
+ * Item text renders through {@link InlineMarkdown}; edit fields seed from
+ * {@link humanizeMarkdown} (via FactRow), so raw markers never appear.
+ */
+function ItemListCard({
+  heading,
+  sectionStatus,
+  facts,
+  rawBody,
+  isRawEdited,
+  hasChanges,
+  onUpdateFact,
+  onAddItem,
+  onRawEdit,
+  onResetRaw,
+}: {
+  heading: string;
+  sectionStatus: FactStatus;
+  facts: Fact[];
+  rawBody: string;
+  isRawEdited: boolean;
+  hasChanges: boolean;
+  onUpdateFact: (
+    id: string,
+    decision: FactDecisionKind,
+    editedText?: string,
+  ) => void;
+  onAddItem: (text: string) => void;
+  onRawEdit: (body: string) => void;
+  onResetRaw: () => void;
+}) {
+  // Open the raw-edit escape hatch by default for already raw-edited sections
+  // (mirrors FactSectionCard / KvGridCard).
+  const [rawOpen, setRawOpen] = useState(isRawEdited);
+
+  // Locally-held unsaved "Add item" rows (AC3). Each becomes a persisted Fact
+  // only once saved with content, so empty adds never leak to the handoff.
+  const [newItems, setNewItems] = useState<string[]>([]);
+  const newCounter = useRef(0);
+
+  const reviewFacts = facts.filter((f) => !isSettledFact(f));
+  const settledFacts = facts.filter(isSettledFact);
+  const rawId = `raw-section-${heading.replace(/\W+/g, "-")}`;
+
+  const addItem = () =>
+    setNewItems((n) => [...n, `add-${newCounter.current++}`]);
+  const dropNewItem = (tempId: string) =>
+    setNewItems((n) => n.filter((t) => t !== tempId));
+
+  // One FactRow per item — identical triage semantics to FactSectionCard,
+  // including the story-019/020 AC7 humanized-baseline edited comparison.
+  const renderRow = (f: Fact) => (
+    <FactRow
+      key={f.id}
+      fact={f}
+      onAccept={() =>
+        onUpdateFact(f.id, f.decision === "accepted" ? "pending" : "accepted")
+      }
+      onEdit={(text) =>
+        onUpdateFact(
+          f.id,
+          text.trim() === humanizeMarkdown(f.text).trim()
+            ? "pending"
+            : "edited",
+          text,
+        )
+      }
+      onRemove={() => onUpdateFact(f.id, "removed")}
+      onUndoRemove={() => onUpdateFact(f.id, "pending")}
+    />
+  );
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-4 space-y-3 transition",
+        hasChanges ? "border-primary/50" : "border-border",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-foreground leading-snug">
+          {heading}
+        </h3>
+        <div className="flex shrink-0 items-center gap-2">
+          {hasChanges && (
+            <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
+              Changed
+            </span>
+          )}
+          <StatusChip status={sectionStatus} />
+        </div>
+      </div>
+
+      {rawOpen ? (
+        /* Raw-section escape hatch (story 010, retained per AC6). */
+        <div className="space-y-2">
+          <label htmlFor={rawId} className="sr-only">
+            Raw section body for {heading}
+          </label>
+          <textarea
+            id={rawId}
+            value={rawBody}
+            onChange={(e) => onRawEdit(e.target.value)}
+            rows={6}
+            className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onResetRaw();
+              setRawOpen(false);
+            }}
+            className={cn(
+              "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            ← Discard raw edit &amp; return to the item list
+          </button>
+        </div>
+      ) : (
+        <>
+          {reviewFacts.length > 0 ? (
+            <div className="space-y-2">{reviewFacts.map(renderRow)}</div>
+          ) : facts.length === 0 ? (
+            newItems.length === 0 && (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                No items yet — use{" "}
+                <strong className="text-foreground">Add item</strong> below to
+                add the first one.
+              </p>
+            )
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Every item in this section is confirmed — nothing needs your
+              review.
+            </p>
+          )}
+
+          {/* Unsaved, locally-added items (AC3) — always editable, autofocused. */}
+          {newItems.length > 0 && (
+            <div className="space-y-2">
+              {newItems.map((tempId) => (
+                <NewItemRow
+                  key={tempId}
+                  id={`${rawId}-${tempId}`}
+                  onSave={(text) => {
+                    onAddItem(text);
+                    dropNewItem(tempId);
+                  }}
+                  onCancel={() => dropNewItem(tempId)}
+                />
+              ))}
+            </div>
+          )}
+
+          {settledFacts.length > 0 && (
+            <details className="group rounded-lg border border-border/60 bg-muted/20">
+              <summary
+                className={cn(
+                  "flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground",
+                  FOCUS_RING,
+                )}
+              >
+                <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+                {settledFacts.length} confirmed — click to expand
+              </summary>
+              <div className="space-y-2 border-t border-border/60 px-3 py-2">
+                {settledFacts.map(renderRow)}
+              </div>
+            </details>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            {/* AC3: Add item is unconditional — never gated on item settled-state. */}
+            <button
+              type="button"
+              onClick={addItem}
+              aria-label={`Add item to ${heading}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+                FOCUS_RING,
+              )}
+            >
+              <Plus className="size-3.5" /> Add item
+            </button>
+            <button
+              type="button"
+              onClick={() => setRawOpen(true)}
+              className={cn(
+                "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+                FOCUS_RING,
+              )}
+            >
+              Edit raw section
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -2870,8 +3218,16 @@ function PhaseReviewCorrect({
     // Story 019 AC2: every section is routed through selectRenderer.
     const renderer = selectRenderer(section.heading, section.body);
     const saved = answers.editedSections[section.heading];
-    const parsed = parseFacts(section.body);
-    const facts = reconcileFacts(parsed, saved?.facts);
+    // Story 021: item-list sections parse per item (bullets via parseFacts, a
+    // bullet-less overridden body via parseLineItems) and reconcile so user-added
+    // items survive; every other renderer keeps the story-013 fact parser.
+    const isItemList = renderer === "item-list";
+    const parsed = isItemList
+      ? parseItemFacts(section.body)
+      : parseFacts(section.body);
+    const facts = isItemList
+      ? reconcileItemFacts(parsed, saved?.facts)
+      : reconcileFacts(parsed, saved?.facts);
     const sectionStatus = detectStatus(section.body);
     // Raw-section escape hatch is also seeded with humanized plain text (story
     // 019 AC3) so it never shows raw markers; a persisted edit wins over the seed.
@@ -3154,6 +3510,81 @@ function PhaseReviewCorrect({
                 view for this section is coming soon.
               </p>
             </div>
+          );
+        }
+        // Story 021: item-list sections render the interactive ItemListCard. Its
+        // rows map to the section's Fact decisions (same as FactSectionCard), and
+        // the "Add item" affordance appends a new edited Fact that flows through
+        // the existing corrections handoff as a new bullet — no builder change.
+        if (d.renderer === "item-list") {
+          const persist = (nextFacts: FactDecision[]) =>
+            writeSection(d.section.heading, {
+              body: d.rawBody,
+              edited: d.isRawEdited,
+              facts: nextFacts,
+            });
+          return (
+            <ItemListCard
+              key={d.section.heading}
+              heading={d.section.heading}
+              sectionStatus={d.sectionStatus}
+              facts={d.facts}
+              rawBody={d.rawBody}
+              isRawEdited={d.isRawEdited}
+              hasChanges={d.hasChanges}
+              onUpdateFact={(id, decision, editedText) => {
+                const target = d.facts.find((f) => f.id === id);
+                // Removing a user-added item (no upstream text in profile.md)
+                // drops it entirely — there is nothing to mark **Removed:** —
+                // mirroring the KV grid's empty-row removal (story 020).
+                if (
+                  decision === "removed" &&
+                  target &&
+                  target.text.trim() === ""
+                ) {
+                  persist(
+                    d.facts.filter((f) => f.id !== id).map(toFactDecision),
+                  );
+                  return;
+                }
+                updateFact(
+                  d.section.heading,
+                  d.facts,
+                  d.rawBody,
+                  d.isRawEdited,
+                  id,
+                  decision,
+                  editedText,
+                );
+              }}
+              onAddItem={(text) => {
+                // A new item is an edited Fact with generated id + empty original
+                // text, so buildProfileCorrectionsMarkdown emits `- <new text>`.
+                const added: FactDecision = {
+                  id: `new-${Date.now()}`,
+                  text: "",
+                  status: d.sectionStatus,
+                  decision: "edited",
+                  editedText: text.trim(),
+                };
+                persist([...d.facts.map(toFactDecision), added]);
+              }}
+              onRawEdit={(newBody) =>
+                writeSection(d.section.heading, {
+                  body: newBody,
+                  edited:
+                    newBody.trim() !== humanizeMarkdown(d.section.body).trim(),
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+              onResetRaw={() =>
+                writeSection(d.section.heading, {
+                  body: humanizeMarkdown(d.section.body),
+                  edited: false,
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+            />
           );
         }
         return (
