@@ -3,7 +3,24 @@
   "featureId": "f-review-ux",
   "title": "KV-grid CRUD renderer with Identity minimum keys",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "a7b398e",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "Added pure parseMarkdownTable (generic column count, skips separator rows), IDENTITY_MIN_KEYS + IDENTITY_HEADING consts, buildGridRows (parse + min-key injection + Fact reconcile, appends user-added rows), and grid helpers (splitCells, rowHasValue, currentCells, toFactDecision, isSettledGridRow). New KvGridCard renders an HTML table (headers from the parsed table, cells via InlineMarkdown, no visible pipes) with per-row in-place edit (input per cell, Save/Cancel, Enter-on-last-cell saves, Escape cancels), Add row (unsaved rows held locally until they carry content), and Remove with strikethrough + Undo; every control carries a row-scoped aria-label; edit fields seeded with humanizeMarkdown. Rows map to editedSections.facts (id = field name for Identity, index for others; text = cells joined ' | '; editedText = edited cells joined) and flow through the existing debounced save and buildProfileCorrectionsMarkdown with no builder change (edited -> '- <cells>', removed -> '- **Removed:** <original>', added -> '- <new cells>'). kv-grid sections now feed the review/confirmed header totals (story 019's placeholder exclusion ends for kv-grid; taxonomy-picker remains a placeholder). AC7: both settled- and review-facts onEdit comparisons now use humanizeMarkdown(f.text).trim() as the baseline. Per-section raw-edit escape hatch retained inside KvGridCard.",
+    "verificationRun": [
+      "npx tsc --noEmit -> PASS (no output)",
+      "npm run build -> PASS (built in 535ms)",
+      "npx prettier --check src/routes/onboarding.tsx -> formatted with --write, re-typecheck PASS",
+      "tsx harness (18 checks) -> PASS: parseMarkdownTable on all three real sections (Identity 7 rows incl. Name=Morgan Reyes, 3-col collaborators, 2-col cadence), min-key injection when Email removed, edit/remove/add round-trip bullets, multi-column ' | ' join, AC7 no-false-edit (prose + KV + empty injected row)",
+      "grep KvGridCard|parseMarkdownTable|IDENTITY_MIN_KEYS -> matches (VP1)",
+      "grep aria-label.*row|Add row|Edit.*row -> 10 matches in grid block (VP2)",
+      "grep buildProfileCorrectionsMarkdown -> matches; grid facts confirmed to reuse the decision/editedText path (VP3)"
+    ]
+  },
   "qa": "none",
   "qaNote": "—",
   "adrRefs": [],
