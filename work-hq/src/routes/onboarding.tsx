@@ -876,37 +876,48 @@ function PhaseOrientation() {
           })}
         </div>
 
-        {/* Mini-chat panel — canned user + assistant turns (AC3). */}
-        {chatHistory.length > 0 && (
-          <div
-            aria-live="polite"
-            className="space-y-2 rounded-lg border border-border bg-background p-3"
-          >
-            {chatHistory.map((turn, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex",
-                  turn.role === "user" ? "justify-end" : "justify-start",
-                )}
-              >
+        {/* Mini-chat panel — canned user + assistant turns (AC3). The live
+            region is pre-mounted empty (story 019 AC5, story 016 QA follow-up)
+            so assistive tech registers it before a reply is injected; the card
+            chrome + content are applied only once a trigger has been played, so
+            an empty region shows nothing. The node is never unmounted. */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={cn(
+            chatHistory.length > 0 &&
+              "space-y-2 rounded-lg border border-border bg-background p-3",
+          )}
+        >
+          {chatHistory.length > 0 && (
+            <>
+              {chatHistory.map((turn, i) => (
                 <div
+                  key={i}
                   className={cn(
-                    "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
-                    turn.role === "user"
-                      ? "bg-primary font-mono text-primary-foreground"
-                      : "bg-muted text-foreground",
+                    "flex",
+                    turn.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
-                  {turn.text}
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
+                      turn.role === "user"
+                        ? "bg-primary font-mono text-primary-foreground"
+                        : "bg-muted text-foreground",
+                    )}
+                  >
+                    {turn.text}
+                  </div>
                 </div>
-              </div>
-            ))}
-            <p className="text-[10px] text-muted-foreground">
-              Preview only — no assistant was called and no files were changed.
-            </p>
-          </div>
-        )}
+              ))}
+              <p className="text-[10px] text-muted-foreground">
+                Preview only — no assistant was called and no files were changed.
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1580,6 +1591,117 @@ function sectionHasChanges(entry: {
   );
 }
 
+/* ----- Renderer dispatch + inline-markdown helpers (story 019) ----- */
+
+/**
+ * Which review renderer a profile section is routed to (feature f-review-ux,
+ * file-contracts §2). Chosen by {@link selectRenderer}: a per-heading override
+ * wins, otherwise the body's shape decides.
+ * - `'kv-grid'`         — a `|`-delimited table (story 020).
+ * - `'item-list'`       — a bulleted list (story 021).
+ * - `'taxonomy-picker'` — the Business-area cascading picker (story 022).
+ * - `'prose-card'`      — free paragraph text (existing FactSectionCard path).
+ * - `'suppressed'`      — never rendered; queued for removal (story 023).
+ */
+type RendererKind =
+  | "kv-grid"
+  | "item-list"
+  | "taxonomy-picker"
+  | "prose-card"
+  | "suppressed";
+
+/**
+ * Per-heading renderer overrides — they take full precedence over shape
+ * detection (file-contracts §2). Keys MUST match the exact `## ` heading
+ * strings parseProfileSections emits from context/profile.md, NOT the
+ * file-contracts §2 prose paraphrase: the actual heading is
+ * `Tools, systems, and domains` (verified against context/profile.md), not the
+ * spec's descriptive "…they appear closest to".
+ */
+const HEADING_OVERRIDE_MAP: Record<string, RendererKind> = {
+  "Business area": "taxonomy-picker",
+  "Derived work style": "item-list",
+  "Tools, systems, and domains": "suppressed",
+};
+
+/**
+ * Choose the review renderer for one profile section (story 019 AC1).
+ * The override map wins; otherwise shape detection runs on the body:
+ *   a line starting with `|`         → `'kv-grid'`
+ *   a line starting with `- ` / `* ` → `'item-list'`
+ *   otherwise                        → `'prose-card'`
+ * `|` is checked before bullets so a table with an incidental bullet still
+ * routes to the grid. Status-label lines (`**Confirmed**`) start with `**`, not
+ * `* ` or `|`, so they never influence the shape.
+ */
+function selectRenderer(heading: string, body: string): RendererKind {
+  const override = HEADING_OVERRIDE_MAP[heading];
+  if (override) return override;
+  const lines = body.split("\n");
+  if (lines.some((l) => l.trimStart().startsWith("|"))) return "kv-grid";
+  if (lines.some((l) => isBulletLine(l))) return "item-list";
+  return "prose-card";
+}
+
+/**
+ * Strip inline markdown markers, returning clean plain text (story 019 AC3).
+ * `***bold-italic***` → `bold-italic`, `**bold**` → `bold`,
+ * `*italic*` / `_italic_` → `italic`, `` `code` `` → `code`.
+ * Used as the source for EVERY edit-field initial value so the user never edits
+ * raw `**` / `*` / `` ` `` markers. Applied triple → double → single so the
+ * outer markers are consumed before the inner ones.
+ */
+function humanizeMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/`(.+?)`/g, "$1");
+}
+
+/**
+ * Render inline markdown as real DOM — `**bold**` → `<strong>`,
+ * `*italic*` / `_italic_` → `<em>`, `` `code` `` → `<code>` — via a regex
+ * split (story 019 AC4). No dangerouslySetInnerHTML, no markdown library:
+ * a capturing split interleaves plain text with the matched spans, and each
+ * span is rendered as the matching element. Used wherever a fact's text appears
+ * in read (non-edit) state.
+ */
+function InlineMarkdown({ text }: { text: string }) {
+  // Ordered alternation: bold-italic, then bold, then italic, then code so the
+  // longer marker runs win before their prefixes.
+  const pattern = /(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|_.+?_|`.+?`)/g;
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!part) return null;
+        if (/^\*\*\*.+\*\*\*$/.test(part)) {
+          return (
+            <strong key={i}>
+              <em>{part.slice(3, -3)}</em>
+            </strong>
+          );
+        }
+        if (/^\*\*.+\*\*$/.test(part)) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (/^\*.+\*$/.test(part)) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        if (/^_.+_$/.test(part)) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        if (/^`.+`$/.test(part)) {
+          return <code key={i}>{part.slice(1, -1)}</code>;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 /* ----- StatusChip ----- */
 
 function StatusChip({
@@ -1632,7 +1754,11 @@ function FactRow({
   onUndoRemove: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(fact.editedText ?? fact.text);
+  // Edit textarea is seeded with humanized plain text (story 019 AC3) so the
+  // user never edits raw `**`/`*`/backtick markers.
+  const [draft, setDraft] = useState(
+    humanizeMarkdown(fact.editedText ?? fact.text),
+  );
 
   const display = fact.editedText ?? fact.text;
   const accepted = fact.decision === "accepted";
@@ -1643,7 +1769,7 @@ function FactRow({
     return (
       <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
         <p className="min-w-0 text-sm leading-relaxed text-muted-foreground line-through">
-          {fact.text}
+          <InlineMarkdown text={fact.text} />
         </p>
         <button
           type="button"
@@ -1692,7 +1818,7 @@ function FactRow({
           <button
             type="button"
             onClick={() => {
-              setDraft(fact.editedText ?? fact.text);
+              setDraft(humanizeMarkdown(fact.editedText ?? fact.text));
               setEditing(false);
             }}
             className={cn(
@@ -1710,7 +1836,9 @@ function FactRow({
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
       <div className="min-w-0 space-y-1">
-        <p className="text-sm leading-relaxed text-foreground">{display}</p>
+        <p className="text-sm leading-relaxed text-foreground">
+          <InlineMarkdown text={display} />
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip status={fact.status} />
           {accepted && (
@@ -1749,7 +1877,7 @@ function FactRow({
         <button
           type="button"
           onClick={() => {
-            setDraft(fact.editedText ?? fact.text);
+            setDraft(humanizeMarkdown(fact.editedText ?? fact.text));
             setEditing(true);
           }}
           aria-label={`Edit fact "${display}"`}
@@ -1886,7 +2014,12 @@ function FactSectionCard({
                   onEdit={(text) =>
                     onUpdateFact(
                       f.id,
-                      text.trim() === f.text.trim() ? "pending" : "edited",
+                      // Baseline is the humanized original (story 019): humanizing
+                      // alone must not mark a fact edited — only a real user
+                      // change relative to the humanized text counts.
+                      text.trim() === humanizeMarkdown(f.text).trim()
+                        ? "pending"
+                        : "edited",
                       text,
                     )
                   }
@@ -2092,22 +2225,31 @@ function PhaseReviewCorrect({
   let totalSettled = 0;
 
   const sectionData = sections.map((section) => {
+    // Story 019 AC2: every section is routed through selectRenderer.
+    const renderer = selectRenderer(section.heading, section.body);
     const saved = answers.editedSections[section.heading];
     const parsed = parseFacts(section.body);
     const facts = reconcileFacts(parsed, saved?.facts);
-    const rawBody = saved?.body ?? section.body;
+    // Raw-section escape hatch is also seeded with humanized plain text (story
+    // 019 AC3) so it never shows raw markers; a persisted edit wins over the seed.
+    const rawBody = saved?.body ?? humanizeMarkdown(section.body);
     const isRawEdited = saved?.edited ?? false;
     const hasChanges = saved ? sectionHasChanges(saved) : false;
     const reviewCount = facts.filter((f) => !isSettledFact(f)).length;
 
-    // Raw-edited sections aren't in fact-triage mode — don't count their facts.
-    if (!isRawEdited) {
+    // Only sections actually rendered via the fact-triage card contribute to
+    // the review/confirmed header totals. Placeholder renderers (kv-grid,
+    // taxonomy-picker — stories 020/022) and suppressed sections are not yet
+    // interactively reviewable here, so they do not inflate the counts.
+    const usesFactCard = renderer === "item-list" || renderer === "prose-card";
+    if (usesFactCard && !isRawEdited) {
       totalReview += reviewCount;
       totalSettled += facts.length - reviewCount;
     }
 
     return {
       section,
+      renderer,
       facts,
       rawBody,
       isRawEdited,
@@ -2117,12 +2259,16 @@ function PhaseReviewCorrect({
     };
   });
 
+  // Story 019 AC2: a 'suppressed' section renders no card at all — drop it here
+  // (its unconditional removal is handled in the corrections handoff, story 023).
   // AC3: sort sections that need attention (review facts or a raw edit) first.
-  const ordered = [...sectionData].sort(
-    (a, b) =>
-      (a.isRawEdited || a.reviewCount > 0 ? 0 : 1) -
-      (b.isRawEdited || b.reviewCount > 0 ? 0 : 1),
-  );
+  const ordered = [...sectionData]
+    .filter((d) => d.renderer !== "suppressed")
+    .sort(
+      (a, b) =>
+        (a.isRawEdited || a.reviewCount > 0 ? 0 : 1) -
+        (b.isRawEdited || b.reviewCount > 0 ? 0 : 1),
+    );
 
   // Sections carrying a correction, for the handoff label + Confirm button.
   const changedCount = Object.values(answers.editedSections).filter(
@@ -2191,42 +2337,75 @@ function PhaseReviewCorrect({
         )}
       </div>
 
-      {ordered.map((d) => (
-        <FactSectionCard
-          key={d.section.heading}
-          heading={d.section.heading}
-          sectionStatus={d.sectionStatus}
-          facts={d.facts}
-          rawBody={d.rawBody}
-          isRawEdited={d.isRawEdited}
-          hasChanges={d.hasChanges}
-          onUpdateFact={(id, decision, editedText) =>
-            updateFact(
-              d.section.heading,
-              d.facts,
-              d.rawBody,
-              d.isRawEdited,
-              id,
-              decision,
-              editedText,
-            )
-          }
-          onRawEdit={(newBody) =>
-            writeSection(d.section.heading, {
-              body: newBody,
-              edited: newBody.trim() !== d.section.body.trim(),
-              facts: answers.editedSections[d.section.heading]?.facts,
-            })
-          }
-          onResetRaw={() =>
-            writeSection(d.section.heading, {
-              body: d.section.body,
-              edited: false,
-              facts: answers.editedSections[d.section.heading]?.facts,
-            })
-          }
-        />
-      ))}
+      {ordered.map((d) => {
+        // Story 019 AC2: kv-grid + taxonomy-picker render a placeholder slot
+        // now; stories 020/022 replace these with their real components. The
+        // data-renderer/data-section attributes are the hook those stories key
+        // off. item-list + prose-card continue through FactSectionCard.
+        if (d.renderer === "kv-grid" || d.renderer === "taxonomy-picker") {
+          return (
+            <div
+              key={d.section.heading}
+              data-renderer={d.renderer}
+              data-section={d.section.heading}
+              className="rounded-xl border border-dashed border-border bg-card p-4 space-y-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-sm font-semibold leading-snug text-foreground">
+                  {d.section.heading}
+                </h3>
+                <StatusChip status={d.sectionStatus} />
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                A{" "}
+                <span className="font-mono text-foreground">{d.renderer}</span>{" "}
+                view for this section is coming soon.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <FactSectionCard
+            key={d.section.heading}
+            heading={d.section.heading}
+            sectionStatus={d.sectionStatus}
+            facts={d.facts}
+            rawBody={d.rawBody}
+            isRawEdited={d.isRawEdited}
+            hasChanges={d.hasChanges}
+            onUpdateFact={(id, decision, editedText) =>
+              updateFact(
+                d.section.heading,
+                d.facts,
+                d.rawBody,
+                d.isRawEdited,
+                id,
+                decision,
+                editedText,
+              )
+            }
+            onRawEdit={(newBody) =>
+              writeSection(d.section.heading, {
+                body: newBody,
+                // Compare against the humanized baseline (story 019): stripping
+                // markers alone must not mark the section edited — only a real
+                // change relative to the humanized seed does.
+                edited:
+                  newBody.trim() !==
+                  humanizeMarkdown(d.section.body).trim(),
+                facts: answers.editedSections[d.section.heading]?.facts,
+              })
+            }
+            onResetRaw={() =>
+              writeSection(d.section.heading, {
+                body: humanizeMarkdown(d.section.body),
+                edited: false,
+                facts: answers.editedSections[d.section.heading]?.facts,
+              })
+            }
+          />
+        );
+      })}
 
       {/* story 011 AC1/AC2 + story 013 AC5: profile-corrections handoff (fact-level). */}
       <ProfileCorrectionsDock
