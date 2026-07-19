@@ -33,6 +33,10 @@
     {
       "id": "AC6",
       "text": "Grid edits, additions, and removals appear in the profile-corrections handoff (file-contracts §4.3) using the standard fact conventions: an edited row emits `- <edited cells joined by ' | '>`; a removed row emits `- **Removed:** <original cells joined by ' | '>`; a newly added row emits `- <new cells>`. The handoff header and Ask block are unchanged. `grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx` returns a match — read the surrounding lines to confirm that grid-row facts flow through the same `decision`/`editedText` path as bullet facts (no special-casing needed if the `Fact` shape is reused)."
+    },
+    {
+      "id": "AC7",
+      "text": "The settled-facts onEdit comparison in `FactSectionCard` (currently `text.trim() === f.text.trim()` at approximately line 2069 of `work-hq/src/routes/onboarding.tsx`) is updated to compare the user's saved text against the humanized baseline `humanizeMarkdown(f.text).trim()` rather than the raw original text. This prevents a fact whose display text was marker-stripped (e.g. the user opens edit on `**Project Atlas**`, sees `Project Atlas` in the field, and clicks Save without typing anything) from being falsely flagged as `decision: 'edited'` and producing a spurious correction bullet in the handoff. `grep -n 'humanizeMarkdown(f\\.text)\\|humanizeMarkdown.*f\\.text' work-hq/src/routes/onboarding.tsx` returns at least one match at or near the onEdit settled-facts handler. A unit-harness case must cover the scenario: original text `'**Project Atlas**'`, user saves `'Project Atlas'` (the humanized baseline) → decision remains `'pending'`, not `'edited'`."
     }
   ],
   "technicalNotes": "Depends on story 019: `selectRenderer`, `humanizeMarkdown`, and `renderInlineMarkdown` must exist before implementation. `KvGridCard` replaces the renderer slot for sections where `selectRenderer` returns `'kv-grid'` — the existing `FactSectionCard` is not rendered for these sections. `parseMarkdownTable` is a pure function: `body.split('\\n')` → filter lines starting with `|` → separate first non-separator line as headers → remaining non-separator lines as rows → split each on `|`, slice off empty first/last elements from the pipe-delimited format, trim cells. The three table sections in `context/profile.md` have different column counts: 'Identity and current role' is 2-column (Field/Value), 'Key collaborators' is 3-column (Name/Role/Interaction), 'Operating cadence' is 2-column (Cadence/Ritual) — `parseMarkdownTable` must handle all column counts generically. The IDENTITY_MIN_KEYS injection: after parsing, for `heading === 'Identity and current role'`, merge parsed rows with min-key list — existing rows kept as-is (including ordering), missing keys appended in IDENTITY_MIN_KEYS order. `buildProfileCorrectionsMarkdown` (line ~657 per story 013) already iterates `facts` by `decision`/`editedText` — grid-row facts use the same `Fact` type so no changes to `buildProfileCorrectionsMarkdown` are expected (verify before shipping). Retain the 'Edit raw section' escape hatch from `FactSectionCard` inside `KvGridCard`. Files touched: `work-hq/src/routes/onboarding.tsx`.",
@@ -52,5 +56,11 @@
       "checks": "Returns a match. Reading surrounding lines confirms KV-row facts flow through the existing decision/editedText path in the handoff builder."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [
+    {
+      "date": "2026-07-19",
+      "change": "Added AC7: the settled-facts onEdit comparison in FactSectionCard must use humanizeMarkdown(f.text).trim() as the baseline rather than f.text.trim(), so that saving an unchanged marker-stripped fact never falsely sets decision: 'edited'.",
+      "reason": "Story 019 QA follow-up — QA approved 019 but flagged that the existing raw-text comparison would produce spurious edited decisions once humanizeMarkdown pre-fills edit fields; pre-implementation scope addition to 020."
+    }
+  ]
 }
