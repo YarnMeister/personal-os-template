@@ -47,6 +47,9 @@ import { checkContextFiles } from "@/server/check-context-files";
 import { scaffoldFiles } from "@/server/scaffold-files";
 import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
 import { readProfile } from "@/server/read-profile";
+import { readTaxonomy } from "@/server/read-taxonomy";
+import type { Taxonomy } from "@/server/read-taxonomy";
+import { writeTaxonomy } from "@/server/write-taxonomy";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Onboarding · Work HQ" }] }),
@@ -3115,6 +3118,8 @@ function PhaseReviewCorrect({
   const [profileContent, setProfileContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  // Story 022: taxonomy for the Business-area cascading picker.
+  const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null);
 
   // Load profile.md on mount (AC2: read at request time, not import.meta.glob).
   useEffect(() => {
@@ -3146,6 +3151,11 @@ function PhaseReviewCorrect({
       setProfileContent(content);
     });
   };
+
+  // Story 022: load taxonomy on mount for the Business-area picker.
+  useEffect(() => {
+    void readTaxonomy().then(setTaxonomy);
+  }, []);
 
   // While awaiting initial server read, show nothing (avoids flicker).
   if (loading) {
@@ -3248,16 +3258,34 @@ function PhaseReviewCorrect({
         )
       : null;
     const usesFactCard = renderer === "item-list" || renderer === "prose-card";
+    const isTaxonomyPicker = renderer === "taxonomy-picker";
+
+    // Story 022: taxonomy-picker reviewCount: 0 once a full three-level
+    // selection exists (BA + Portfolio + Squad joined with ' > '), 1 otherwise.
+    const taxonomySettled = (() => {
+      if (!isTaxonomyPicker) return false;
+      const baFact = saved?.facts?.find(
+        (f) => f.id === "business-area-selection",
+      );
+      const parts = (baFact?.editedText ?? "")
+        .split(" > ")
+        .filter((p) => p.trim());
+      return parts.length >= 3;
+    })();
 
     const reviewCount = usesFactCard
       ? facts.filter((f) => !isSettledFact(f)).length
       : grid
         ? grid.rows.filter((r) => !isSettledGridRow(r)).length
-        : 0;
+        : isTaxonomyPicker
+          ? taxonomySettled
+            ? 0
+            : 1
+          : 0;
 
-    // Sections rendered via the fact-triage card OR the KV grid contribute to
-    // the review/confirmed header totals. taxonomy-picker (story 022) is still a
-    // placeholder and suppressed sections are never rendered, so neither counts.
+    // Sections rendered via the fact-triage card, the KV grid, OR the
+    // taxonomy-picker contribute to the review/confirmed header totals.
+    // Suppressed sections are never rendered and never counted.
     if (!isRawEdited) {
       if (usesFactCard) {
         totalReview += reviewCount;
@@ -3265,6 +3293,9 @@ function PhaseReviewCorrect({
       } else if (grid) {
         totalReview += reviewCount;
         totalSettled += grid.rows.length - reviewCount;
+      } else if (isTaxonomyPicker) {
+        totalReview += reviewCount;
+        totalSettled += taxonomySettled ? 1 : 0;
       }
     }
 
@@ -3486,30 +3517,32 @@ function PhaseReviewCorrect({
             />
           );
         }
-        // Story 019 AC2: taxonomy-picker still renders a placeholder slot until
-        // story 022 replaces it. The data-renderer/data-section attributes are
-        // the hook that story keys off. item-list + prose-card continue through
-        // FactSectionCard.
+        // Story 022: taxonomy-picker renders the TaxonomyPickerCard — three
+        // cascading comboboxes (BA → Portfolio → Squad) with free-entry Add.
         if (d.renderer === "taxonomy-picker") {
           return (
-            <div
+            <TaxonomyPickerCard
               key={d.section.heading}
-              data-renderer={d.renderer}
-              data-section={d.section.heading}
-              className="rounded-xl border border-dashed border-border bg-card p-4 space-y-2"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-sm font-semibold leading-snug text-foreground">
-                  {d.section.heading}
-                </h3>
-                <StatusChip status={d.sectionStatus} />
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                A{" "}
-                <span className="font-mono text-foreground">{d.renderer}</span>{" "}
-                view for this section is coming soon.
-              </p>
-            </div>
+              heading={d.section.heading}
+              sectionStatus={d.sectionStatus}
+              taxonomy={taxonomy}
+              savedFacts={answers.editedSections[d.section.heading]?.facts}
+              onSelectionChange={(editedText) => {
+                const newFact: FactDecision = {
+                  id: "business-area-selection",
+                  text: "",
+                  status: d.sectionStatus,
+                  decision: "edited",
+                  editedText,
+                };
+                writeSection(d.section.heading, {
+                  body: d.rawBody,
+                  edited: d.isRawEdited,
+                  facts: [newFact],
+                });
+              }}
+              onTaxonomyChange={setTaxonomy}
+            />
           );
         }
         // Story 021: item-list sections render the interactive ItemListCard. Its
@@ -3650,6 +3683,472 @@ function PhaseReviewCorrect({
           <ArrowRight className="size-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ----- TaxonomyPickerCard (story 022) ----- */
+
+/**
+ * TaxonomyPickerCard — Business-area cascading picker for the phase-4 review.
+ *
+ * Three-level comboboxes: Business Area → Portfolio → Squad.  Level 2 and 3
+ * are disabled when their parent is unset.  Each level has a free-entry "Add"
+ * option (KeyToolsCombobox pattern) that calls writeTaxonomy immediately and
+ * then selects the new entry.  The chosen triple persists as a single Fact
+ * { id: 'business-area-selection', decision: 'edited', editedText: 'BA > P > S' }
+ * via the `onSelectionChange` callback — no special-casing in the handoff builder.
+ *
+ * Reload restores state: `savedFacts` seeds the initial selection from
+ * `answers.editedSections['Business area']?.facts`.
+ *
+ * a11y: each control carries an `aria-label` naming its role; levels 2/3 carry
+ * `aria-disabled='true'` / `disabled` when their parent is unset; all controls
+ * are Tab-reachable with a visible FOCUS_RING.
+ */
+function TaxonomyPickerCard({
+  heading,
+  sectionStatus,
+  taxonomy,
+  savedFacts,
+  onSelectionChange,
+  onTaxonomyChange,
+}: {
+  heading: string;
+  sectionStatus: FactStatus;
+  taxonomy: Taxonomy | null;
+  savedFacts?: FactDecision[];
+  onSelectionChange: (editedText: string) => void;
+  onTaxonomyChange: (t: Taxonomy) => void;
+}) {
+  // Derive initial selection from the persisted 'business-area-selection' fact.
+  const savedFact = savedFacts?.find((f) => f.id === "business-area-selection");
+  const savedParts = (savedFact?.editedText ?? "")
+    .split(" > ")
+    .map((p) => p.trim());
+
+  const [selectedBA, setSelectedBA] = useState(savedParts[0] ?? "");
+  const [selectedPortfolio, setSelectedPortfolio] = useState(
+    savedParts[1] ?? "",
+  );
+  const [selectedSquad, setSelectedSquad] = useState(savedParts[2] ?? "");
+
+  const [baOpen, setBAOpen] = useState(false);
+  const [baQuery, setBAQuery] = useState("");
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioQuery, setPortfolioQuery] = useState("");
+  const [squadOpen, setSquadOpen] = useState(false);
+  const [squadQuery, setSquadQuery] = useState("");
+
+  const areas = taxonomy?.businessAreas ?? [];
+  const currentArea = areas.find((a) => a.name === selectedBA);
+  const portfolios = currentArea?.portfolios ?? [];
+  const currentPortfolio = portfolios.find((p) => p.name === selectedPortfolio);
+  const squads = currentPortfolio?.squads ?? [];
+
+  /** Emit selection string — partial selections drop trailing levels (AC5). */
+  const emitSelection = (ba: string, portfolio: string, squad: string) => {
+    const parts = [ba, portfolio, squad].filter(Boolean);
+    onSelectionChange(parts.join(" > "));
+  };
+
+  // --- Level 1: Business Area ---
+
+  const commitBA = (name: string) => {
+    setSelectedBA(name);
+    setSelectedPortfolio("");
+    setSelectedSquad("");
+    emitSelection(name, "", "");
+    setBAOpen(false);
+    setBAQuery("");
+  };
+
+  const addNewBA = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const newArea = { name: trimmed, portfolios: [] };
+    const next: Taxonomy = { businessAreas: [...areas, newArea] };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select the new entry in UI */
+    }
+    commitBA(trimmed);
+  };
+
+  // --- Level 2: Portfolio ---
+
+  const commitPortfolio = (name: string) => {
+    setSelectedPortfolio(name);
+    setSelectedSquad("");
+    emitSelection(selectedBA, name, "");
+    setPortfolioOpen(false);
+    setPortfolioQuery("");
+  };
+
+  const addNewPortfolio = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !currentArea) return;
+    const newPortfolio = { name: trimmed, squads: [] };
+    const newArea = {
+      ...currentArea,
+      portfolios: [...currentArea.portfolios, newPortfolio],
+    };
+    const next: Taxonomy = {
+      businessAreas: areas.map((a) => (a.name === selectedBA ? newArea : a)),
+    };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select in UI */
+    }
+    commitPortfolio(trimmed);
+  };
+
+  // --- Level 3: Squad ---
+
+  const commitSquad = (name: string) => {
+    setSelectedSquad(name);
+    emitSelection(selectedBA, selectedPortfolio, name);
+    setSquadOpen(false);
+    setSquadQuery("");
+  };
+
+  const addNewSquad = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !currentArea || !currentPortfolio) return;
+    const newPortfolio = {
+      ...currentPortfolio,
+      squads: [...currentPortfolio.squads, trimmed],
+    };
+    const newArea = {
+      ...currentArea,
+      portfolios: currentArea.portfolios.map((p) =>
+        p.name === selectedPortfolio ? newPortfolio : p,
+      ),
+    };
+    const next: Taxonomy = {
+      businessAreas: areas.map((a) => (a.name === selectedBA ? newArea : a)),
+    };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select in UI */
+    }
+    commitSquad(trimmed);
+  };
+
+  const showBACreate =
+    baQuery.trim().length > 0 &&
+    !areas.some((a) => a.name.toLowerCase() === baQuery.trim().toLowerCase());
+  const showPortfolioCreate =
+    portfolioQuery.trim().length > 0 &&
+    !portfolios.some(
+      (p) => p.name.toLowerCase() === portfolioQuery.trim().toLowerCase(),
+    );
+  const showSquadCreate =
+    squadQuery.trim().length > 0 &&
+    !squads.some((s) => s.toLowerCase() === squadQuery.trim().toLowerCase());
+
+  // Current selection breadcrumb (shown when at least one level is selected).
+  const breadcrumb = [selectedBA, selectedPortfolio, selectedSquad]
+    .filter(Boolean)
+    .join(" › ");
+
+  return (
+    <div
+      data-renderer="taxonomy-picker"
+      data-section={heading}
+      className="rounded-xl border border-border bg-card p-4 space-y-4"
+    >
+      {/* Card header */}
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold leading-snug text-foreground">
+          {heading}
+        </h3>
+        <StatusChip status={sectionStatus} />
+      </div>
+
+      {/* Breadcrumb: shows the current selection compactly */}
+      {breadcrumb && (
+        <p className="font-mono text-xs text-primary" aria-live="polite">
+          {breadcrumb}
+        </p>
+      )}
+
+      {taxonomy === null ? (
+        <p className="text-xs text-muted-foreground">Loading taxonomy…</p>
+      ) : (
+        <div className="space-y-3">
+          {/* Level 1 — Business Area */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="ba-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Business area
+            </label>
+            <Popover open={baOpen} onOpenChange={setBAOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  id="ba-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={baOpen}
+                  aria-label="Business area"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                  )}
+                >
+                  <span className={cn(!selectedBA && "text-muted-foreground")}>
+                    {selectedBA || "Select a business area…"}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a business area…"
+                    value={baQuery}
+                    onValueChange={setBAQuery}
+                    aria-label="Search business areas"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {baQuery.trim()
+                        ? "Press Enter to add."
+                        : "No areas found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {areas.map((a) => (
+                        <CommandItem
+                          key={a.name}
+                          value={a.name}
+                          onSelect={() => commitBA(a.name)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedBA === a.name
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {a.name}
+                        </CommandItem>
+                      ))}
+                      {showBACreate && (
+                        <CommandItem
+                          value={baQuery.trim()}
+                          onSelect={() => void addNewBA(baQuery.trim())}
+                          aria-label={`Add business area "${baQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {baQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Level 2 — Portfolio */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="portfolio-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Portfolio
+            </label>
+            <Popover
+              open={portfolioOpen}
+              onOpenChange={(v) => {
+                if (selectedBA) setPortfolioOpen(v);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  id="portfolio-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={portfolioOpen}
+                  aria-label="Portfolio"
+                  aria-disabled={!selectedBA || undefined}
+                  disabled={!selectedBA}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                    !selectedBA && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      !selectedPortfolio && "text-muted-foreground",
+                    )}
+                  >
+                    {selectedPortfolio ||
+                      (selectedBA
+                        ? "Select a portfolio…"
+                        : "Select a business area first")}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a portfolio…"
+                    value={portfolioQuery}
+                    onValueChange={setPortfolioQuery}
+                    aria-label="Search portfolios"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {portfolioQuery.trim()
+                        ? "Press Enter to add."
+                        : "No portfolios found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {portfolios.map((p) => (
+                        <CommandItem
+                          key={p.name}
+                          value={p.name}
+                          onSelect={() => commitPortfolio(p.name)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedPortfolio === p.name
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {p.name}
+                        </CommandItem>
+                      ))}
+                      {showPortfolioCreate && (
+                        <CommandItem
+                          value={portfolioQuery.trim()}
+                          onSelect={() =>
+                            void addNewPortfolio(portfolioQuery.trim())
+                          }
+                          aria-label={`Add portfolio "${portfolioQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {portfolioQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Level 3 — Squad */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="squad-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Squad
+            </label>
+            <Popover
+              open={squadOpen}
+              onOpenChange={(v) => {
+                if (selectedPortfolio) setSquadOpen(v);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  id="squad-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={squadOpen}
+                  aria-label="Squad"
+                  aria-disabled={!selectedPortfolio || undefined}
+                  disabled={!selectedPortfolio}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                    !selectedPortfolio && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span
+                    className={cn(!selectedSquad && "text-muted-foreground")}
+                  >
+                    {selectedSquad ||
+                      (selectedPortfolio
+                        ? "Select a squad…"
+                        : "Select a portfolio first")}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a squad…"
+                    value={squadQuery}
+                    onValueChange={setSquadQuery}
+                    aria-label="Search squads"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {squadQuery.trim()
+                        ? "Press Enter to add."
+                        : "No squads found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {squads.map((s) => (
+                        <CommandItem
+                          key={s}
+                          value={s}
+                          onSelect={() => commitSquad(s)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedSquad === s ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {s}
+                        </CommandItem>
+                      ))}
+                      {showSquadCreate && (
+                        <CommandItem
+                          value={squadQuery.trim()}
+                          onSelect={() => void addNewSquad(squadQuery.trim())}
+                          aria-label={`Add squad "${squadQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {squadQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
