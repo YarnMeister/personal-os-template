@@ -6,13 +6,13 @@
   "status": "Approved",
   "qa": "none",
   "qaNote": "—",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-010"],
   "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
   "userStory": "As a user reviewing my bootstrapped profile, I want to select my Business Area, Portfolio, and Squad from a structured cascading picker seeded with real org taxonomy values — and to add new entries that persist — so that my team context is structured data rather than free text.",
   "acceptanceCriteria": [
     {
       "id": "AC1",
-      "text": "A taxonomy file (format and exact path are the architect's decision; PM requirement: the file lives in the project repository, is readable by the Work HQ server at startup, is not inside `docs/data/local/`, and is not gitignored) is committed with the following seed data: six business areas ('Residential', 'Commercial', 'New Homes and Media', 'Experience and Platforms', 'Financial Services', 'Product Operations'); each business area contains a portfolios list seeded with at least two entries (seed labels: 'Portfolio 1', 'Portfolio 2'); each portfolio contains a squads list seeded with at least three entries (seed labels: 'Squad name 1', 'Squad name 2', 'Squad name 3'). After the story is shipped, `grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' <taxonomy-file-path>` returns at least one match per business area name. (Implementer substitutes the actual path once the architect determines it.)"
+      "text": "The taxonomy file (per ADR-P6-010: committed, human-editable markdown at `context/org-structure.md`; readable by the Work HQ server at startup, not inside `docs/data/local/`, not gitignored) is committed with the following seed data: six business areas ('Residential', 'Commercial', 'New Homes and Media', 'Experience and Platforms', 'Financial Services', 'Product Operations'); each business area contains a portfolios list seeded with at least two entries (seed labels: 'Portfolio 1', 'Portfolio 2'); each portfolio contains a squads list seeded with at least three entries (seed labels: 'Squad name 1', 'Squad name 2', 'Squad name 3'). Structure per ADR-P6-010 / file-contracts §1.4: `## <Business Area>` headings, `- <Portfolio>` bullets, `  - <Squad>` two-space nested bullets, under a `# Org Structure · Updated: YYYY-MM-DD` header. After the story is shipped, `grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' context/org-structure.md` returns at least one match per business area name."
     },
     {
       "id": "AC2",
@@ -40,8 +40,8 @@
   "outOfScope": "KV-grid renderer (story 020). Item-list renderer (story 021). Section suppression in the handoff (story 023). Synchronising taxonomy entries with any external system (Jira, Confluence, etc.). Changing the profile-corrections handoff header line or the §4.3 Ask block. Any non-onboarding routes.",
   "verificationPlan": [
     {
-      "command": "grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' <taxonomy-file-path>",
-      "checks": "Returns at least one match per business area name — confirming the seeded taxonomy file is committed. Implementer substitutes the actual resolved path."
+      "command": "grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' context/org-structure.md",
+      "checks": "Returns at least one match per business area name — confirming the seeded taxonomy file (ADR-P6-010: context/org-structure.md) is committed."
     },
     {
       "command": "grep -n 'readTaxonomy\\|writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx",

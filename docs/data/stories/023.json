@@ -6,7 +6,7 @@
   "status": "Approved",
   "qa": "none",
   "qaNote": "—",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-010"],
   "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
   "userStory": "As a user reviewing my bootstrapped profile, I want the 'Tools, systems, and domains' section invisible on the review page and automatically included as a deletion instruction in the corrections handoff, so that this unhelpful section is removed from my profile without any manual action.",
   "acceptanceCriteria": [

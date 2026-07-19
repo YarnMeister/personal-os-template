@@ -4,6 +4,6 @@
   "branch": "f-review-ux",
   "phase": "In Progress",
   "goal": "Render every section of the bootstrapped profile using a shape-appropriate, human-friendly UI — KV grids, item-list CRUD, a cascading taxonomy picker, and inline markdown humanization — so the user never sees raw markdown text in any state of the phase-4 review page.",
-  "adrRefs": [],
+  "adrRefs": ["ADR-P6-010"],
   "order": 3
 }
