@@ -1,0 +1,112 @@
+{
+  "id": "019",
+  "featureId": "f-review-ux",
+  "title": "Renderer dispatch framework, inline markdown humanization, aria-live fix",
+  "owner": "ui-dev",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; 36/36 harness assertions pass; tsc + build clean; settled-facts baseline mismatch logged as risk note.",
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want every section routed through a shape-appropriate renderer and all inline markdown converted to readable text, so that I never see raw `**`, `*`, or backtick characters on the review page in any state — read or edit.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "A pure function `selectRenderer(heading: string, body: string): RendererKind` exists in `work-hq/src/routes/onboarding.tsx`. `RendererKind` is a TypeScript union type: `'kv-grid' | 'item-list' | 'taxonomy-picker' | 'prose-card' | 'suppressed'`. Shape-detection logic (evaluated only after override check): a body containing lines that start with `|` → `'kv-grid'`; a body containing lines that start with `- ` or `* ` → `'item-list'`; otherwise → `'prose-card'`. A `HEADING_OVERRIDE_MAP` const (type `Record<string, RendererKind>`) carries per-heading overrides that take full precedence over shape detection: at minimum it maps `'Business area'` → `'taxonomy-picker'`, `'Derived work style'` → `'item-list'`, and `'Tools, systems, and domains'` → `'suppressed'`. `grep -n 'selectRenderer\\|HEADING_OVERRIDE_MAP\\|RendererKind' work-hq/src/routes/onboarding.tsx` returns at least one match for each name."
+    },
+    {
+      "id": "AC2",
+      "text": "`PhaseReviewCorrect` calls `selectRenderer` for every section returned by `parseProfileSections`. When the result is `'suppressed'`, no section card is rendered for that heading. For the remaining kinds (`'kv-grid'`, `'item-list'`, `'taxonomy-picker'`, `'prose-card'`), the section is rendered via a renderer slot. Renderers for `'kv-grid'`, `'item-list'`, and `'taxonomy-picker'` are implemented in stories 020–022; this story may render a `<div data-renderer={kind} data-section={heading}>` placeholder for those kinds. `'prose-card'` continues to use the existing `FactSectionCard` raw-edit path. `grep -n 'selectRenderer' work-hq/src/routes/onboarding.tsx` returns at least two matches (function definition plus at least one call site inside `PhaseReviewCorrect`)."
+    },
+    {
+      "id": "AC3",
+      "text": "A pure function `humanizeMarkdown(text: string): string` exists in `work-hq/src/routes/onboarding.tsx`. It strips inline markdown markers and returns clean plain text: `**bold**` → `bold`; `*italic*` or `_italic_` → `italic`; `***bold-italic***` → `bold-italic`; `` `code` `` → `code`. The function is used as the source for all edit-field initial values in `PhaseReviewCorrect` — every edit textarea (in `FactRow`, and in future `KvGridCard`/`ItemListCard` components) is pre-populated with `humanizeMarkdown(originalText)` rather than the raw string. `grep -n 'humanizeMarkdown' work-hq/src/routes/onboarding.tsx` returns at least two matches: the function definition plus at least one call site in an edit-state initial value."
+    },
+    {
+      "id": "AC4",
+      "text": "A display renderer — a function `renderInlineMarkdown(text: string): string` returning safe HTML, or a component `<InlineMarkdown text={string} />` — converts `**text**` → `<strong>`, `*text*` → `<em>`, `` `text` `` → `<code>` in the rendered DOM. Wherever a fact's text appears in read (non-edit) state in `PhaseReviewCorrect` — in `FactRow` display mode and in any `'prose-card'` section body — the text passes through this renderer instead of being emitted as a raw string. Status-label lines (matching `**Confirmed**`, `**Derived**`, `**Unknown / needs validation**`) are stripped before display using the existing `isLabelOnlyLine` helper (story 013) or equivalent — they must not appear as visible text in any section card. `grep -n 'renderInlineMarkdown\\|InlineMarkdown' work-hq/src/routes/onboarding.tsx` returns at least two matches (definition plus at least one call site in `FactRow` display mode)."
+    },
+    {
+      "id": "AC5",
+      "text": "The phase-1 mini-chat `aria-live` region is pre-mounted empty rather than conditionally rendered (story 016 QA follow-up, non-blocking). The element carrying `role='status'` and `aria-live='polite'` that wraps the assistant reply in the mini-chat panel exists in the DOM from first render — it is not gated by a ternary or `&&` that removes the node entirely when no reply is present. When no reply has been produced, the element is in the DOM but empty. `grep -n 'aria-live' work-hq/src/routes/onboarding.tsx` returns at least one match. Reading the surrounding lines confirms the element is not inside a conditional expression that unmounts it."
+    }
+  ],
+  "technicalNotes": "All work is in `work-hq/src/routes/onboarding.tsx`. Place `selectRenderer`, `HEADING_OVERRIDE_MAP`, `RendererKind`, `humanizeMarkdown`, and `renderInlineMarkdown`/`InlineMarkdown` as pure helpers near the existing cluster of `parseFacts`, `detectStatus`, `parseProfileSections`, `isLabelOnlyLine` (lines ~908–1163 per story 013 impl notes). For `renderInlineMarkdown`: convert inline patterns to HTML and use `dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(text) }}` on a `<span>` — no user-controlled URL or script vector is possible (input is context/profile.md content). Alternatively, implement as a React component using a regex-split approach returning `<strong>`, `<em>`, `<code>` JSX — no external markdown library is needed or permitted. For `humanizeMarkdown`: simple sequential regex-replace — `/**(.+?)**/` → `$1`, etc. — returning plain text. Apply `renderInlineMarkdown` to `FactRow` display mode (lines ~1302–1461 per story 013 impl notes) and `humanizeMarkdown` to the edit textarea initial value in the same block. For the `'prose-card'` fallback: continue using `FactSectionCard`'s existing raw-edit path; apply `renderInlineMarkdown` to the section body display. For the aria-live fix: find the mini-chat assistant-reply conditional in `PhaseOrientation` (phase 1) and change the container from `{reply && <div …>{reply}</div>}` to `<div role='status' aria-live='polite' aria-atomic='true'>{reply ?? ''}</div>` — always mounted, conditionally populated.",
+  "dependencies": [],
+  "outOfScope": "KV-grid component (story 020). Item-list CRUD component (story 021). Taxonomy picker and taxonomy file (story 022). Section suppression in the handoff (story 023). Any changes to HandoffDock, ActionCard, or non-onboarding routes. Adding any external markdown parsing library.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'selectRenderer\\|HEADING_OVERRIDE_MAP\\|RendererKind' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each name — confirming the dispatch function, override map, and type are all defined."
+    },
+    {
+      "command": "grep -n 'humanizeMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least two matches: function definition and at least one call site setting an edit-field initial value."
+    },
+    {
+      "command": "grep -n 'renderInlineMarkdown\\|InlineMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least two matches: definition and at least one call site in FactRow display mode."
+    },
+    {
+      "command": "grep -n 'aria-live' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match. Reading the surrounding context confirms the element is not gated by a ternary or short-circuit that would remove it from the DOM when no reply is present."
+    }
+  ],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — selectRenderer / RendererKind / HEADING_OVERRIDE_MAP",
+        "evidence": "grep -n 'selectRenderer|HEADING_OVERRIDE_MAP|RendererKind' onboarding.tsx → 6 matches: RendererKind type at 1606, HEADING_OVERRIDE_MAP const at 1621, override lookup at 1638, selectRenderer definition at 1637, call-site comment at 2228, call at 2229. All five union members present. Override map has required minimum keys ('Business area' → taxonomy-picker, 'Derived work style' → item-list, 'Tools, systems, and domains' → suppressed). Shape detection order |→kv-grid, bullet→item-list, else→prose-card confirmed in function body at 1637–1644."
+      },
+      {
+        "ac": "AC2 — PhaseReviewCorrect routes every section through selectRenderer; suppressed renders nothing; placeholders carry data-renderer/data-section",
+        "evidence": "sectionData.map at line 2229 calls selectRenderer for every section. .filter((d) => d.renderer !== 'suppressed') at the sort step (line 2264) removes suppressed sections before the render map — no card emitted. kv-grid and taxonomy-picker branches render <div data-renderer={d.renderer} data-section={d.section.heading}> (diff lines +2350 to +2370). item-list and prose-card fall through to FactSectionCard. grep returns 2 matches (definition 1637, call 2229) ✓."
+      },
+      {
+        "ac": "AC3 — humanizeMarkdown; all edit-field initial values humanized",
+        "evidence": "humanizeMarkdown defined at 1654 (triple→double→single asterisk, underscore, backtick). grep returns 8 matches: definition (1654), FactRow draft useState seed (1760), cancel-button reset (1821), edit-button open (1880), reviewFacts onEdit comparison (2020), rawBody seed (2235), onRawEdit comparison (2395), onResetRaw body (2401). Harness: humanizeMarkdown('**Project Atlas**: migrating the billing system') → 'Project Atlas: migrating the billing system' — PASS. All 9 humanizeMarkdown harness cases PASS."
+      },
+      {
+        "ac": "AC4 — InlineMarkdown renders bold/italic/code in read state; status labels stripped",
+        "evidence": "InlineMarkdown component defined at 1671 using regex-split (no dangerouslySetInnerHTML, no external markdown library). grep returns 3 matches: definition (1671), removed/struck-through row at 1772, read-mode display at 1840. Status-label lines stripped by isLabelOnlyLine (line 1454) inside parseFacts (line 1518) before any fact is created — they cannot reach FactRow or InlineMarkdown. Pattern alternation order in InlineMarkdown confirmed correct (bold-italic before bold before italic). AC says ≥2 matches; 3 found."
+      },
+      {
+        "ac": "AC5 — aria-live region pre-mounted unconditionally in PhaseOrientation",
+        "evidence": "grep -n 'aria-live' returns 1 match at line 886. Reading lines 884–892: <div role='status' aria-live='polite' aria-atomic='true' className={cn(...)}> — the div is the outer element; the {chatHistory.length > 0 && (...)} conditional is INSIDE the div, populating it only when history is available. The node is never unmounted. ✓"
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'selectRenderer|HEADING_OVERRIDE_MAP|RendererKind' → PASS — 6 matches covering all three names",
+      "grep -n 'humanizeMarkdown' → PASS — 8 matches (definition + 7 call sites)",
+      "grep -n 'renderInlineMarkdown|InlineMarkdown' → PASS — 3 matches (definition + 2 call sites in FactRow display)",
+      "grep -n 'aria-live' → PASS — 1 match at line 886; surrounding context confirms unconditional mount",
+      "node harness019.mjs → PASS — 36/36 assertions: humanizeMarkdown (9), selectRenderer census (20 sections + 5 totals), edit-detection (2)",
+      "work-hq/node_modules/.bin/tsc --noEmit → PASS — exit 0, no output",
+      "npm run --prefix work-hq build → PASS — client built in 786ms, server built in 498ms"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no DATABASE_URL, API_KEY, SECRET, TOKEN, JWT, or private-key headers in diff. Migration check: N/A — no schema or DB changes.",
+    "riskNotes": "Settled-facts onEdit comparison baseline mismatch: the FactSectionCard settled-facts disclosure (line 2069) calls onEdit with comparison text.trim() === f.text.trim() (raw) instead of text.trim() === humanizeMarkdown(f.text).trim() (humanized). The impl notes claim 'all FactRow onEdit comparisons were changed' — this is inaccurate for the settled-facts path. Practical impact: if a user opens a settled fact whose text contains markdown markers (e.g., '**Project Atlas**: migrating...'), clicks Edit, and saves without changing, the fact is falsely marked 'edited' because the humanized draft differs from the raw f.text. Confirmed facts in item-list sections (Major projects, Domain expertise, etc.) are the population at risk. This does not violate AC3's stated requirement (initial values) but contradicts the impl-note claim and creates a misleading 'edited' badge. Recommend fixing in story 020 or a dedicated follow-up.",
+    "recommendedFollowUps": "Fix settled-facts onEdit comparison at FactSectionCard line 2069 from text.trim() === f.text.trim() to text.trim() === humanizeMarkdown(f.text).trim() — assign to story 020 (kv-grid) or a dedicated follow-up within f-review-ux so the humanized-baseline guarantee is complete across all FactRow paths. Story 016 follow-up (pre-mount aria-live) is resolved by AC5 of this story.",
+    "fixRequests": []
+  },
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "7cabde3",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "AC1: added RendererKind union, HEADING_OVERRIDE_MAP (keys verified against actual context/profile.md ## headings — 'Business area' -> taxonomy-picker, 'Derived work style' -> item-list, 'Tools, systems, and domains' -> suppressed), and pure selectRenderer(heading, body): override map first, then shape detection (a line starting with '|' -> kv-grid; a bullet line via isBulletLine -> item-list; else prose-card). AC2: PhaseReviewCorrect now routes every parsed section through selectRenderer; 'suppressed' sections are filtered out (no card); 'kv-grid'/'taxonomy-picker' render a <div data-renderer={kind} data-section={heading}> placeholder for stories 020/022; 'item-list'/'prose-card' keep the existing FactSectionCard path. Placeholder + suppressed sections are excluded from the review/confirmed header totals since they are not yet interactively reviewable. AC3: added humanizeMarkdown (triple->double->single asterisk, underscore, backtick strip); it now seeds every edit-field initial value — FactRow draft useState + both setDraft calls, and the raw-section escape-hatch textarea (rawBody seed). Round-trip: both the FactRow onEdit comparison and the raw-section onRawEdit/onResetRaw comparisons were changed to compare against humanizeMarkdown(original), so stripping markers alone never marks a fact/section edited — only a real user change relative to the humanized baseline counts. AC4: added InlineMarkdown component (regex-split, no dangerouslySetInnerHTML, no markdown lib) rendering **bold**->strong, *italic*/_italic_->em, `code`->code; applied in FactRow display mode (both active and removed/struck-through rows). Status-label lines remain stripped by the existing isLabelOnlyLine filter inside parseFacts, so prose-card (via FactSectionCard) benefits with no extra code. AC5: the phase-1 mini-chat live region is now pre-mounted (role=status, aria-live=polite, aria-atomic=true) and populated conditionally — the node is never unmounted by a && guard; card chrome + children apply only when chatHistory has content so an empty region shows nothing. No new design tokens or reusable design-system components introduced; placeholder styling uses only existing Tailwind/theme utilities, so no /style-guide change is in scope. No @theme or /style-guide infra exists in this project.",
+    "verificationRun": [
+      "grep -n 'selectRenderer|HEADING_OVERRIDE_MAP|RendererKind' -> PASS (type, map, function, plus call site in PhaseReviewCorrect)",
+      "grep -n 'humanizeMarkdown' -> PASS (definition + 8 call sites)",
+      "grep -n 'renderInlineMarkdown|InlineMarkdown' -> PASS (definition + 2 call sites in FactRow display)",
+      "grep -n 'aria-live' -> PASS (1 match; region pre-mounted, not conditionally unmounted)",
+      "node census/logic check -> PASS: humanizeMarkdown('**Project Atlas**: migrating…') -> 'Project Atlas: migrating…' plus all 6 marker cases; humanized-only save resolves to 'pending' (not edited); real user change resolves to 'edited'; all 20 profile.md sections route as expected (4 prose-card, 11 item-list, 3 kv-grid, 1 taxonomy-picker, 1 suppressed)",
+      "npx tsc --noEmit -> PASS (exit 0)",
+      "npm run build -> PASS (built in 489ms)"
+    ]
+  }
+}

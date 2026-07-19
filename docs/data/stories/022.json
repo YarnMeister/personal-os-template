@@ -1,0 +1,123 @@
+{
+  "id": "022",
+  "featureId": "f-review-ux",
+  "title": "Business-area taxonomy file and cascading three-level picker",
+  "owner": "developer",
+  "status": "Done",
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified; 120/120 harness assertions pass; tsc and build clean.",
+  "adrRefs": ["ADR-P6-010"],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want to select my Business Area, Portfolio, and Squad from a structured cascading picker seeded with real org taxonomy values — and to add new entries that persist — so that my team context is structured data rather than free text.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "The taxonomy file (per ADR-P6-010: committed, human-editable markdown at `context/org-structure.md`; readable by the Work HQ server at startup, not inside `docs/data/local/`, not gitignored) is committed with the following seed data: six business areas ('Residential', 'Commercial', 'New Homes and Media', 'Experience and Platforms', 'Financial Services', 'Product Operations'); each business area contains a portfolios list seeded with at least two entries (seed labels: 'Portfolio 1', 'Portfolio 2'); each portfolio contains a squads list seeded with at least three entries (seed labels: 'Squad name 1', 'Squad name 2', 'Squad name 3'). Structure per ADR-P6-010 / file-contracts §1.4: `## <Business Area>` headings, `- <Portfolio>` bullets, `  - <Squad>` two-space nested bullets, under a `# Org Structure · Updated: YYYY-MM-DD` header. After the story is shipped, `grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' context/org-structure.md` returns at least one match per business area name."
+    },
+    {
+      "id": "AC2",
+      "text": "A server function `readTaxonomy` (a `createServerFn` GET, following the pattern of `work-hq/src/server/load-onboarding.ts`) reads and parses the taxonomy file, returning `{ businessAreas: Array<{ name: string; portfolios: Array<{ name: string; squads: string[] }> }> }`. A companion server function `writeTaxonomy` (or `saveTaxonomy`) accepts the same structure and writes it back to the taxonomy file, enabling user additions to persist. Both server files live under `work-hq/src/server/`. `grep -n 'readTaxonomy\\|writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx` returns at least one match per function name at the import or call site, and the corresponding server files exist."
+    },
+    {
+      "id": "AC3",
+      "text": "The 'Business area' section in `PhaseReviewCorrect` renders a three-level cascading picker (routed from `selectRenderer` returning `'taxonomy-picker'` per story 019). Level 1 selects a Business Area from the taxonomy; Level 2 shows Portfolios for the selected Business Area — hidden or disabled when no Business Area is selected; Level 3 shows Squads for the selected Portfolio — hidden or disabled when no Portfolio is selected. Each level resets when its parent changes. The picker uses the `<Select>` or `<Popover>`+`<Command>` pattern already in use for `RoleCombobox` and `KeyToolsCombobox` in `onboarding.tsx`. `grep -n 'businessArea\\|BusinessArea\\|TaxonomyPicker\\|taxonomy' work-hq/src/routes/onboarding.tsx` returns at least three distinct matches."
+    },
+    {
+      "id": "AC4",
+      "text": "The user can add a new entry at any level by typing a name not in the current list and confirming (Enter key or selecting an 'Add \"<typed name>\"…' option in the combobox, consistent with the pattern used for `KeyToolsCombobox`). New entries are written to the taxonomy file via `writeTaxonomy` immediately after confirmation. After a page reload, the new entry appears in its respective picker level. `grep -n 'writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx` returns at least one match at a call site that fires on user confirmation of a new entry."
+    },
+    {
+      "id": "AC5",
+      "text": "The chosen Business-Area → Portfolio → Squad triple is stored in `answers.editedSections` for the 'Business area' section as a single `Fact`: `{ id: 'business-area-selection', decision: 'edited', text: '', editedText: '<BusinessArea> > <Portfolio> > <Squad>' }`. This produces exactly one bullet in the profile-corrections handoff (file-contracts §4.3): `- <BusinessArea> > <Portfolio> > <Squad>` under the `**Business area**` section heading. If only a Business Area and Portfolio are selected (no Squad), `editedText` = `'<BusinessArea> > <Portfolio>'`. If only a Business Area is selected, `editedText` = `'<BusinessArea>'`. `cat docs/data/local/onboarding-state.json` after selecting all three levels shows the 'Business area' key under `editedSections` with a `facts` array containing one entry with `id: 'business-area-selection'` and the correct `editedText` value."
+    },
+    {
+      "id": "AC6",
+      "text": "Each picker level carries an `aria-label` identifying its role: `aria-label='Business area'`, `aria-label='Portfolio'`, `aria-label='Squad'`. Level 2 and Level 3 carry `aria-disabled='true'` (or `disabled` on `<select>`) when their parent level has not been selected. All three levels are reachable by keyboard: Tab reaches each control; Enter or Space opens it; arrow keys navigate options. `grep -n \"aria-label.*Business area\\|aria-label.*Portfolio\\|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx` returns at least one match per level."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer` and `HEADING_OVERRIDE_MAP` must already map 'Business area' → `'taxonomy-picker'`. The taxonomy file format (JSON, YAML, TOML, or structured Markdown) and path are the architect's decision — the server function must parse whatever format the architect specifies, and the PM spec does not constrain it. Model `readTaxonomy` on `work-hq/src/server/load-onboarding.ts` (createServerFn GET, read file, return JSON). Model `writeTaxonomy` on `work-hq/src/server/save-onboarding.ts` (createServerFn mutation, accept JSON, write file). Load taxonomy in `PhaseReviewCorrect` via the route loader (extend the existing loader return object to include `taxonomy`) or via an initial `useEffect` server call — the architect's file-location decision may influence which is cleaner. For the three-level picker, the `Popover` + `Command` pattern (already present for `RoleCombobox`/`KeyToolsCombobox`) handles both selection and free-entry 'Add…' options. Level 2 and 3 state resets in a `useEffect` that watches the parent selection. The business-area `Fact` (AC5) is written to `editedSections` on every selection change via the existing `updateFact` / `set` debounced path. `buildProfileCorrectionsMarkdown` handles the single fact via its standard `decision: 'edited'` / `editedText` path — no special-casing needed. Files likely touched: `work-hq/src/routes/onboarding.tsx`, `work-hq/src/server/read-taxonomy.ts` (new), `work-hq/src/server/write-taxonomy.ts` (new), taxonomy file (new, path per architect).",
+  "dependencies": ["019"],
+  "outOfScope": "KV-grid renderer (story 020). Item-list renderer (story 021). Section suppression in the handoff (story 023). Synchronising taxonomy entries with any external system (Jira, Confluence, etc.). Changing the profile-corrections handoff header line or the §4.3 Ask block. Any non-onboarding routes.",
+  "verificationPlan": [
+    {
+      "command": "grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' context/org-structure.md",
+      "checks": "Returns at least one match per business area name — confirming the seeded taxonomy file (ADR-P6-010: context/org-structure.md) is committed."
+    },
+    {
+      "command": "grep -n 'readTaxonomy\\|writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match per function name — confirming both the read and write server functions are imported and called from the route."
+    },
+    {
+      "command": "grep -n \"aria-label.*Business area\\|aria-label.*Portfolio\\|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match per level — confirming all three picker controls carry descriptive aria-labels."
+    }
+  ],
+  "revisionLog": [],
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — context/org-structure.md committed with 6 business areas × 2 portfolios × 3 squads in ADR-P6-010 markdown shape",
+        "evidence": "git ls-files context/org-structure.md → file tracked; .gitignore inspected — org-structure.md absent from ignore list; header `# Org Structure · Updated: 2026-07-19` (c2b7 middle-dot verified via xxd); grep returns 4 matches for Residential/New Homes and Media/Experience and Platforms/Financial Services; harness Test 1 — 120/120 assertions pass: 6 areas, each with exactly 2 portfolios, each portfolio with exactly 3 squads, all expected area names present."
+      },
+      {
+        "ac": "AC2 — readTaxonomy (createServerFn GET) and writeTaxonomy (createServerFn POST) under work-hq/src/server/; both imported and called from onboarding.tsx",
+        "evidence": "work-hq/src/server/read-taxonomy.ts read: createServerFn({ method: 'GET', strict: false }), returns Taxonomy type, lenient parser, returns { businessAreas: [] } on missing file. work-hq/src/server/write-taxonomy.ts read: createServerFn({ method: 'POST' }), zod validator, full-file canonical re-serialise. git ls-files confirms both files tracked. grep -n 'readTaxonomy|writeTaxonomy' onboarding.tsx → 7 matches: import lines 50, 52; call sites lines 3157 (readTaxonomy), 3772, 3802, 3836 (writeTaxonomy)."
+      },
+      {
+        "ac": "AC3 — three-level cascading Popover+Command picker; level 2/3 disabled when parent unset; parent change resets children",
+        "evidence": "onboarding.tsx line 1686: HEADING_OVERRIDE_MAP['Business area'] = 'taxonomy-picker'. Line 3522: renderer === 'taxonomy-picker' routes to TaxonomyPickerCard. TaxonomyPickerCard (lines 3690-4154) uses Popover+Command at all three levels. Level 2: disabled={!selectedBA} line 3987; Level 3: disabled={!selectedPortfolio} line 4083. commitBA (lines 3757-3764) resets setSelectedPortfolio('') and setSelectedSquad(''); commitPortfolio (lines 3782-3788) resets setSelectedSquad(''); grep for taxonomy/BusinessArea/TaxonomyPicker in onboarding.tsx returns 35 matches."
+      },
+      {
+        "ac": "AC4 — Add new entry at any level via free-text; writeTaxonomy called immediately on confirmation; reload restores",
+        "evidence": "addNewBA (lines 3766-3778), addNewPortfolio (lines 3790-3808), addNewSquad (lines 3819-3842) each call writeTaxonomy({ data: next }) then onTaxonomyChange(next). showBACreate/showPortfolioCreate/showSquadCreate conditions (lines 3844-3854) show Add option only when typed text is non-empty and not already in list. On page reload, useEffect at line 3156-3158 calls readTaxonomy() (which re-reads the file) and saved selection is restored from answers.editedSections via savedFacts."
+      },
+      {
+        "ac": "AC5 — selection stored as single Fact { id: 'business-area-selection', decision: 'edited', text: '', editedText: 'BA > P > S' }; partial selections drop trailing levels; one handoff bullet",
+        "evidence": "onSelectionChange handler (lines 3530-3542): newFact with id='business-area-selection', decision='edited', text='', editedText=emitSelection output; writeSection writes facts:[newFact] (single element). emitSelection (line 3750-3753): [ba, portfolio, squad].filter(Boolean).join(' > '). Harness Test 5: full='A > B > C', BA+Portfolio='A > B', BA-only='A'. buildProfileCorrectionsMarkdown at line 1019 emits `- ${(f.editedText ?? f.text).trim()}` for decision='edited' — one bullet per fact."
+      },
+      {
+        "ac": "AC6 — aria-labels on all three levels; aria-disabled+disabled on levels 2/3 when parent unset; FOCUS_RING on all; keyboard reachable",
+        "evidence": "grep returns 3 matches: line 3901 aria-label='Business area', line 3985 aria-label='Portfolio', line 4081 aria-label='Squad'. Level 2: aria-disabled={!selectedBA || undefined} line 3986, disabled={!selectedBA} line 3987. Level 3: aria-disabled={!selectedPortfolio || undefined} line 4082, disabled={!selectedPortfolio} line 4083. FOCUS_RING defined at line 1968 applied to all three picker buttons (lines 3904, 3990, 4086). Popover+Command keyboard semantics: Tab to button, Enter/Space opens, arrow keys navigate."
+      }
+    ],
+    "commandsRun": [
+      "grep -rn 'Residential|New Homes and Media|Experience and Platforms|Financial Services' context/org-structure.md → 4 matches PASS",
+      "grep -n 'readTaxonomy|writeTaxonomy|saveTaxonomy' work-hq/src/routes/onboarding.tsx → 7 matches PASS",
+      "grep -n 'aria-label.*Business area|aria-label.*Portfolio|aria-label.*Squad' work-hq/src/routes/onboarding.tsx → 3 matches (one per level) PASS",
+      "grep -n 'businessArea|BusinessArea|TaxonomyPicker|taxonomy' work-hq/src/routes/onboarding.tsx → 35 matches PASS",
+      "git ls-files context/org-structure.md → file tracked PASS",
+      "git ls-files work-hq/src/server/read-taxonomy.ts work-hq/src/server/write-taxonomy.ts → both tracked PASS",
+      ".gitignore inspected → org-structure.md absent from ignore list PASS",
+      "head -1 context/org-structure.md | xxd → c2b7 middle-dot encoding correct PASS",
+      "node harness022.mjs → 120/120 assertions PASS (parse 6×2×3; round-trip identity; add-entry preserves all entries; malformed/missing file; selection fact full/partial/BA-only; lenient tab whitespace)",
+      "cd work-hq && npx tsc --noEmit → clean (no output) PASS",
+      "npm run --prefix work-hq build → built in 518ms PASS"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no DATABASE_URL, API_KEY, SECRET, TOKEN, or private key headers in any changed file. Migration check: N/A — no database schema changes; new file is local markdown on filesystem, consistent with file-based persistence pattern (AD-1).",
+    "riskNotes": "Mount-only savedFacts sync: TaxonomyPickerCard seeds its local state from savedFacts only at component mount. If savedFacts changes while the component is mounted (which only occurs via the component's own onSelectionChange callback writing back to parent), the local state remains authoritative and the displayed values stay correct. No other code path writes to answers.editedSections['Business area'], so there is no stale-state scenario in practice. Developer documented this explicitly in impl notes. No AC tests for live savedFacts re-hydration, and no observable bug exists under normal usage.",
+    "recommendedFollowUps": "buildProfileCorrectionsMarkdown still contains a 'No corrections — all sections accepted as is' branch (line 1025) that file-contracts §4.3 marks as dead code once story 023 adds the unconditional Tools-section removal directive. Story 023 is explicitly scoped to address this — no action needed in story 022. CONTROL_TRIGGER constant (line 4159) is defined after TaxonomyPickerCard but is not referenced by TaxonomyPickerCard (which uses FOCUS_RING, defined at line 1968); the impl note is accurate and harmless.",
+    "fixRequests": []
+  },
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "bfbfd08",
+    "filesTouched": [
+      "context/org-structure.md (new)",
+      "work-hq/src/server/read-taxonomy.ts (new)",
+      "work-hq/src/server/write-taxonomy.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/022.json (modified)"
+    ],
+    "notes": "TaxonomyPickerCard uses Popover+Command pattern (KeyToolsCombobox) with three cascading levels. Taxonomy state loaded via useEffect in PhaseReviewCorrect. writeTaxonomy fires on each 'Add…' confirmation — full-file canonical re-serialisation. Selection persists as a single 'business-area-selection' Fact with editedText joined by ' > '. Business area counts in review/settled totals: 1 needing review until all 3 levels selected, 0 once settled. CONTROL_TRIGGER constant is defined after TaxonomyPickerCard in file order but is safe since function bodies execute at render time after all module-level const declarations are initialized.",
+    "verificationRun": [
+      "grep -rn 'Residential|New Homes and Media|Experience and Platforms|Financial Services' context/org-structure.md → 4 matches PASS",
+      "grep -n 'readTaxonomy|writeTaxonomy|saveTaxonomy' work-hq/src/routes/onboarding.tsx → 7 matches (import + call sites) PASS",
+      "grep -n \"aria-label.*Business area|aria-label.*Portfolio|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx → 3 matches (one per level) PASS",
+      "node harness: parse 6×2×3 seeded file → PASS; round-trip identity → PASS; add-entry preserves existing → PASS; selection fact → correct handoff bullet (full/partial/BA-only) → PASS",
+      "npx tsc --noEmit → clean (no output) PASS",
+      "npm run --prefix work-hq build → ✓ built in ~760ms client + ~507ms SSR PASS"
+    ]
+  }
+}

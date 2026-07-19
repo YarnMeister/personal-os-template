@@ -1,0 +1,97 @@
+{
+  "id": "tp-review-ux",
+  "featureId": "f-review-ux",
+  "title": "Manual Test Plan — Phase 4 Review UX Structured Renderers",
+  "steps": [
+    {
+      "label": "No raw markdown visible anywhere on the review page",
+      "instruction": "Load phase 4 (seeded bootstrap path, profile detected). Scroll through all section cards without opening any edit field. Inspect the rendered text. Expected: no raw `**`, `*`, `_`, or backtick characters appear as visible text in any section card, including status-label lines — all inline markdown is rendered as bold/italic/code HTML or stripped entirely. No `<pre>` element contains visible markdown text.",
+      "result": null
+    },
+    {
+      "label": "Edit fields show clean text — no raw markdown markers",
+      "instruction": "In any bullet section (e.g. 'Role scope and responsibilities'), click Edit on a fact that contains inline markdown in its original text (e.g. `**Project Atlas**:`). Expected: the edit textarea is pre-populated with clean text — `Project Atlas:` not `**Project Atlas**:`. Type a correction and save. The saved display also shows no raw markers.",
+      "result": null
+    },
+    {
+      "label": "Identity renders as KV grid with all seven minimum keys",
+      "instruction": "Load phase 4 and locate the 'Identity and current role' section. Expected: the section renders as a two-column HTML grid (not a markdown table). All seven minimum-key rows appear: Name, Title, Email, Manager, Location, Department, Start date — even if any were absent from context/profile.md. Missing-key rows appear as empty, editable value fields.",
+      "result": null
+    },
+    {
+      "label": "KV grid: edit a row value",
+      "instruction": "In the 'Identity and current role' grid, click Edit on the 'Location' row. Expected: the value cell becomes an editable input pre-filled with clean text (no raw markdown). Edit the value to 'Hybrid (Cape Town)' and click Save. Expected: the grid shows the updated value. Refresh the page — the value is still 'Hybrid (Cape Town)'.",
+      "result": null
+    },
+    {
+      "label": "KV grid: add a new row",
+      "instruction": "In the 'Identity and current role' grid, click 'Add row'. Expected: a new empty row appears with both key and value inputs editable. Enter key 'Timezone' and value 'SAST (UTC+2)'. Click Save. The new row appears in the grid. Refresh — it persists.",
+      "result": null
+    },
+    {
+      "label": "KV grid: remove a row",
+      "instruction": "In the 'Identity and current role' grid, click Remove on the 'Department' row. Expected: the row is struck-through and an Undo option appears. Click Copy on the corrections ActionCard and paste. Expected: the handoff contains `- **Removed:** Department: Product Operations` (or equivalent) under the Identity section. Click Undo — the row is restored and no removal marker appears in the handoff.",
+      "result": null
+    },
+    {
+      "label": "Key collaborators and Operating cadence render as HTML grids",
+      "instruction": "Load phase 4. Locate 'Key collaborators and stakeholder network' and 'Operating cadence and rituals'. Expected: both render as HTML grids with column headers and data rows — no markdown pipe characters visible as text. Row data is readable prose, not raw markdown.",
+      "result": null
+    },
+    {
+      "label": "Bullet sections render as item lists with triage controls",
+      "instruction": "Load phase 4. Locate 'Role scope and responsibilities' and 'Derived communication style'. Expected: each bullet renders as a distinct item row with Accept, Edit, and Remove buttons. The `- ` prefix characters are not visible as text. Status chips (Confirmed/Derived/Unknown) appear per item.",
+      "result": null
+    },
+    {
+      "label": "'Derived work style' lines become item list items",
+      "instruction": "Load phase 4 and locate 'Derived work style'. Expected: the prose is split into individual item rows — one per non-blank line — with the same Accept/Edit/Remove controls. The status chip shows 'Derived'. No prose block is rendered as a raw text area by default.",
+      "result": null
+    },
+    {
+      "label": "Item list: add a new item to a bullet section",
+      "instruction": "In 'Preferences and patterns an AI assistant should know', click 'Add item'. Expected: a new empty row appears in edit mode with the textarea focused. Type 'Always reference named teams by official squad name' and save. The new item appears in the list. Click Copy on the corrections ActionCard — the handoff includes `- Always reference named teams by official squad name` under the Preferences section.",
+      "result": null
+    },
+    {
+      "label": "'Add item' button visible even on fully-confirmed sections",
+      "instruction": "In phase 4, find a section where all items show a Confirmed status chip (e.g. 'Domain expertise'). Expected: the 'Add item' button is still visible and clickable — it is not hidden because all items are settled.",
+      "result": null
+    },
+    {
+      "label": "Business area section renders a cascading three-level picker",
+      "instruction": "Load phase 4. Locate the 'Business area' section. Expected: no free-text block is visible. Instead, three cascading picker controls appear: Business Area (level 1), Portfolio (level 2), Squad (level 3). Level 2 and 3 are disabled or hidden until level 1 is selected. Select 'Product Operations' → level 2 shows its portfolios → select 'Portfolio 1' → level 3 shows squads → select 'Squad name 2'. All three levels show the selected values.",
+      "result": null
+    },
+    {
+      "label": "Business area selection flows into corrections handoff",
+      "instruction": "After selecting 'Product Operations > Portfolio 1 > Squad name 2', click Copy on the corrections ActionCard. Paste into a text editor. Expected: the handoff contains `- Product Operations > Portfolio 1 > Squad name 2` under the **Business area** section heading. The exact format is `<BA> > <Portfolio> > <Squad>`.",
+      "result": null
+    },
+    {
+      "label": "New taxonomy entry persists across reload",
+      "instruction": "In the Business Area level-1 picker, type a new business area name not in the seed list (e.g. 'Enterprise Solutions') and confirm (Enter or 'Add…' option). Expected: 'Enterprise Solutions' appears in the picker and is selected. Reload the page. Expected: 'Enterprise Solutions' still appears as an option in the level-1 picker.",
+      "result": null
+    },
+    {
+      "label": "'Tools, systems, and domains' is not rendered on the review page",
+      "instruction": "Load phase 4 with a profile that contains the 'Tools, systems, and domains' section. Expected: no section card for this heading appears anywhere on the review page. Inspect the DOM — no element whose visible text includes 'Tools, systems, and domains' exists in the page content (header labels, card titles, etc.).",
+      "result": null
+    },
+    {
+      "label": "Corrections handoff always includes Tools/systems removal instruction",
+      "instruction": "Load phase 4 and make no edits — accept all facts. Click Copy on the corrections ActionCard. Paste into a text editor. Expected: even though no user edits were made, the handoff contains a removal directive for the 'Tools, systems, and domains' section (following the file-contracts §4.3 convention), AND the Ask block includes the sentence 'Remove the ## Tools, systems, and domains section from context/profile.md entirely.'",
+      "result": null
+    },
+    {
+      "label": "Full corrections payload: mixed edits, additions, removals, business area, suppression",
+      "instruction": "In phase 4: (1) edit a fact in 'Role scope and responsibilities'; (2) remove a fact from 'Known OKRs and goals'; (3) add a new item to 'Preferences and patterns an AI assistant should know'; (4) select a Business Area and Portfolio in the picker. Click Copy and paste the handoff. Expected: (a) first line is exactly `## Work HQ handoff · profile-corrections · <today>` (b) each changed section appears with only its changed facts (c) the BA selection appears under Business area (d) the Tools/systems removal directive is present (e) the Ask block includes the removal sentence (f) no unchanged sections or unchanged facts appear.",
+      "result": null
+    },
+    {
+      "label": "Phase 1 mini-chat aria-live region: pre-mounted and screen-reader safe",
+      "instruction": "Load phase 1 (Orientation). Before clicking any trigger-phrase chip, use browser DevTools to inspect the DOM. Expected: an element with `role='status'` and `aria-live='polite'` is present in the DOM and empty — it is not conditionally mounted. Click the 'morning standup' chip. Expected: the element's content updates with the canned assistant reply. A screen reader should announce the reply on change without a disruptive interruption before any chip is clicked.",
+      "result": null
+    }
+  ]
+}

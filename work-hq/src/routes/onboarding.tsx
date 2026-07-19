@@ -47,6 +47,9 @@ import { checkContextFiles } from "@/server/check-context-files";
 import { scaffoldFiles } from "@/server/scaffold-files";
 import { readBootstrapPrompt } from "@/server/read-bootstrap-prompt";
 import { readProfile } from "@/server/read-profile";
+import { readTaxonomy } from "@/server/read-taxonomy";
+import type { Taxonomy } from "@/server/read-taxonomy";
+import { writeTaxonomy } from "@/server/write-taxonomy";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Onboarding · Work HQ" }] }),
@@ -876,37 +879,49 @@ function PhaseOrientation() {
           })}
         </div>
 
-        {/* Mini-chat panel — canned user + assistant turns (AC3). */}
-        {chatHistory.length > 0 && (
-          <div
-            aria-live="polite"
-            className="space-y-2 rounded-lg border border-border bg-background p-3"
-          >
-            {chatHistory.map((turn, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex",
-                  turn.role === "user" ? "justify-end" : "justify-start",
-                )}
-              >
+        {/* Mini-chat panel — canned user + assistant turns (AC3). The live
+            region is pre-mounted empty (story 019 AC5, story 016 QA follow-up)
+            so assistive tech registers it before a reply is injected; the card
+            chrome + content are applied only once a trigger has been played, so
+            an empty region shows nothing. The node is never unmounted. */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={cn(
+            chatHistory.length > 0 &&
+              "space-y-2 rounded-lg border border-border bg-background p-3",
+          )}
+        >
+          {chatHistory.length > 0 && (
+            <>
+              {chatHistory.map((turn, i) => (
                 <div
+                  key={i}
                   className={cn(
-                    "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
-                    turn.role === "user"
-                      ? "bg-primary font-mono text-primary-foreground"
-                      : "bg-muted text-foreground",
+                    "flex",
+                    turn.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
-                  {turn.text}
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
+                      turn.role === "user"
+                        ? "bg-primary font-mono text-primary-foreground"
+                        : "bg-muted text-foreground",
+                    )}
+                  >
+                    {turn.text}
+                  </div>
                 </div>
-              </div>
-            ))}
-            <p className="text-[10px] text-muted-foreground">
-              Preview only — no assistant was called and no files were changed.
-            </p>
-          </div>
-        )}
+              ))}
+              <p className="text-[10px] text-muted-foreground">
+                Preview only — no assistant was called and no files were
+                changed.
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -954,8 +969,14 @@ function BootstrapCopyBlock({
  * - Fact-triaged sections list ONLY changed facts: an edited fact as a plain
  *   bullet with its NEW text (`- <new text>`); a removed fact with the removal
  *   marker (`- **Removed:** <original text>`).  Unchanged facts are omitted.
- * - When nothing changed, the body states "No corrections — all sections
- *   accepted as is" (story 011 AC2 — unchanged zero-changes wording).
+ * - The `Tools, systems, and domains` section is suppressed from the review UI
+ *   (story 019) and unconditionally queued for deletion here (story 023 /
+ *   file-contracts §4.3): every handoff emits the block-level section-removal
+ *   directive `**Removed section:** Tools, systems, and domains` and appends the
+ *   exact removal sentence to the Ask. Because that directive is always present,
+ *   the handoff is never empty — the legacy "No corrections — all sections
+ *   accepted as is" branch (story 011) can no longer occur and is removed
+ *   (§4.3 no-empty-handoff clause).
  * - The Ask always appears, covering: apply corrections → first-person conversion
  *   → distil me/org/active (sensitivity gate per AGENTS.md §Sensitivity check).
  */
@@ -972,6 +993,20 @@ function buildProfileCorrectionsMarkdown(
   );
 
   const nameRef = fullName.trim() ? ` for ${fullName.trim()}` : "";
+
+  // Section-level removal directive (story 023 / file-contracts §4.3): a
+  // BLOCK-LEVEL line (not a bullet) instructing the assistant to delete the
+  // entire named section from context/profile.md. Emitted unconditionally for
+  // `Tools, systems, and domains`, which is suppressed from the review UI
+  // (story 019). Heading text carries no `##` prefix, mirroring the
+  // `**<Edited section heading>**` block label.
+  const removalSectionDirective =
+    "**Removed section:** Tools, systems, and domains";
+
+  // Appended verbatim to the Ask (story 023 / §4.3) — casing, punctuation, and
+  // the `##` prefix are exact.
+  const removalAskSentence =
+    "Remove the ## Tools, systems, and domains section from context/profile.md entirely.";
 
   // The sensitivity gate phrase must match AGENTS.md §Sensitivity check exactly.
   const askText =
@@ -1006,11 +1041,16 @@ function buildProfileCorrectionsMarkdown(
     return `**${heading}**\n${lines.join("\n")}`;
   };
 
+  // The unconditional section-removal directive always trails the changed
+  // section blocks, so the handoff is never empty (§4.3 no-empty-handoff
+  // clause). The Ask always appears last, with the removal sentence appended
+  // after the existing ask text.
+  const blocks = [
+    ...changedEntries.map(sectionBlock),
+    removalSectionDirective,
+  ];
   const body =
-    changedEntries.length === 0
-      ? `No corrections — all sections accepted as is\n\n**Ask**\n${askText}`
-      : changedEntries.map(sectionBlock).join("\n\n") +
-        `\n\n**Ask**\n${askText}`;
+    blocks.join("\n\n") + `\n\n**Ask**\n${askText}\n\n${removalAskSentence}`;
 
   return `${header}\n\n${body}\n`;
 }
@@ -1555,6 +1595,70 @@ function reconcileFacts(parsed: Fact[], persisted?: FactDecision[]): Fact[] {
   });
 }
 
+/* ----- Line-prose item parser (story 021) ----- */
+
+/**
+ * Split a bullet-less item-list section body into one Fact per line (story 021
+ * AC4). Used for sections routed to `'item-list'` via {@link HEADING_OVERRIDE_MAP}
+ * whose bodies contain no bullet lines (currently only 'Derived work style',
+ * whose body is soft-wrapped prose under a `**Derived**` label). It splits the
+ * body on `\n`, drops blank lines and status-label lines, and yields one pending
+ * Fact per remaining non-blank line — `text` is the trimmed line, `status` is the
+ * section-level status ({@link detectStatus} on the body), and `id` is the line's
+ * index in the filtered sequence (stable while the body is unchanged).
+ *
+ * Label lines are matched with {@link isLabelOnlyLine} (the shared helper, which
+ * covers `**Derived**` and the bare-word `Derived` variants) as well as AC4's
+ * `/^\*\*.+\*\*$/` bold-only pattern, so any bold-only marker line is skipped.
+ */
+function parseLineItems(body: string): Fact[] {
+  const sectionStatus = detectStatus(body);
+  return body
+    .split("\n")
+    .filter(
+      (l) =>
+        l.trim() !== "" &&
+        !isLabelOnlyLine(l) &&
+        !/^\*\*.+\*\*$/.test(l.trim()),
+    )
+    .map((l, i) => ({
+      id: String(i),
+      text: l.trim(),
+      status: sectionStatus,
+      decision: "pending" as const,
+    }));
+}
+
+/**
+ * Facts for an `'item-list'` section (story 021). A body carrying bullet lines
+ * reuses the story-013 bullet extractor ({@link parseFacts}) unchanged; a
+ * bullet-less overridden body (e.g. 'Derived work style') is split per line via
+ * {@link parseLineItems} so each prose line becomes an individually triageable
+ * item rather than one over-length paragraph the fact parser would drop.
+ */
+function parseItemFacts(body: string): Fact[] {
+  return body.split("\n").some(isBulletLine)
+    ? parseFacts(body)
+    : parseLineItems(body);
+}
+
+/**
+ * Reconcile item-list facts with persisted decisions (story 021). Like
+ * {@link reconcileFacts}, but a persisted fact whose `id` matches no freshly
+ * parsed item is a user-added item (the "Add item" affordance, AC3) and is
+ * appended so it survives reload and reaches the corrections handoff.
+ */
+function reconcileItemFacts(
+  parsed: Fact[],
+  persisted?: FactDecision[],
+): Fact[] {
+  const base = reconcileFacts(parsed, persisted);
+  if (!persisted || persisted.length === 0) return base;
+  const parsedIds = new Set(parsed.map((f) => f.id));
+  const added = persisted.filter((p) => !parsedIds.has(p.id));
+  return added.length > 0 ? [...base, ...added] : base;
+}
+
 /**
  * A fact is "settled" (folded into the confirmed/accepted summary) when the
  * user accepted it, or it is a still-pending Confirmed claim.  Everything else
@@ -1578,6 +1682,285 @@ function sectionHasChanges(entry: {
   return (entry.facts ?? []).some(
     (f) => f.decision === "edited" || f.decision === "removed",
   );
+}
+
+/* ----- Renderer dispatch + inline-markdown helpers (story 019) ----- */
+
+/**
+ * Which review renderer a profile section is routed to (feature f-review-ux,
+ * file-contracts §2). Chosen by {@link selectRenderer}: a per-heading override
+ * wins, otherwise the body's shape decides.
+ * - `'kv-grid'`         — a `|`-delimited table (story 020).
+ * - `'item-list'`       — a bulleted list (story 021).
+ * - `'taxonomy-picker'` — the Business-area cascading picker (story 022).
+ * - `'prose-card'`      — free paragraph text (existing FactSectionCard path).
+ * - `'suppressed'`      — never rendered; queued for removal (story 023).
+ */
+type RendererKind =
+  "kv-grid" | "item-list" | "taxonomy-picker" | "prose-card" | "suppressed";
+
+/**
+ * Per-heading renderer overrides — they take full precedence over shape
+ * detection (file-contracts §2). Keys MUST match the exact `## ` heading
+ * strings parseProfileSections emits from context/profile.md, NOT the
+ * file-contracts §2 prose paraphrase: the actual heading is
+ * `Tools, systems, and domains` (verified against context/profile.md), not the
+ * spec's descriptive "…they appear closest to".
+ */
+const HEADING_OVERRIDE_MAP: Record<string, RendererKind> = {
+  "Business area": "taxonomy-picker",
+  "Derived work style": "item-list",
+  "Tools, systems, and domains": "suppressed",
+};
+
+/**
+ * Choose the review renderer for one profile section (story 019 AC1).
+ * The override map wins; otherwise shape detection runs on the body:
+ *   a line starting with `|`         → `'kv-grid'`
+ *   a line starting with `- ` / `* ` → `'item-list'`
+ *   otherwise                        → `'prose-card'`
+ * `|` is checked before bullets so a table with an incidental bullet still
+ * routes to the grid. Status-label lines (`**Confirmed**`) start with `**`, not
+ * `* ` or `|`, so they never influence the shape.
+ */
+function selectRenderer(heading: string, body: string): RendererKind {
+  const override = HEADING_OVERRIDE_MAP[heading];
+  if (override) return override;
+  const lines = body.split("\n");
+  if (lines.some((l) => l.trimStart().startsWith("|"))) return "kv-grid";
+  if (lines.some((l) => isBulletLine(l))) return "item-list";
+  return "prose-card";
+}
+
+/**
+ * Strip inline markdown markers, returning clean plain text (story 019 AC3).
+ * `***bold-italic***` → `bold-italic`, `**bold**` → `bold`,
+ * `*italic*` / `_italic_` → `italic`, `` `code` `` → `code`.
+ * Used as the source for EVERY edit-field initial value so the user never edits
+ * raw `**` / `*` / `` ` `` markers. Applied triple → double → single so the
+ * outer markers are consumed before the inner ones.
+ */
+function humanizeMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/`(.+?)`/g, "$1");
+}
+
+/**
+ * Render inline markdown as real DOM — `**bold**` → `<strong>`,
+ * `*italic*` / `_italic_` → `<em>`, `` `code` `` → `<code>` — via a regex
+ * split (story 019 AC4). No dangerouslySetInnerHTML, no markdown library:
+ * a capturing split interleaves plain text with the matched spans, and each
+ * span is rendered as the matching element. Used wherever a fact's text appears
+ * in read (non-edit) state.
+ */
+function InlineMarkdown({ text }: { text: string }) {
+  // Ordered alternation: bold-italic, then bold, then italic, then code so the
+  // longer marker runs win before their prefixes.
+  const pattern = /(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|_.+?_|`.+?`)/g;
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!part) return null;
+        if (/^\*\*\*.+\*\*\*$/.test(part)) {
+          return (
+            <strong key={i}>
+              <em>{part.slice(3, -3)}</em>
+            </strong>
+          );
+        }
+        if (/^\*\*.+\*\*$/.test(part)) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (/^\*.+\*$/.test(part)) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        if (/^_.+_$/.test(part)) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        if (/^`.+`$/.test(part)) {
+          return <code key={i}>{part.slice(1, -1)}</code>;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
+/* ----- Markdown-table parser + KV-grid helpers (story 020) ----- */
+
+/** The exact `## ` heading of the identity section (min-key injection target). */
+const IDENTITY_HEADING = "Identity and current role";
+
+/**
+ * The seven fields the identity grid always surfaces (story 020 AC3). Any of
+ * these absent from the parsed table is injected as an empty row so the user
+ * always sees all seven — even before the assistant has filled them in.
+ */
+const IDENTITY_MIN_KEYS = [
+  "Name",
+  "Title",
+  "Email",
+  "Manager",
+  "Location",
+  "Department",
+  "Start date",
+];
+
+/** The cell delimiter for KV-row facts in the corrections handoff (§4.3). */
+const CELL_JOIN = " | ";
+
+/**
+ * Parse a markdown table body into headers + rows (story 020 AC2). Pure and
+ * column-count-generic: splits on newlines, keeps only lines beginning with
+ * `|`, skips separator rows (`|---|---|`), takes the first remaining line as the
+ * header row and every subsequent one as a data row. Each row is the pipe-
+ * delimited cells with the empty leading/trailing elements dropped and every
+ * cell trimmed. Non-table content around the table (status labels, prose) is
+ * ignored because it never starts with `|`.
+ */
+function parseMarkdownTable(body: string): {
+  headers: string[];
+  rows: string[][];
+} {
+  const toCells = (line: string): string[] =>
+    line
+      .split("|")
+      .slice(1, -1)
+      .map((c) => c.trim());
+
+  const dataLines = body
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("|"))
+    // Skip separator rows: only pipes, whitespace, dashes, and alignment colons.
+    .filter((l) => !/^[|\s:-]+$/.test(l));
+
+  if (dataLines.length === 0) return { headers: [], rows: [] };
+  return {
+    headers: toCells(dataLines[0]),
+    rows: dataLines.slice(1).map(toCells),
+  };
+}
+
+/** Split a stored row `text` / `editedText` back into its cells. */
+function splitCells(joined: string): string[] {
+  return joined.split(CELL_JOIN);
+}
+
+/** True when a row carries at least one non-empty value cell (columns ≥ 1). */
+function rowHasValue(cells: string[]): boolean {
+  return cells.slice(1).some((c) => c.trim() !== "");
+}
+
+/**
+ * The current display cells for a grid-row fact — the edited cells when the row
+ * is edited, otherwise the original parsed cells — padded to `colCount`.
+ */
+function currentCells(f: Fact, colCount: number): string[] {
+  const source =
+    f.decision === "edited" && f.editedText !== undefined
+      ? f.editedText
+      : f.text;
+  const cells = splitCells(source);
+  return Array.from({ length: colCount }, (_, i) => cells[i] ?? "");
+}
+
+/** Coerce a Fact into a persisted FactDecision (drop editedText when unused). */
+function toFactDecision(f: Fact): FactDecision {
+  const d: FactDecision = {
+    id: f.id,
+    text: f.text,
+    status: f.status,
+    decision: f.decision,
+  };
+  if (f.decision === "edited" && f.editedText !== undefined)
+    d.editedText = f.editedText;
+  return d;
+}
+
+/**
+ * A grid row is "settled" (folded into the confirmed count) when it is pending
+ * and carries a value. Injected empty rows (identity min-keys awaiting input),
+ * edited rows, and removed rows all still "need review" (story 020 review
+ * totals) — this mirrors {@link isSettledFact} so the review/confirmed header
+ * totals stay consistent across renderers.
+ */
+function isSettledGridRow(f: Fact): boolean {
+  if (f.decision === "edited" || f.decision === "removed") return false;
+  return rowHasValue(splitCells(f.editedText ?? f.text));
+}
+
+/**
+ * Build the grid rows for one KV section (story 020 AC2/AC3/AC5): parse the
+ * table, map each row to a Fact (`id` = field name for identity, row index
+ * otherwise; `text` = cells joined by ` | `), inject any missing identity
+ * min-keys as empty rows, then reconcile persisted decisions by `id`. Persisted
+ * facts whose `id` matches no parsed/injected row are user-added rows and are
+ * appended in order.
+ */
+function buildGridRows(
+  heading: string,
+  body: string,
+  sectionStatus: FactStatus,
+  persisted?: FactDecision[],
+): { headers: string[]; rows: Fact[] } {
+  const parsed = parseMarkdownTable(body);
+  const isIdentity = heading === IDENTITY_HEADING;
+  const headers =
+    parsed.headers.length > 0
+      ? parsed.headers
+      : isIdentity
+        ? ["Field", "Value"]
+        : [];
+
+  const base: Fact[] = parsed.rows.map((cells, i) => ({
+    id: isIdentity ? cells[0] : String(i),
+    text: cells.join(CELL_JOIN),
+    status: sectionStatus,
+    decision: "pending" as const,
+  }));
+
+  // AC3: inject any missing identity min-keys as empty rows (key cell filled,
+  // value cell empty), appended in IDENTITY_MIN_KEYS order.
+  if (isIdentity) {
+    const present = new Set(parsed.rows.map((c) => c[0]));
+    for (const key of IDENTITY_MIN_KEYS) {
+      if (!present.has(key)) {
+        base.push({
+          id: key,
+          text: [key, ...Array(Math.max(headers.length - 1, 1)).fill("")].join(
+            CELL_JOIN,
+          ),
+          status: sectionStatus,
+          decision: "pending" as const,
+        });
+      }
+    }
+  }
+
+  // Reconcile persisted decisions by id; keep parsed text/status authoritative.
+  const rows: Fact[] = base.map((f) => {
+    const p = persisted?.find((x) => x.id === f.id);
+    if (!p) return f;
+    return {
+      ...f,
+      decision: p.decision,
+      editedText: p.decision === "edited" ? p.editedText : undefined,
+    };
+  });
+
+  // Persisted facts with no matching base row are user-added rows.
+  const baseIds = new Set(base.map((f) => f.id));
+  for (const p of persisted ?? []) {
+    if (!baseIds.has(p.id)) rows.push({ ...p });
+  }
+
+  return { headers, rows };
 }
 
 /* ----- StatusChip ----- */
@@ -1632,7 +2015,11 @@ function FactRow({
   onUndoRemove: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(fact.editedText ?? fact.text);
+  // Edit textarea is seeded with humanized plain text (story 019 AC3) so the
+  // user never edits raw `**`/`*`/backtick markers.
+  const [draft, setDraft] = useState(
+    humanizeMarkdown(fact.editedText ?? fact.text),
+  );
 
   const display = fact.editedText ?? fact.text;
   const accepted = fact.decision === "accepted";
@@ -1643,7 +2030,7 @@ function FactRow({
     return (
       <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
         <p className="min-w-0 text-sm leading-relaxed text-muted-foreground line-through">
-          {fact.text}
+          <InlineMarkdown text={fact.text} />
         </p>
         <button
           type="button"
@@ -1692,7 +2079,7 @@ function FactRow({
           <button
             type="button"
             onClick={() => {
-              setDraft(fact.editedText ?? fact.text);
+              setDraft(humanizeMarkdown(fact.editedText ?? fact.text));
               setEditing(false);
             }}
             className={cn(
@@ -1710,7 +2097,9 @@ function FactRow({
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
       <div className="min-w-0 space-y-1">
-        <p className="text-sm leading-relaxed text-foreground">{display}</p>
+        <p className="text-sm leading-relaxed text-foreground">
+          <InlineMarkdown text={display} />
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip status={fact.status} />
           {accepted && (
@@ -1749,7 +2138,7 @@ function FactRow({
         <button
           type="button"
           onClick={() => {
-            setDraft(fact.editedText ?? fact.text);
+            setDraft(humanizeMarkdown(fact.editedText ?? fact.text));
             setEditing(true);
           }}
           aria-label={`Edit fact "${display}"`}
@@ -1886,7 +2275,12 @@ function FactSectionCard({
                   onEdit={(text) =>
                     onUpdateFact(
                       f.id,
-                      text.trim() === f.text.trim() ? "pending" : "edited",
+                      // Baseline is the humanized original (story 019): humanizing
+                      // alone must not mark a fact edited — only a real user
+                      // change relative to the humanized text counts.
+                      text.trim() === humanizeMarkdown(f.text).trim()
+                        ? "pending"
+                        : "edited",
                       text,
                     )
                   }
@@ -1933,7 +2327,12 @@ function FactSectionCard({
                     onEdit={(text) =>
                       onUpdateFact(
                         f.id,
-                        text.trim() === f.text.trim() ? "pending" : "edited",
+                        // AC7: compare against the humanized baseline so saving a
+                        // marker-stripped fact unchanged (e.g. `**Project Atlas**`
+                        // shown as `Project Atlas`) never falsely flags it edited.
+                        text.trim() === humanizeMarkdown(f.text).trim()
+                          ? "pending"
+                          : "edited",
                         text,
                       )
                     }
@@ -1955,6 +2354,758 @@ function FactSectionCard({
           >
             Edit raw section
           </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ----- ItemListCard (story 021) ----- */
+
+/**
+ * An unsaved "Add item" row (story 021 AC3). Renders an autofocused textarea
+ * seeded empty, with Save (button or Enter) and Cancel (button or Escape). Save
+ * commits the trimmed text as a new item; Cancel — or Save with only whitespace
+ * — discards the row without persisting. Kept as its own component so each new
+ * row owns its draft state and mounts with focus, whether opened by mouse or
+ * keyboard.
+ */
+function NewItemRow({
+  id,
+  onSave,
+  onCancel,
+}: {
+  id: string;
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const commit = () => {
+    if (draft.trim()) onSave(draft.trim());
+    else onCancel();
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/40 bg-background px-3 py-2">
+      <label htmlFor={id} className="sr-only">
+        New item text
+      </label>
+      <textarea
+        id={id}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        rows={2}
+        autoFocus
+        placeholder="Describe the item…"
+        className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={commit}
+          className={cn(
+            "flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110",
+            FOCUS_RING,
+          )}
+        >
+          <Check className="size-3.5" /> Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cn(
+            "flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
+            FOCUS_RING,
+          )}
+        >
+          <X className="size-3.5" /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Card for one `'item-list'` ## section (story 021). Extends the story-013
+ * fact-triage card: it wraps the same {@link FactRow} per item — Accept / inline
+ * Edit / Remove with {@link StatusChip} chips — with needs-review items first and
+ * confirmed items collapsed into an "N confirmed" disclosure, and every card
+ * keeps the story-010 "Edit raw section" escape hatch. It adds an always-visible
+ * "Add item" affordance (never gated on item status): activating it opens an
+ * autofocused {@link NewItemRow}; saving persists the entry as a new `Fact`
+ * (`decision: 'edited'`) that flows into the corrections handoff as a new bullet.
+ * Item text renders through {@link InlineMarkdown}; edit fields seed from
+ * {@link humanizeMarkdown} (via FactRow), so raw markers never appear.
+ */
+function ItemListCard({
+  heading,
+  sectionStatus,
+  facts,
+  rawBody,
+  isRawEdited,
+  hasChanges,
+  onUpdateFact,
+  onAddItem,
+  onRawEdit,
+  onResetRaw,
+}: {
+  heading: string;
+  sectionStatus: FactStatus;
+  facts: Fact[];
+  rawBody: string;
+  isRawEdited: boolean;
+  hasChanges: boolean;
+  onUpdateFact: (
+    id: string,
+    decision: FactDecisionKind,
+    editedText?: string,
+  ) => void;
+  onAddItem: (text: string) => void;
+  onRawEdit: (body: string) => void;
+  onResetRaw: () => void;
+}) {
+  // Open the raw-edit escape hatch by default for already raw-edited sections
+  // (mirrors FactSectionCard / KvGridCard).
+  const [rawOpen, setRawOpen] = useState(isRawEdited);
+
+  // Locally-held unsaved "Add item" rows (AC3). Each becomes a persisted Fact
+  // only once saved with content, so empty adds never leak to the handoff.
+  const [newItems, setNewItems] = useState<string[]>([]);
+  const newCounter = useRef(0);
+
+  const reviewFacts = facts.filter((f) => !isSettledFact(f));
+  const settledFacts = facts.filter(isSettledFact);
+  const rawId = `raw-section-${heading.replace(/\W+/g, "-")}`;
+
+  const addItem = () =>
+    setNewItems((n) => [...n, `add-${newCounter.current++}`]);
+  const dropNewItem = (tempId: string) =>
+    setNewItems((n) => n.filter((t) => t !== tempId));
+
+  // One FactRow per item — identical triage semantics to FactSectionCard,
+  // including the story-019/020 AC7 humanized-baseline edited comparison.
+  const renderRow = (f: Fact) => (
+    <FactRow
+      key={f.id}
+      fact={f}
+      onAccept={() =>
+        onUpdateFact(f.id, f.decision === "accepted" ? "pending" : "accepted")
+      }
+      onEdit={(text) =>
+        onUpdateFact(
+          f.id,
+          text.trim() === humanizeMarkdown(f.text).trim()
+            ? "pending"
+            : "edited",
+          text,
+        )
+      }
+      onRemove={() => onUpdateFact(f.id, "removed")}
+      onUndoRemove={() => onUpdateFact(f.id, "pending")}
+    />
+  );
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-4 space-y-3 transition",
+        hasChanges ? "border-primary/50" : "border-border",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-foreground leading-snug">
+          {heading}
+        </h3>
+        <div className="flex shrink-0 items-center gap-2">
+          {hasChanges && (
+            <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
+              Changed
+            </span>
+          )}
+          <StatusChip status={sectionStatus} />
+        </div>
+      </div>
+
+      {rawOpen ? (
+        /* Raw-section escape hatch (story 010, retained per AC6). */
+        <div className="space-y-2">
+          <label htmlFor={rawId} className="sr-only">
+            Raw section body for {heading}
+          </label>
+          <textarea
+            id={rawId}
+            value={rawBody}
+            onChange={(e) => onRawEdit(e.target.value)}
+            rows={6}
+            className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onResetRaw();
+              setRawOpen(false);
+            }}
+            className={cn(
+              "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            ← Discard raw edit &amp; return to the item list
+          </button>
+        </div>
+      ) : (
+        <>
+          {reviewFacts.length > 0 ? (
+            <div className="space-y-2">{reviewFacts.map(renderRow)}</div>
+          ) : facts.length === 0 ? (
+            newItems.length === 0 && (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                No items yet — use{" "}
+                <strong className="text-foreground">Add item</strong> below to
+                add the first one.
+              </p>
+            )
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Every item in this section is confirmed — nothing needs your
+              review.
+            </p>
+          )}
+
+          {/* Unsaved, locally-added items (AC3) — always editable, autofocused. */}
+          {newItems.length > 0 && (
+            <div className="space-y-2">
+              {newItems.map((tempId) => (
+                <NewItemRow
+                  key={tempId}
+                  id={`${rawId}-${tempId}`}
+                  onSave={(text) => {
+                    onAddItem(text);
+                    dropNewItem(tempId);
+                  }}
+                  onCancel={() => dropNewItem(tempId)}
+                />
+              ))}
+            </div>
+          )}
+
+          {settledFacts.length > 0 && (
+            <details className="group rounded-lg border border-border/60 bg-muted/20">
+              <summary
+                className={cn(
+                  "flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground",
+                  FOCUS_RING,
+                )}
+              >
+                <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+                {settledFacts.length} confirmed — click to expand
+              </summary>
+              <div className="space-y-2 border-t border-border/60 px-3 py-2">
+                {settledFacts.map(renderRow)}
+              </div>
+            </details>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            {/* AC3: Add item is unconditional — never gated on item settled-state. */}
+            <button
+              type="button"
+              onClick={addItem}
+              aria-label={`Add item to ${heading}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+                FOCUS_RING,
+              )}
+            >
+              <Plus className="size-3.5" /> Add item
+            </button>
+            <button
+              type="button"
+              onClick={() => setRawOpen(true)}
+              className={cn(
+                "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+                FOCUS_RING,
+              )}
+            >
+              Edit raw section
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ----- KvGridCard (story 020) ----- */
+
+/**
+ * Renders a KV / table profile section as an editable HTML grid (story 020) —
+ * never raw markdown, never a visible pipe. Column headers come from the parsed
+ * table; each row supports in-place edit (an input per cell), removal (with a
+ * struck-through Undo), and an "Add row" affordance. Display cells pass through
+ * {@link InlineMarkdown}; every edit field is seeded with
+ * {@link humanizeMarkdown} so the user never edits raw markers (AC4). Grid rows
+ * map 1:1 to the section's `Fact` decisions in the parent, so edits/adds/removes
+ * flow through the existing corrections handoff unchanged (AC5/AC6). The
+ * per-section raw-edit escape hatch (story 010) is retained.
+ */
+function KvGridCard({
+  heading,
+  sectionStatus,
+  headers,
+  rows,
+  rawBody,
+  isRawEdited,
+  hasChanges,
+  onCommitRow,
+  onRemoveRow,
+  onUndoRow,
+  onAddRow,
+  onRawEdit,
+  onResetRaw,
+}: {
+  heading: string;
+  sectionStatus: FactStatus;
+  headers: string[];
+  rows: Fact[];
+  rawBody: string;
+  isRawEdited: boolean;
+  hasChanges: boolean;
+  onCommitRow: (id: string, cells: string[]) => void;
+  onRemoveRow: (id: string) => void;
+  onUndoRow: (id: string) => void;
+  onAddRow: (cells: string[]) => void;
+  onRawEdit: (body: string) => void;
+  onResetRaw: () => void;
+}) {
+  const colCount = Math.max(headers.length, 1);
+  const [rawOpen, setRawOpen] = useState(isRawEdited);
+  const gridId = `kv-${heading.replace(/\W+/g, "-")}`;
+
+  // Ephemeral drafts for rows being edited in-place: id → humanized cell values
+  // (AC4). Seeded on mount for injected empty rows so identity min-keys open in
+  // edit mode by default (AC3).
+  const [editing, setEditing] = useState<Record<string, string[]>>(() => {
+    const init: Record<string, string[]> = {};
+    for (const r of rows) {
+      const cells = currentCells(r, colCount);
+      if (r.decision === "pending" && !rowHasValue(cells)) {
+        init[r.id] = cells.map((c) => humanizeMarkdown(c));
+      }
+    }
+    return init;
+  });
+
+  // Locally-added rows that have not yet been persisted (AC4b) — they become
+  // real facts only once saved with content, so empty adds never leak to the
+  // handoff.
+  const [newRows, setNewRows] = useState<
+    Array<{ tempId: string; cells: string[] }>
+  >([]);
+  const newCounter = useRef(0);
+
+  const rowKeyOf = (r: Fact) => {
+    const first = currentCells(r, colCount)[0]?.trim();
+    return first && first.length > 0 ? first : "this";
+  };
+
+  const startEdit = (r: Fact) =>
+    setEditing((e) => ({
+      ...e,
+      [r.id]: currentCells(r, colCount).map((c) => humanizeMarkdown(c)),
+    }));
+  const cancelEdit = (id: string) =>
+    setEditing((e) => {
+      const n = { ...e };
+      delete n[id];
+      return n;
+    });
+  const changeEditCell = (id: string, i: number, value: string) =>
+    setEditing((e) => {
+      const cells = [...(e[id] ?? Array.from({ length: colCount }, () => ""))];
+      cells[i] = value;
+      return { ...e, [id]: cells };
+    });
+  const saveEdit = (id: string) => {
+    onCommitRow(id, editing[id] ?? []);
+    cancelEdit(id);
+  };
+
+  const addRow = () => {
+    const tempId = `new-${newCounter.current++}`;
+    setNewRows((n) => [
+      ...n,
+      { tempId, cells: Array.from({ length: colCount }, () => "") },
+    ]);
+  };
+  const changeNewCell = (tempId: string, i: number, value: string) =>
+    setNewRows((n) =>
+      n.map((r) =>
+        r.tempId === tempId
+          ? { ...r, cells: r.cells.map((c, ci) => (ci === i ? value : c)) }
+          : r,
+      ),
+    );
+  const cancelNew = (tempId: string) =>
+    setNewRows((n) => n.filter((r) => r.tempId !== tempId));
+  const saveNew = (tempId: string) => {
+    const row = newRows.find((r) => r.tempId === tempId);
+    if (row && rowHasValue(row.cells)) onAddRow(row.cells);
+    cancelNew(tempId);
+  };
+
+  const cellKeyDown = (
+    e: React.KeyboardEvent,
+    i: number,
+    onEnter: () => void,
+    onEscape: () => void,
+  ) => {
+    if (e.key === "Enter" && i === colCount - 1) {
+      e.preventDefault();
+      onEnter();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onEscape();
+    }
+  };
+
+  const iconBtn =
+    "flex size-8 items-center justify-center rounded-md text-muted-foreground";
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-4 space-y-3 transition",
+        hasChanges ? "border-primary/50" : "border-border",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold leading-snug text-foreground">
+          {heading}
+        </h3>
+        <div className="flex shrink-0 items-center gap-2">
+          {hasChanges && (
+            <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
+              Changed
+            </span>
+          )}
+          <StatusChip status={sectionStatus} />
+        </div>
+      </div>
+
+      {rawOpen ? (
+        /* Raw-section escape hatch (story 010, retained per AC8). */
+        <div className="space-y-2">
+          <label htmlFor={`${gridId}-raw`} className="sr-only">
+            Raw section body for {heading}
+          </label>
+          <textarea
+            id={`${gridId}-raw`}
+            value={rawBody}
+            onChange={(e) => onRawEdit(e.target.value)}
+            rows={8}
+            className="w-full resize-y rounded-lg border border-border bg-background px-4 py-3 font-mono text-xs leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onResetRaw();
+              setRawOpen(false);
+            }}
+            className={cn(
+              "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+              FOCUS_RING,
+            )}
+          >
+            ← Discard raw edit &amp; return to the grid
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-lg border border-border/70">
+            <table className="w-full border-collapse text-sm">
+              <caption className="sr-only">{heading}</caption>
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  {Array.from({ length: colCount }, (_, i) => (
+                    <th
+                      key={i}
+                      scope="col"
+                      className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      {headers[i] ?? ""}
+                    </th>
+                  ))}
+                  <th scope="col" className="px-3 py-2 text-right">
+                    <span className="sr-only">Row actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const rowKey = rowKeyOf(r);
+                  const draft = editing[r.id];
+
+                  // Removed — struck-through with an Undo (AC4c).
+                  if (r.decision === "removed") {
+                    const cells = currentCells(r, colCount);
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b border-border/60 bg-muted/20 last:border-0"
+                      >
+                        {cells.map((c, i) => (
+                          <td
+                            key={i}
+                            className="px-3 py-2 align-top text-muted-foreground line-through"
+                          >
+                            <InlineMarkdown text={c} />
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right align-top">
+                          <button
+                            type="button"
+                            onClick={() => onUndoRow(r.id)}
+                            aria-label={`Undo removal of ${rowKey} row`}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+                              FOCUS_RING,
+                            )}
+                          >
+                            <RotateCcw className="size-3.5" /> Undo
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  // In-place edit — an input per cell (AC4a).
+                  if (draft) {
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b border-border/60 bg-background last:border-0"
+                      >
+                        {Array.from({ length: colCount }, (_, i) => (
+                          <td key={i} className="px-2 py-1.5 align-top">
+                            <label
+                              htmlFor={`${gridId}-${r.id}-${i}`}
+                              className="sr-only"
+                            >
+                              {headers[i] ?? `Column ${i + 1}`} for {rowKey} row
+                            </label>
+                            <input
+                              id={`${gridId}-${r.id}-${i}`}
+                              type="text"
+                              value={draft[i] ?? ""}
+                              onChange={(e) =>
+                                changeEditCell(r.id, i, e.target.value)
+                              }
+                              onKeyDown={(e) =>
+                                cellKeyDown(
+                                  e,
+                                  i,
+                                  () => saveEdit(r.id),
+                                  () => cancelEdit(r.id),
+                                )
+                              }
+                              aria-label={`${headers[i] ?? `Column ${i + 1}`} for ${rowKey} row`}
+                              autoFocus={i === 0}
+                              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                          </td>
+                        ))}
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right align-top">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => saveEdit(r.id)}
+                              aria-label={`Save ${rowKey} row`}
+                              className={cn(
+                                iconBtn,
+                                "hover:bg-fresh/10 hover:text-fresh",
+                                FOCUS_RING,
+                              )}
+                            >
+                              <Check className="size-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cancelEdit(r.id)}
+                              aria-label={`Cancel editing ${rowKey} row`}
+                              className={cn(
+                                iconBtn,
+                                "hover:bg-muted hover:text-foreground",
+                                FOCUS_RING,
+                              )}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  // Display row (AC1) — cells via InlineMarkdown, no pipes.
+                  const cells = currentCells(r, colCount);
+                  return (
+                    <tr
+                      key={r.id}
+                      className={cn(
+                        "border-b border-border/60 last:border-0",
+                        r.decision === "edited" && "bg-primary/5",
+                      )}
+                    >
+                      {cells.map((c, i) => (
+                        <td
+                          key={i}
+                          className="px-3 py-2 align-top text-foreground"
+                        >
+                          {c.trim() ? (
+                            <InlineMarkdown text={c} />
+                          ) : (
+                            <span className="italic text-muted-foreground">
+                              Not set
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="whitespace-nowrap px-3 py-2 text-right align-top">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(r)}
+                            aria-label={`Edit ${rowKey} row`}
+                            title="Edit"
+                            className={cn(
+                              iconBtn,
+                              "hover:bg-primary/10 hover:text-primary",
+                              FOCUS_RING,
+                            )}
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onRemoveRow(r.id)}
+                            aria-label={`Remove ${rowKey} row`}
+                            title="Remove"
+                            className={cn(
+                              iconBtn,
+                              "hover:bg-destructive/10 hover:text-destructive",
+                              FOCUS_RING,
+                            )}
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Unsaved, locally-added rows (AC4b) — always editable. */}
+                {newRows.map((nr) => (
+                  <tr
+                    key={nr.tempId}
+                    className="border-b border-border/60 bg-background last:border-0"
+                  >
+                    {Array.from({ length: colCount }, (_, i) => (
+                      <td key={i} className="px-2 py-1.5 align-top">
+                        <label
+                          htmlFor={`${gridId}-${nr.tempId}-${i}`}
+                          className="sr-only"
+                        >
+                          {headers[i] ?? `Column ${i + 1}`} for new row
+                        </label>
+                        <input
+                          id={`${gridId}-${nr.tempId}-${i}`}
+                          type="text"
+                          value={nr.cells[i] ?? ""}
+                          onChange={(e) =>
+                            changeNewCell(nr.tempId, i, e.target.value)
+                          }
+                          onKeyDown={(e) =>
+                            cellKeyDown(
+                              e,
+                              i,
+                              () => saveNew(nr.tempId),
+                              () => cancelNew(nr.tempId),
+                            )
+                          }
+                          aria-label={`${headers[i] ?? `Column ${i + 1}`} for new row`}
+                          placeholder={headers[i] ?? ""}
+                          autoFocus={i === 0}
+                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </td>
+                    ))}
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right align-top">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => saveNew(nr.tempId)}
+                          aria-label="Save new row"
+                          className={cn(
+                            iconBtn,
+                            "hover:bg-fresh/10 hover:text-fresh",
+                            FOCUS_RING,
+                          )}
+                        >
+                          <Check className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => cancelNew(nr.tempId)}
+                          aria-label="Cancel new row"
+                          className={cn(
+                            iconBtn,
+                            "hover:bg-muted hover:text-foreground",
+                            FOCUS_RING,
+                          )}
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={addRow}
+              aria-label="Add row"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+                FOCUS_RING,
+              )}
+            >
+              <Plus className="size-3.5" /> Add row
+            </button>
+            <button
+              type="button"
+              onClick={() => setRawOpen(true)}
+              className={cn(
+                "rounded-md px-1 text-xs font-medium text-muted-foreground hover:text-foreground",
+                FOCUS_RING,
+              )}
+            >
+              Edit raw section
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -1992,6 +3143,8 @@ function PhaseReviewCorrect({
   const [profileContent, setProfileContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  // Story 022: taxonomy for the Business-area cascading picker.
+  const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null);
 
   // Load profile.md on mount (AC2: read at request time, not import.meta.glob).
   useEffect(() => {
@@ -2023,6 +3176,11 @@ function PhaseReviewCorrect({
       setProfileContent(content);
     });
   };
+
+  // Story 022: load taxonomy on mount for the Business-area picker.
+  useEffect(() => {
+    void readTaxonomy().then(setTaxonomy);
+  }, []);
 
   // While awaiting initial server read, show nothing (avoids flicker).
   if (loading) {
@@ -2092,37 +3250,103 @@ function PhaseReviewCorrect({
   let totalSettled = 0;
 
   const sectionData = sections.map((section) => {
+    // Story 019 AC2: every section is routed through selectRenderer.
+    const renderer = selectRenderer(section.heading, section.body);
     const saved = answers.editedSections[section.heading];
-    const parsed = parseFacts(section.body);
-    const facts = reconcileFacts(parsed, saved?.facts);
-    const rawBody = saved?.body ?? section.body;
+    // Story 021: item-list sections parse per item (bullets via parseFacts, a
+    // bullet-less overridden body via parseLineItems) and reconcile so user-added
+    // items survive; every other renderer keeps the story-013 fact parser.
+    const isItemList = renderer === "item-list";
+    const parsed = isItemList
+      ? parseItemFacts(section.body)
+      : parseFacts(section.body);
+    const facts = isItemList
+      ? reconcileItemFacts(parsed, saved?.facts)
+      : reconcileFacts(parsed, saved?.facts);
+    const sectionStatus = detectStatus(section.body);
+    // Raw-section escape hatch is also seeded with humanized plain text (story
+    // 019 AC3) so it never shows raw markers; a persisted edit wins over the seed.
+    const rawBody = saved?.body ?? humanizeMarkdown(section.body);
     const isRawEdited = saved?.edited ?? false;
     const hasChanges = saved ? sectionHasChanges(saved) : false;
-    const reviewCount = facts.filter((f) => !isSettledFact(f)).length;
 
-    // Raw-edited sections aren't in fact-triage mode — don't count their facts.
+    // Story 020: KV / table sections are now interactively reviewable, so build
+    // their grid rows and fold them into the same review/confirmed totals as the
+    // fact-triage card.
+    const isKvGrid = renderer === "kv-grid";
+    const grid = isKvGrid
+      ? buildGridRows(
+          section.heading,
+          section.body,
+          sectionStatus,
+          saved?.facts,
+        )
+      : null;
+    const usesFactCard = renderer === "item-list" || renderer === "prose-card";
+    const isTaxonomyPicker = renderer === "taxonomy-picker";
+
+    // Story 022: taxonomy-picker reviewCount: 0 once a full three-level
+    // selection exists (BA + Portfolio + Squad joined with ' > '), 1 otherwise.
+    const taxonomySettled = (() => {
+      if (!isTaxonomyPicker) return false;
+      const baFact = saved?.facts?.find(
+        (f) => f.id === "business-area-selection",
+      );
+      const parts = (baFact?.editedText ?? "")
+        .split(" > ")
+        .filter((p) => p.trim());
+      return parts.length >= 3;
+    })();
+
+    const reviewCount = usesFactCard
+      ? facts.filter((f) => !isSettledFact(f)).length
+      : grid
+        ? grid.rows.filter((r) => !isSettledGridRow(r)).length
+        : isTaxonomyPicker
+          ? taxonomySettled
+            ? 0
+            : 1
+          : 0;
+
+    // Sections rendered via the fact-triage card, the KV grid, OR the
+    // taxonomy-picker contribute to the review/confirmed header totals.
+    // Suppressed sections are never rendered and never counted.
     if (!isRawEdited) {
-      totalReview += reviewCount;
-      totalSettled += facts.length - reviewCount;
+      if (usesFactCard) {
+        totalReview += reviewCount;
+        totalSettled += facts.length - reviewCount;
+      } else if (grid) {
+        totalReview += reviewCount;
+        totalSettled += grid.rows.length - reviewCount;
+      } else if (isTaxonomyPicker) {
+        totalReview += reviewCount;
+        totalSettled += taxonomySettled ? 1 : 0;
+      }
     }
 
     return {
       section,
+      renderer,
       facts,
+      grid,
       rawBody,
       isRawEdited,
       hasChanges,
       reviewCount,
-      sectionStatus: detectStatus(section.body),
+      sectionStatus,
     };
   });
 
+  // Story 019 AC2: a 'suppressed' section renders no card at all — drop it here
+  // (its unconditional removal is handled in the corrections handoff, story 023).
   // AC3: sort sections that need attention (review facts or a raw edit) first.
-  const ordered = [...sectionData].sort(
-    (a, b) =>
-      (a.isRawEdited || a.reviewCount > 0 ? 0 : 1) -
-      (b.isRawEdited || b.reviewCount > 0 ? 0 : 1),
-  );
+  const ordered = [...sectionData]
+    .filter((d) => d.renderer !== "suppressed")
+    .sort(
+      (a, b) =>
+        (a.isRawEdited || a.reviewCount > 0 ? 0 : 1) -
+        (b.isRawEdited || b.reviewCount > 0 ? 0 : 1),
+    );
 
   // Sections carrying a correction, for the handoff label + Confirm button.
   const changedCount = Object.values(answers.editedSections).filter(
@@ -2191,42 +3415,277 @@ function PhaseReviewCorrect({
         )}
       </div>
 
-      {ordered.map((d) => (
-        <FactSectionCard
-          key={d.section.heading}
-          heading={d.section.heading}
-          sectionStatus={d.sectionStatus}
-          facts={d.facts}
-          rawBody={d.rawBody}
-          isRawEdited={d.isRawEdited}
-          hasChanges={d.hasChanges}
-          onUpdateFact={(id, decision, editedText) =>
-            updateFact(
-              d.section.heading,
-              d.facts,
-              d.rawBody,
-              d.isRawEdited,
-              id,
-              decision,
-              editedText,
-            )
-          }
-          onRawEdit={(newBody) =>
+      {ordered.map((d) => {
+        // Story 020: KV / table sections render the interactive KvGridCard. Its
+        // rows map to the section's Fact decisions, so edits/adds/removes flow
+        // through the existing corrections handoff with no special-casing.
+        if (d.renderer === "kv-grid" && d.grid) {
+          const grid = d.grid;
+          const isIdentity = d.section.heading === IDENTITY_HEADING;
+          const persist = (nextFacts: FactDecision[]) =>
             writeSection(d.section.heading, {
-              body: newBody,
-              edited: newBody.trim() !== d.section.body.trim(),
-              facts: answers.editedSections[d.section.heading]?.facts,
-            })
-          }
-          onResetRaw={() =>
+              body: d.rawBody,
+              edited: d.isRawEdited,
+              facts: nextFacts,
+            });
+          return (
+            <KvGridCard
+              key={d.section.heading}
+              heading={d.section.heading}
+              sectionStatus={d.sectionStatus}
+              headers={grid.headers}
+              rows={grid.rows}
+              rawBody={d.rawBody}
+              isRawEdited={d.isRawEdited}
+              hasChanges={d.hasChanges}
+              onCommitRow={(id, cells) => {
+                const trimmed = cells.map((c) => c.trim());
+                const newJoined = trimmed.join(CELL_JOIN);
+                persist(
+                  grid.rows.map((r) => {
+                    if (r.id !== id) return toFactDecision(r);
+                    // Baseline is the humanized original (story 019/AC7): saving
+                    // marker-stripped cells unchanged, or leaving all value cells
+                    // empty, must not mark the row edited.
+                    const originalHumanized = splitCells(r.text)
+                      .map((c) => humanizeMarkdown(c).trim())
+                      .join(CELL_JOIN);
+                    if (
+                      !rowHasValue(trimmed) ||
+                      newJoined === originalHumanized
+                    ) {
+                      return {
+                        id: r.id,
+                        text: r.text,
+                        status: r.status,
+                        decision: "pending" as const,
+                      };
+                    }
+                    return {
+                      id: r.id,
+                      text: r.text,
+                      status: r.status,
+                      decision: "edited" as const,
+                      editedText: newJoined,
+                    };
+                  }),
+                );
+              }}
+              onRemoveRow={(id) => {
+                const target = grid.rows.find((r) => r.id === id);
+                // A real parsed row (original value present) is marked removed so
+                // the handoff emits its `- **Removed:** …` bullet. An injected or
+                // added empty row is simply dropped (nothing to remove upstream).
+                const originalHasValue = target
+                  ? rowHasValue(splitCells(target.text))
+                  : false;
+                persist(
+                  originalHasValue
+                    ? grid.rows.map((r) =>
+                        r.id === id
+                          ? {
+                              id: r.id,
+                              text: r.text,
+                              status: r.status,
+                              decision: "removed" as const,
+                            }
+                          : toFactDecision(r),
+                      )
+                    : grid.rows.filter((r) => r.id !== id).map(toFactDecision),
+                );
+              }}
+              onUndoRow={(id) =>
+                persist(
+                  grid.rows.map((r) =>
+                    r.id === id
+                      ? {
+                          id: r.id,
+                          text: r.text,
+                          status: r.status,
+                          decision: "pending" as const,
+                        }
+                      : toFactDecision(r),
+                  ),
+                )
+              }
+              onAddRow={(cells) => {
+                const trimmed = cells.map((c) => c.trim());
+                const joined = trimmed.join(CELL_JOIN);
+                const id =
+                  isIdentity && trimmed[0]
+                    ? trimmed[0]
+                    : String(grid.rows.length);
+                const added: FactDecision = {
+                  id,
+                  text: "",
+                  status: d.sectionStatus,
+                  decision: "edited",
+                  editedText: joined,
+                };
+                persist([...grid.rows.map(toFactDecision), added]);
+              }}
+              onRawEdit={(newBody) =>
+                writeSection(d.section.heading, {
+                  body: newBody,
+                  edited:
+                    newBody.trim() !== humanizeMarkdown(d.section.body).trim(),
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+              onResetRaw={() =>
+                writeSection(d.section.heading, {
+                  body: humanizeMarkdown(d.section.body),
+                  edited: false,
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+            />
+          );
+        }
+        // Story 022: taxonomy-picker renders the TaxonomyPickerCard — three
+        // cascading comboboxes (BA → Portfolio → Squad) with free-entry Add.
+        if (d.renderer === "taxonomy-picker") {
+          return (
+            <TaxonomyPickerCard
+              key={d.section.heading}
+              heading={d.section.heading}
+              sectionStatus={d.sectionStatus}
+              taxonomy={taxonomy}
+              savedFacts={answers.editedSections[d.section.heading]?.facts}
+              onSelectionChange={(editedText) => {
+                const newFact: FactDecision = {
+                  id: "business-area-selection",
+                  text: "",
+                  status: d.sectionStatus,
+                  decision: "edited",
+                  editedText,
+                };
+                writeSection(d.section.heading, {
+                  body: d.rawBody,
+                  edited: d.isRawEdited,
+                  facts: [newFact],
+                });
+              }}
+              onTaxonomyChange={setTaxonomy}
+            />
+          );
+        }
+        // Story 021: item-list sections render the interactive ItemListCard. Its
+        // rows map to the section's Fact decisions (same as FactSectionCard), and
+        // the "Add item" affordance appends a new edited Fact that flows through
+        // the existing corrections handoff as a new bullet — no builder change.
+        if (d.renderer === "item-list") {
+          const persist = (nextFacts: FactDecision[]) =>
             writeSection(d.section.heading, {
-              body: d.section.body,
-              edited: false,
-              facts: answers.editedSections[d.section.heading]?.facts,
-            })
-          }
-        />
-      ))}
+              body: d.rawBody,
+              edited: d.isRawEdited,
+              facts: nextFacts,
+            });
+          return (
+            <ItemListCard
+              key={d.section.heading}
+              heading={d.section.heading}
+              sectionStatus={d.sectionStatus}
+              facts={d.facts}
+              rawBody={d.rawBody}
+              isRawEdited={d.isRawEdited}
+              hasChanges={d.hasChanges}
+              onUpdateFact={(id, decision, editedText) => {
+                const target = d.facts.find((f) => f.id === id);
+                // Removing a user-added item (no upstream text in profile.md)
+                // drops it entirely — there is nothing to mark **Removed:** —
+                // mirroring the KV grid's empty-row removal (story 020).
+                if (
+                  decision === "removed" &&
+                  target &&
+                  target.text.trim() === ""
+                ) {
+                  persist(
+                    d.facts.filter((f) => f.id !== id).map(toFactDecision),
+                  );
+                  return;
+                }
+                updateFact(
+                  d.section.heading,
+                  d.facts,
+                  d.rawBody,
+                  d.isRawEdited,
+                  id,
+                  decision,
+                  editedText,
+                );
+              }}
+              onAddItem={(text) => {
+                // A new item is an edited Fact with generated id + empty original
+                // text, so buildProfileCorrectionsMarkdown emits `- <new text>`.
+                const added: FactDecision = {
+                  id: `new-${Date.now()}`,
+                  text: "",
+                  status: d.sectionStatus,
+                  decision: "edited",
+                  editedText: text.trim(),
+                };
+                persist([...d.facts.map(toFactDecision), added]);
+              }}
+              onRawEdit={(newBody) =>
+                writeSection(d.section.heading, {
+                  body: newBody,
+                  edited:
+                    newBody.trim() !== humanizeMarkdown(d.section.body).trim(),
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+              onResetRaw={() =>
+                writeSection(d.section.heading, {
+                  body: humanizeMarkdown(d.section.body),
+                  edited: false,
+                  facts: answers.editedSections[d.section.heading]?.facts,
+                })
+              }
+            />
+          );
+        }
+        return (
+          <FactSectionCard
+            key={d.section.heading}
+            heading={d.section.heading}
+            sectionStatus={d.sectionStatus}
+            facts={d.facts}
+            rawBody={d.rawBody}
+            isRawEdited={d.isRawEdited}
+            hasChanges={d.hasChanges}
+            onUpdateFact={(id, decision, editedText) =>
+              updateFact(
+                d.section.heading,
+                d.facts,
+                d.rawBody,
+                d.isRawEdited,
+                id,
+                decision,
+                editedText,
+              )
+            }
+            onRawEdit={(newBody) =>
+              writeSection(d.section.heading, {
+                body: newBody,
+                // Compare against the humanized baseline (story 019): stripping
+                // markers alone must not mark the section edited — only a real
+                // change relative to the humanized seed does.
+                edited:
+                  newBody.trim() !== humanizeMarkdown(d.section.body).trim(),
+                facts: answers.editedSections[d.section.heading]?.facts,
+              })
+            }
+            onResetRaw={() =>
+              writeSection(d.section.heading, {
+                body: humanizeMarkdown(d.section.body),
+                edited: false,
+                facts: answers.editedSections[d.section.heading]?.facts,
+              })
+            }
+          />
+        );
+      })}
 
       {/* story 011 AC1/AC2 + story 013 AC5: profile-corrections handoff (fact-level). */}
       <ProfileCorrectionsDock
@@ -2249,6 +3708,472 @@ function PhaseReviewCorrect({
           <ArrowRight className="size-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ----- TaxonomyPickerCard (story 022) ----- */
+
+/**
+ * TaxonomyPickerCard — Business-area cascading picker for the phase-4 review.
+ *
+ * Three-level comboboxes: Business Area → Portfolio → Squad.  Level 2 and 3
+ * are disabled when their parent is unset.  Each level has a free-entry "Add"
+ * option (KeyToolsCombobox pattern) that calls writeTaxonomy immediately and
+ * then selects the new entry.  The chosen triple persists as a single Fact
+ * { id: 'business-area-selection', decision: 'edited', editedText: 'BA > P > S' }
+ * via the `onSelectionChange` callback — no special-casing in the handoff builder.
+ *
+ * Reload restores state: `savedFacts` seeds the initial selection from
+ * `answers.editedSections['Business area']?.facts`.
+ *
+ * a11y: each control carries an `aria-label` naming its role; levels 2/3 carry
+ * `aria-disabled='true'` / `disabled` when their parent is unset; all controls
+ * are Tab-reachable with a visible FOCUS_RING.
+ */
+function TaxonomyPickerCard({
+  heading,
+  sectionStatus,
+  taxonomy,
+  savedFacts,
+  onSelectionChange,
+  onTaxonomyChange,
+}: {
+  heading: string;
+  sectionStatus: FactStatus;
+  taxonomy: Taxonomy | null;
+  savedFacts?: FactDecision[];
+  onSelectionChange: (editedText: string) => void;
+  onTaxonomyChange: (t: Taxonomy) => void;
+}) {
+  // Derive initial selection from the persisted 'business-area-selection' fact.
+  const savedFact = savedFacts?.find((f) => f.id === "business-area-selection");
+  const savedParts = (savedFact?.editedText ?? "")
+    .split(" > ")
+    .map((p) => p.trim());
+
+  const [selectedBA, setSelectedBA] = useState(savedParts[0] ?? "");
+  const [selectedPortfolio, setSelectedPortfolio] = useState(
+    savedParts[1] ?? "",
+  );
+  const [selectedSquad, setSelectedSquad] = useState(savedParts[2] ?? "");
+
+  const [baOpen, setBAOpen] = useState(false);
+  const [baQuery, setBAQuery] = useState("");
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioQuery, setPortfolioQuery] = useState("");
+  const [squadOpen, setSquadOpen] = useState(false);
+  const [squadQuery, setSquadQuery] = useState("");
+
+  const areas = taxonomy?.businessAreas ?? [];
+  const currentArea = areas.find((a) => a.name === selectedBA);
+  const portfolios = currentArea?.portfolios ?? [];
+  const currentPortfolio = portfolios.find((p) => p.name === selectedPortfolio);
+  const squads = currentPortfolio?.squads ?? [];
+
+  /** Emit selection string — partial selections drop trailing levels (AC5). */
+  const emitSelection = (ba: string, portfolio: string, squad: string) => {
+    const parts = [ba, portfolio, squad].filter(Boolean);
+    onSelectionChange(parts.join(" > "));
+  };
+
+  // --- Level 1: Business Area ---
+
+  const commitBA = (name: string) => {
+    setSelectedBA(name);
+    setSelectedPortfolio("");
+    setSelectedSquad("");
+    emitSelection(name, "", "");
+    setBAOpen(false);
+    setBAQuery("");
+  };
+
+  const addNewBA = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const newArea = { name: trimmed, portfolios: [] };
+    const next: Taxonomy = { businessAreas: [...areas, newArea] };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select the new entry in UI */
+    }
+    commitBA(trimmed);
+  };
+
+  // --- Level 2: Portfolio ---
+
+  const commitPortfolio = (name: string) => {
+    setSelectedPortfolio(name);
+    setSelectedSquad("");
+    emitSelection(selectedBA, name, "");
+    setPortfolioOpen(false);
+    setPortfolioQuery("");
+  };
+
+  const addNewPortfolio = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !currentArea) return;
+    const newPortfolio = { name: trimmed, squads: [] };
+    const newArea = {
+      ...currentArea,
+      portfolios: [...currentArea.portfolios, newPortfolio],
+    };
+    const next: Taxonomy = {
+      businessAreas: areas.map((a) => (a.name === selectedBA ? newArea : a)),
+    };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select in UI */
+    }
+    commitPortfolio(trimmed);
+  };
+
+  // --- Level 3: Squad ---
+
+  const commitSquad = (name: string) => {
+    setSelectedSquad(name);
+    emitSelection(selectedBA, selectedPortfolio, name);
+    setSquadOpen(false);
+    setSquadQuery("");
+  };
+
+  const addNewSquad = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !currentArea || !currentPortfolio) return;
+    const newPortfolio = {
+      ...currentPortfolio,
+      squads: [...currentPortfolio.squads, trimmed],
+    };
+    const newArea = {
+      ...currentArea,
+      portfolios: currentArea.portfolios.map((p) =>
+        p.name === selectedPortfolio ? newPortfolio : p,
+      ),
+    };
+    const next: Taxonomy = {
+      businessAreas: areas.map((a) => (a.name === selectedBA ? newArea : a)),
+    };
+    try {
+      await writeTaxonomy({ data: next });
+      onTaxonomyChange(next);
+    } catch {
+      /* persist failure — still select in UI */
+    }
+    commitSquad(trimmed);
+  };
+
+  const showBACreate =
+    baQuery.trim().length > 0 &&
+    !areas.some((a) => a.name.toLowerCase() === baQuery.trim().toLowerCase());
+  const showPortfolioCreate =
+    portfolioQuery.trim().length > 0 &&
+    !portfolios.some(
+      (p) => p.name.toLowerCase() === portfolioQuery.trim().toLowerCase(),
+    );
+  const showSquadCreate =
+    squadQuery.trim().length > 0 &&
+    !squads.some((s) => s.toLowerCase() === squadQuery.trim().toLowerCase());
+
+  // Current selection breadcrumb (shown when at least one level is selected).
+  const breadcrumb = [selectedBA, selectedPortfolio, selectedSquad]
+    .filter(Boolean)
+    .join(" › ");
+
+  return (
+    <div
+      data-renderer="taxonomy-picker"
+      data-section={heading}
+      className="rounded-xl border border-border bg-card p-4 space-y-4"
+    >
+      {/* Card header */}
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold leading-snug text-foreground">
+          {heading}
+        </h3>
+        <StatusChip status={sectionStatus} />
+      </div>
+
+      {/* Breadcrumb: shows the current selection compactly */}
+      {breadcrumb && (
+        <p className="font-mono text-xs text-primary" aria-live="polite">
+          {breadcrumb}
+        </p>
+      )}
+
+      {taxonomy === null ? (
+        <p className="text-xs text-muted-foreground">Loading taxonomy…</p>
+      ) : (
+        <div className="space-y-3">
+          {/* Level 1 — Business Area */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="ba-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Business area
+            </label>
+            <Popover open={baOpen} onOpenChange={setBAOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  id="ba-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={baOpen}
+                  aria-label="Business area"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                  )}
+                >
+                  <span className={cn(!selectedBA && "text-muted-foreground")}>
+                    {selectedBA || "Select a business area…"}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a business area…"
+                    value={baQuery}
+                    onValueChange={setBAQuery}
+                    aria-label="Search business areas"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {baQuery.trim()
+                        ? "Press Enter to add."
+                        : "No areas found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {areas.map((a) => (
+                        <CommandItem
+                          key={a.name}
+                          value={a.name}
+                          onSelect={() => commitBA(a.name)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedBA === a.name
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {a.name}
+                        </CommandItem>
+                      ))}
+                      {showBACreate && (
+                        <CommandItem
+                          value={baQuery.trim()}
+                          onSelect={() => void addNewBA(baQuery.trim())}
+                          aria-label={`Add business area "${baQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {baQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Level 2 — Portfolio */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="portfolio-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Portfolio
+            </label>
+            <Popover
+              open={portfolioOpen}
+              onOpenChange={(v) => {
+                if (selectedBA) setPortfolioOpen(v);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  id="portfolio-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={portfolioOpen}
+                  aria-label="Portfolio"
+                  aria-disabled={!selectedBA || undefined}
+                  disabled={!selectedBA}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                    !selectedBA && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      !selectedPortfolio && "text-muted-foreground",
+                    )}
+                  >
+                    {selectedPortfolio ||
+                      (selectedBA
+                        ? "Select a portfolio…"
+                        : "Select a business area first")}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a portfolio…"
+                    value={portfolioQuery}
+                    onValueChange={setPortfolioQuery}
+                    aria-label="Search portfolios"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {portfolioQuery.trim()
+                        ? "Press Enter to add."
+                        : "No portfolios found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {portfolios.map((p) => (
+                        <CommandItem
+                          key={p.name}
+                          value={p.name}
+                          onSelect={() => commitPortfolio(p.name)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedPortfolio === p.name
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {p.name}
+                        </CommandItem>
+                      ))}
+                      {showPortfolioCreate && (
+                        <CommandItem
+                          value={portfolioQuery.trim()}
+                          onSelect={() =>
+                            void addNewPortfolio(portfolioQuery.trim())
+                          }
+                          aria-label={`Add portfolio "${portfolioQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {portfolioQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Level 3 — Squad */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="squad-picker"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Squad
+            </label>
+            <Popover
+              open={squadOpen}
+              onOpenChange={(v) => {
+                if (selectedPortfolio) setSquadOpen(v);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  id="squad-picker"
+                  type="button"
+                  role="combobox"
+                  aria-expanded={squadOpen}
+                  aria-label="Squad"
+                  aria-disabled={!selectedPortfolio || undefined}
+                  disabled={!selectedPortfolio}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary/40 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    FOCUS_RING,
+                    !selectedPortfolio && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span
+                    className={cn(!selectedSquad && "text-muted-foreground")}
+                  >
+                    {selectedSquad ||
+                      (selectedPortfolio
+                        ? "Select a squad…"
+                        : "Select a portfolio first")}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Search or add a squad…"
+                    value={squadQuery}
+                    onValueChange={setSquadQuery}
+                    aria-label="Search squads"
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {squadQuery.trim()
+                        ? "Press Enter to add."
+                        : "No squads found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {squads.map((s) => (
+                        <CommandItem
+                          key={s}
+                          value={s}
+                          onSelect={() => commitSquad(s)}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4",
+                              selectedSquad === s ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {s}
+                        </CommandItem>
+                      ))}
+                      {showSquadCreate && (
+                        <CommandItem
+                          value={squadQuery.trim()}
+                          onSelect={() => void addNewSquad(squadQuery.trim())}
+                          aria-label={`Add squad "${squadQuery.trim()}"`}
+                        >
+                          <Plus className="size-4" /> Add &ldquo;
+                          {squadQuery.trim()}&rdquo;
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3465,7 +5390,7 @@ function PhaseWire({
       });
     }, 5000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handshakeDetected]);
 
   // Story 015: also run an immediate check on mount so a pre-existing handshake
@@ -3480,8 +5405,8 @@ function PhaseWire({
         set("checks", { ...answers.checks, testedPaste: true });
       }
     });
-  // Run once on mount only.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // §4.4 pinned wording (story 015 / ADR-P6-008) — copy VERBATIM from

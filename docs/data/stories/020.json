@@ -1,0 +1,137 @@
+{
+  "id": "020",
+  "featureId": "f-review-ux",
+  "title": "KV-grid CRUD renderer with Identity minimum keys",
+  "owner": "ui-dev",
+  "status": "Done",
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "a7b398e",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "Added pure parseMarkdownTable (generic column count, skips separator rows), IDENTITY_MIN_KEYS + IDENTITY_HEADING consts, buildGridRows (parse + min-key injection + Fact reconcile, appends user-added rows), and grid helpers (splitCells, rowHasValue, currentCells, toFactDecision, isSettledGridRow). New KvGridCard renders an HTML table (headers from the parsed table, cells via InlineMarkdown, no visible pipes) with per-row in-place edit (input per cell, Save/Cancel, Enter-on-last-cell saves, Escape cancels), Add row (unsaved rows held locally until they carry content), and Remove with strikethrough + Undo; every control carries a row-scoped aria-label; edit fields seeded with humanizeMarkdown. Rows map to editedSections.facts (id = field name for Identity, index for others; text = cells joined ' | '; editedText = edited cells joined) and flow through the existing debounced save and buildProfileCorrectionsMarkdown with no builder change (edited -> '- <cells>', removed -> '- **Removed:** <original>', added -> '- <new cells>'). kv-grid sections now feed the review/confirmed header totals (story 019's placeholder exclusion ends for kv-grid; taxonomy-picker remains a placeholder). AC7: both settled- and review-facts onEdit comparisons now use humanizeMarkdown(f.text).trim() as the baseline. Per-section raw-edit escape hatch retained inside KvGridCard.",
+    "verificationRun": [
+      "npx tsc --noEmit -> PASS (no output)",
+      "npm run build -> PASS (built in 535ms)",
+      "npx prettier --check src/routes/onboarding.tsx -> formatted with --write, re-typecheck PASS",
+      "tsx harness (18 checks) -> PASS: parseMarkdownTable on all three real sections (Identity 7 rows incl. Name=Morgan Reyes, 3-col collaborators, 2-col cadence), min-key injection when Email removed, edit/remove/add round-trip bullets, multi-column ' | ' join, AC7 no-false-edit (prose + KV + empty injected row)",
+      "grep KvGridCard|parseMarkdownTable|IDENTITY_MIN_KEYS -> matches (VP1)",
+      "grep aria-label.*row|Add row|Edit.*row -> 10 matches in grid block (VP2)",
+      "grep buildProfileCorrectionsMarkdown -> matches; grid facts confirmed to reuse the decision/editedText path (VP3)"
+    ]
+  },
+  "qa": "Approved",
+  "qaNote": "All 7 ACs verified; 30/30 harness checks pass; tsc + build clean; no secrets.",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — KvGridCard renders as HTML table with headers, no <pre>, no pipe characters",
+        "evidence": "grep VP1 → KvGridCard at line 2271, kv-grid at lines 1601/1638/3010, parseMarkdownTable at line 1734, IDENTITY_MIN_KEYS at line 1712. KvGridCard renders <table> (line 2458) with <th scope='col'> (line 2465) and <caption className='sr-only'> (line 2459). Cell values go through InlineMarkdown (lines 2494, 2598). selectRenderer returns 'kv-grid' for table sections at line 1638. No <pre> rendered. Column headers from parsed table at lines 2462-2469."
+      },
+      {
+        "ac": "AC2 — parseMarkdownTable pure function; Identity 7 rows; generic column count",
+        "evidence": "grep VP1 → parseMarkdownTable at line 1734. Function reads at lines 1734-1756: splits body on \\n, trims, filters lines starting with |, skips separator rows via /^[|\\s:-]+$/ (Node.js confirmed: |---|---| → true, | Name | Morgan Reyes | → false). Harness: identity 7 rows [Name=Morgan Reyes ... Start date=2021-03-15], collaborators [Name,Role,Interaction] 4 rows, cadence [Cadence,Ritual] 5 rows — all PASS."
+      },
+      {
+        "ac": "AC3 — IDENTITY_MIN_KEYS const; injection of missing keys; injected rows in edit mode by default",
+        "evidence": "grep VP1 → IDENTITY_MIN_KEYS at line 1712 listing 7 keys. Injection loop at lines 1838-1851: for each missing key, pushes row with text='<key> | ' (value cell empty). Edit-mode seeding at lines 2320-2328: rows where decision=pending and !rowHasValue(cells) are placed in editing state on mount. Harness: removing Email from body → 7 rows, Email row injected, value cell '' — PASS."
+      },
+      {
+        "ac": "AC4 — CRUD: Edit/Save/Cancel, Add row, Remove+Undo, Enter/Escape keyboard, aria-labels, FOCUS_RING, InlineMarkdown display, humanizeMarkdown seed",
+        "evidence": "Edit (Pencil) at line 2610, per-cell <input type='text'> in edit mode at line 2529. Save (Check) at line 2553 calls saveEdit. Cancel (X) at line 2566 calls cancelEdit. cellKeyDown at lines 2389-2402: Enter on last cell (i === colCount-1) → onEnter; Escape → onEscape (cancel). Add row button at line 2711 (aria-label='Add row'), empty adds only become facts when rowHasValue (line 2385). Remove (Trash2) at line 2622, strikethrough class at line 2492, Undo button at lines 2498-2508. grep VP2 → 10 aria-label matches on controls (Undo/save/cancel/edit/remove per row + new-row controls + Add row). FOCUS_RING on all buttons (awk NR>=2271&&NR<=2740 → 10 occurrences). InlineMarkdown on display cells (lines 2494, 2598). humanizeMarkdown seeds edit fields at lines 2325, 2347. Tab: natural browser behavior for <input> siblings within a <tr>, no override needed."
+      },
+      {
+        "ac": "AC5 — Facts in editedSections.facts: id, text, decision, editedText; debounced save",
+        "evidence": "buildGridRows at line 1814: id = isIdentity ? cells[0] : String(i) (line 1830); text = cells.join(CELL_JOIN) (line 1831). onCommitRow at line 3029: decision='edited', editedText=newJoined (line 3057) when cells changed. Harness: identity row 0 id='Name', collab row 0 id='0' — PASS. writeSection at line 2860 calls set('editedSections', ...) which triggers the debounced save useEffect (lines 436-445 watch [phase, answers, completedPhases])."
+      },
+      {
+        "ac": "AC6 — Grid edits flow through buildProfileCorrectionsMarkdown with ' | ' cell join; no special-casing",
+        "evidence": "grep VP3 → buildProfileCorrectionsMarkdown at line 974. Lines 1011-1016: iterates facts by decision/editedText — edited emits '- <editedText.trim()>', removed emits '- **Removed:** <text.trim()>'. Grid-row facts use identical Fact type; no changes to builder (confirmed by diff: function body unchanged). CELL_JOIN = ' | ' at line 1723. Harness: edited bullet '- Name | Alex Reyes', removed bullet '- **Removed:** Jordan Vale | Director of Product | Weekly strategic alignment', added bullet '- Pat Smith | VP Sales | Quarterly briefing' — all PASS. Matches §4.3 multi-column KV-row convention."
+      },
+      {
+        "ac": "AC7 — humanizeMarkdown baseline in both settled-facts and review-facts onEdit comparisons",
+        "evidence": "grep 'humanizeMarkdown.*f\\.text' → lines 2189 and 2241. Line 2189 (review-facts): text.trim() === humanizeMarkdown(f.text).trim() ? 'pending' : 'edited'. Line 2241 (settled-facts, with comment 'AC7: compare against the humanized baseline'): same pattern. Grid onCommitRow also uses humanized baseline at lines 3038-3043. Harness: saving 'Project Atlas' from '**Project Atlas**' → pending (not edited); saving 'Project Beta' → edited; grid row with marked text cells humanized and saved unchanged → pending; changed → edited; empty injected row saved empty → pending — all PASS."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'KvGridCard|parseMarkdownTable|IDENTITY_MIN_KEYS' work-hq/src/routes/onboarding.tsx → PASS — all three names present (lines 1712, 1734, 2271)",
+      "grep -n 'aria-label.*row|aria-label.*Add row|aria-label.*Edit.*row' work-hq/src/routes/onboarding.tsx → PASS — 10 matches across KvGridCard block (lines 2501-2714)",
+      "grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx → PASS — match at line 974; surrounding lines confirm grid facts reuse decision/editedText path",
+      "grep -n 'humanizeMarkdown(f\\.text)|humanizeMarkdown.*f\\.text' work-hq/src/routes/onboarding.tsx → PASS — lines 2189 and 2241",
+      "./work-hq/node_modules/.bin/tsc --noEmit --project work-hq/tsconfig.json → PASS — no output",
+      "npm run --prefix work-hq build → PASS — built in 524ms",
+      "git show a7b398e | grep -E 'DATABASE_URL|API_KEY|SECRET|TOKEN|-----BEGIN|password' → PASS — no output (clean)",
+      "node harness.mjs → PASS — 30/30 checks: parseMarkdownTable on all three profile.md tables, min-key injection, id assignment, corrections bullets, AC7 no-false-edit scenarios, isSettledGridRow",
+      "node -e 'sep regex test' → PASS — |---|---| matched (separator), | Name | Morgan Reyes | not matched (data row)"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — git show a7b398e piped through grep for DATABASE_URL, API_KEY, SECRET, TOKEN, private-key headers produced no output. Migration check: N/A — no schema files, no database, no migration system in scope; only onboarding-state.json (runtime, gitignored) is touched at runtime.",
+    "judgmentRulings": [
+      "(a) Removing an injected or user-added row with no original value drops the row from local state instead of emitting '- **Removed:** …'. RULING: CORRECT per §4.3 — the **Removed:** marker is the assistant's instruction to delete a fact from context/profile.md; an injected empty row has no upstream counterpart to delete. Implementation at lines 3067-3082 checks rowHasValue(splitCells(target.text)) before deciding; empty → filter drop, non-empty → marked removed. Compliant with §4.3 semantics.",
+      "(b) Edited and removed grid rows count toward 'needs review' totals. RULING: CORRECT — isSettledGridRow (line 1801) returns false for decision='edited' or 'removed', contributing them to totalReview at line 2907/2910.",
+      "(c) Injected empty identity rows count as needing review until filled. RULING: CORRECT — isSettledGridRow calls rowHasValue on the injected row's cells; value cell is '' → rowHasValue returns false → row counted in totalReview until the user saves a non-empty value."
+    ],
+    "riskNotes": "Line 1797 comment references 'story 020 AC9' — no AC9 exists in this story. The described behavior (edited/removed rows need review) is correctly implemented; only the comment label is wrong. Not a functional issue. onAddRow assigns id = trimmed[0] for identity sections, so a user-added Identity row named 'Name' would collide with the existing parsed Name fact; the parsed fact's persisted decision would be reused. This is an edge case in user behavior (naming a new row the same key as an existing one) and outside AC scope.",
+    "recommendedFollowUps": "Fix stale comment 'story 020 AC9' at line 1797 to reference 'story 020 (header totals)' or similar — pin to story 021 or the next f-review-ux story touching isSettledGridRow. Consider adding a guard in onAddRow to prevent duplicate-key collision for the identity section — pin to story 021.",
+    "fixRequests": []
+  },
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want the 'Identity and current role', 'Key collaborators and stakeholder network', and 'Operating cadence and rituals' sections rendered as editable HTML grids — not markdown tables — so that I can add, edit, and remove rows cleanly without ever seeing raw pipe characters.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "A `KvGridCard` component (or equivalent inline block) renders for every section where `selectRenderer` (story 019) returns `'kv-grid'`. The rendered output is an HTML grid or table element — no `<pre>`, no markdown pipe characters visible in the DOM. The grid shows column headers derived from the parsed table headers. `grep -n 'KvGridCard\\|kvGrid\\|kv-grid' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC2",
+      "text": "A pure function `parseMarkdownTable(body: string): { headers: string[]; rows: string[][] }` exists in `work-hq/src/routes/onboarding.tsx`. It splits the body on newlines, identifies lines beginning with `|`, skips separator rows (lines matching `/^[|\\s-]+$/`), and returns headers from the first data line and rows from all subsequent data lines — each row as an array of trimmed cell strings. `grep -n 'parseMarkdownTable\\|parseTable\\|tableToRows' work-hq/src/routes/onboarding.tsx` returns at least one match. Calling `parseMarkdownTable` on the 'Identity and current role' body from `context/profile.md` returns `{ headers: ['Field', 'Value'], rows: [['Name', 'Morgan Reyes'], ['Title', ...], ...] }` with 7 data rows."
+    },
+    {
+      "id": "AC3",
+      "text": "A `IDENTITY_MIN_KEYS` const lists `['Name', 'Title', 'Email', 'Manager', 'Location', 'Department', 'Start date']`. When rendering the 'Identity and current role' section, any key from `IDENTITY_MIN_KEYS` that is absent from the parsed rows is injected as an empty row (key cell pre-filled, value cell empty) so the user always sees all 7 fields. Injected rows are in edit mode by default. `grep -n 'IDENTITY_MIN_KEYS' work-hq/src/routes/onboarding.tsx` returns a match."
+    },
+    {
+      "id": "AC4",
+      "text": "CRUD for each grid row: (a) an Edit button (pencil icon) replaces each cell with an `<input type='text'>` in-place; a Save button commits; Escape or Cancel reverts without persisting. (b) An 'Add row' button below the grid appends a new empty row with all cells editable. (c) A Remove button (trash icon) marks the row for removal, renders it struck-through with an Undo option. Keyboard: Tab navigates between cell inputs within a row; Enter on the last cell saves the row; Escape cancels. Every interactive control in the grid carries an `aria-label` describing its purpose and the row it targets (e.g. `aria-label='Edit Name row'`, `aria-label='Remove Title row'`, `aria-label='Add row'`). `grep -n 'aria-label.*row\\|aria-label.*Add row' work-hq/src/routes/onboarding.tsx` returns at least one match in the KV grid block. Display values pass through `renderInlineMarkdown` (story 019); edit-field initial values are pre-populated with `humanizeMarkdown(cellValue)` (story 019)."
+    },
+    {
+      "id": "AC5",
+      "text": "Each grid row maps to a `Fact` in `editedSections.facts`: `id` = first cell value for 'Identity and current role' (the field name, e.g. `'Name'`), or row index as a string for other table sections; `text` = original row cells joined by ` | `; `decision` = `'pending' | 'edited' | 'removed'`; `editedText` = edited cell values joined by ` | ` when decision is `'edited'`. Grid state persists to `onboarding-state.json` via the existing debounced save. After editing a row and refreshing, the edited value is shown. `cat docs/data/local/onboarding-state.json` after editing a grid row shows the relevant section under `editedSections` with a `facts` entry whose `id` matches the edited row."
+    },
+    {
+      "id": "AC6",
+      "text": "Grid edits, additions, and removals appear in the profile-corrections handoff (file-contracts §4.3) using the standard fact conventions: an edited row emits `- <edited cells joined by ' | '>`; a removed row emits `- **Removed:** <original cells joined by ' | '>`; a newly added row emits `- <new cells>`. The handoff header and Ask block are unchanged. `grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx` returns a match — read the surrounding lines to confirm that grid-row facts flow through the same `decision`/`editedText` path as bullet facts (no special-casing needed if the `Fact` shape is reused)."
+    },
+    {
+      "id": "AC7",
+      "text": "The settled-facts onEdit comparison in `FactSectionCard` (currently `text.trim() === f.text.trim()` at approximately line 2069 of `work-hq/src/routes/onboarding.tsx`) is updated to compare the user's saved text against the humanized baseline `humanizeMarkdown(f.text).trim()` rather than the raw original text. This prevents a fact whose display text was marker-stripped (e.g. the user opens edit on `**Project Atlas**`, sees `Project Atlas` in the field, and clicks Save without typing anything) from being falsely flagged as `decision: 'edited'` and producing a spurious correction bullet in the handoff. `grep -n 'humanizeMarkdown(f\\.text)\\|humanizeMarkdown.*f\\.text' work-hq/src/routes/onboarding.tsx` returns at least one match at or near the onEdit settled-facts handler. A unit-harness case must cover the scenario: original text `'**Project Atlas**'`, user saves `'Project Atlas'` (the humanized baseline) → decision remains `'pending'`, not `'edited'`."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer`, `humanizeMarkdown`, and `renderInlineMarkdown` must exist before implementation. `KvGridCard` replaces the renderer slot for sections where `selectRenderer` returns `'kv-grid'` — the existing `FactSectionCard` is not rendered for these sections. `parseMarkdownTable` is a pure function: `body.split('\\n')` → filter lines starting with `|` → separate first non-separator line as headers → remaining non-separator lines as rows → split each on `|`, slice off empty first/last elements from the pipe-delimited format, trim cells. The three table sections in `context/profile.md` have different column counts: 'Identity and current role' is 2-column (Field/Value), 'Key collaborators' is 3-column (Name/Role/Interaction), 'Operating cadence' is 2-column (Cadence/Ritual) — `parseMarkdownTable` must handle all column counts generically. The IDENTITY_MIN_KEYS injection: after parsing, for `heading === 'Identity and current role'`, merge parsed rows with min-key list — existing rows kept as-is (including ordering), missing keys appended in IDENTITY_MIN_KEYS order. `buildProfileCorrectionsMarkdown` (line ~657 per story 013) already iterates `facts` by `decision`/`editedText` — grid-row facts use the same `Fact` type so no changes to `buildProfileCorrectionsMarkdown` are expected (verify before shipping). Retain the 'Edit raw section' escape hatch from `FactSectionCard` inside `KvGridCard`. Files touched: `work-hq/src/routes/onboarding.tsx`.",
+  "dependencies": ["019"],
+  "outOfScope": "Item-list renderer (story 021). Taxonomy picker for 'Business area' (story 022). Section suppression in the handoff (story 023). Changing `buildProfileCorrectionsMarkdown` header line or Ask block wording. Any non-onboarding routes.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'KvGridCard\\|parseMarkdownTable\\|IDENTITY_MIN_KEYS' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each name — confirming the renderer component, table parser, and minimum-key constant are all present."
+    },
+    {
+      "command": "grep -n 'aria-label.*row\\|aria-label.*Add row\\|aria-label.*Edit.*row' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match in the KV grid block — confirming interactive row controls carry descriptive aria-labels."
+    },
+    {
+      "command": "grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match. Reading surrounding lines confirms KV-row facts flow through the existing decision/editedText path in the handoff builder."
+    }
+  ],
+  "revisionLog": [
+    {
+      "date": "2026-07-19",
+      "change": "Added AC7: the settled-facts onEdit comparison in FactSectionCard must use humanizeMarkdown(f.text).trim() as the baseline rather than f.text.trim(), so that saving an unchanged marker-stripped fact never falsely sets decision: 'edited'.",
+      "reason": "Story 019 QA follow-up — QA approved 019 but flagged that the existing raw-text comparison would produce spurious edited decisions once humanizeMarkdown pre-fills edit fields; pre-implementation scope addition to 020."
+    }
+  ]
+}

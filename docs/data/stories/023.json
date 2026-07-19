@@ -1,0 +1,115 @@
+{
+  "id": "023",
+  "featureId": "f-review-ux",
+  "title": "Suppress 'Tools, systems, and domains' from review UI and queue it for handoff removal",
+  "owner": "ui-dev",
+  "status": "In Review",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": ["ADR-P6-010"],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want the 'Tools, systems, and domains' section invisible on the review page and automatically included as a deletion instruction in the corrections handoff, so that this unhelpful section is removed from my profile without any manual action.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "`PhaseReviewCorrect` never renders a section card for any section whose `selectRenderer` result is `'suppressed'`. For 'Tools, systems, and domains', `HEADING_OVERRIDE_MAP` (story 019) already maps this heading to `'suppressed'`; the render loop must guard against it (e.g. `if (renderer === 'suppressed') continue`). `grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx` returns at least one match confirming the heading string is referenced in the suppression path. After implementation, loading the review page with a profile containing the 'Tools, systems, and domains' section produces no DOM element whose visible text includes 'Tools, systems, and domains'."
+    },
+    {
+      "id": "AC2",
+      "text": "`buildProfileCorrectionsMarkdown` unconditionally emits a section-level removal directive for 'Tools, systems, and domains' in every corrections handoff block — even when the user made no other edits. The directive follows the exact section-level removal convention defined in file-contracts §4.3 at the time of implementation: the implementer must read §4.3 before writing this line and emit the convention verbatim. Do not invent a format. `grep -n 'Tools, systems' work-hq/src/routes/onboarding.tsx` returns at least one match inside `buildProfileCorrectionsMarkdown`."
+    },
+    {
+      "id": "AC3",
+      "text": "The `Ask` block in `buildProfileCorrectionsMarkdown` is updated to append, unconditionally and after the existing ask text, the exact sentence: `Remove the ## Tools, systems, and domains section from context/profile.md entirely.` This sentence must appear verbatim — the casing, punctuation, and `##` prefix are exact. `grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx` returns at least one match inside the Ask string literal or the `buildProfileCorrectionsMarkdown` function."
+    },
+    {
+      "id": "AC4",
+      "text": "The suppression is driven by heading string alone, not by section body content. `selectRenderer('Tools, systems, and domains', '')` returns `'suppressed'`; `selectRenderer('Tools, systems, and domains', '- some bullet')` also returns `'suppressed'`. Confirmed by `grep -n 'HEADING_OVERRIDE_MAP\\|suppressed' work-hq/src/routes/onboarding.tsx` returning the heading key in the override map declaration — not in a body-parsing or body-length conditional."
+    },
+    {
+      "id": "AC5",
+      "text": "`skills/os-helper/SKILL.md` gains a note in or immediately after the Signal C action block documenting the section-level removal directive: when the corrections handoff contains a section-level removal directive (following the file-contracts §4.3 convention, as defined by the architect before implementation), the assistant must delete the entire named section — heading line and all body content — from `context/profile.md`. The assistant does not edit or replace the section; it deletes it. The note is concise (under 8 lines). `grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md` returns at least one match."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer` and `HEADING_OVERRIDE_MAP` must already map 'Tools, systems, and domains' → `'suppressed'`. The render-loop guard (AC1) requires no new code beyond ensuring `PhaseReviewCorrect` skips the renderer slot when `selectRenderer` returns `'suppressed'` — this guard is also the correct defence against future suppressed sections. The handoff change (AC2/AC3) is a targeted modification to `buildProfileCorrectionsMarkdown` (line ~657 per story 013 impl notes): (a) always append the section-level removal directive for 'Tools, systems, and domains' in the section block — read file-contracts §4.3 for the exact format before writing; (b) append the Ask sentence unconditionally after the existing ask lines. IMPORTANT: file-contracts §4.3 does not yet define the section-level removal convention as of story 023 authoring (2026-07-19) — the architect will update §4.3 before implementation. Do not begin AC2 until §4.3 carries the convention. The SKILL.md edit (AC5) is a targeted addition to `skills/os-helper/SKILL.md` after the Signal C block — model the style on story 018's edits (concise, self-contained, under 8 lines). Files touched: `work-hq/src/routes/onboarding.tsx`, `skills/os-helper/SKILL.md`.",
+  "dependencies": ["019"],
+  "outOfScope": "KV-grid renderer (story 020). Item-list renderer (story 021). Taxonomy picker (story 022). Suppressing any section other than 'Tools, systems, and domains'. Changing the profile-corrections handoff header line (frozen, file-contracts §4.3). Changing AGENTS.md. Implementing the section-level removal convention itself in file-contracts §4.3 — that is the architect's responsibility.",
+  "verificationPlan": [
+    {
+      "command": "grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least two matches — one in the HEADING_OVERRIDE_MAP / render dispatch (AC1/AC4) and one inside buildProfileCorrectionsMarkdown (AC2/AC3)."
+    },
+    {
+      "command": "grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match — confirming the exact Ask sentence is present inside buildProfileCorrectionsMarkdown."
+    },
+    {
+      "command": "grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md",
+      "checks": "Returns at least one match — confirming the SKILL.md note about section-level deletion is present after the Signal C block."
+    }
+  ],
+  "revisionLog": [],
+  "qa": "Approved",
+  "qaNote": "All 5 ACs verified; 18/18 harness assertions pass; tsc + build clean; SKILL.md note present; feature phase set to Done.",
+  "status": "Done",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — PhaseReviewCorrect never renders a card for suppressed sections; 'Tools, systems, and domains' in HEADING_OVERRIDE_MAP mapped to 'suppressed'",
+        "evidence": "grep returns 7 matches: heading string at line 1713 inside HEADING_OVERRIDE_MAP; render filter at line 3344 `.filter((d) => d.renderer !== 'suppressed')`; totals loop (lines 3314-3325) only accumulates for item-list/kv-grid/taxonomy-picker — suppressed renderer never enters any accumulation branch. Harness D1/D2/D3 confirm selectRenderer returns 'suppressed' for empty and non-empty body alike."
+      },
+      {
+        "ac": "AC2 — buildProfileCorrectionsMarkdown unconditionally emits block-level directive '**Removed section:** Tools, systems, and domains' following §4.3 format",
+        "evidence": "onboarding.tsx line 1003-1004: `const removalSectionDirective = \"**Removed section:** Tools, systems, and domains\"`. Line 1048-1050: blocks array always appends it regardless of changedEntries. File-contracts §4.3 block-level format: `**Removed section:** <section heading text>` — directive matches verbatim. Harness A1/A2/B1/B6 confirm it is present and is NOT prefixed with a bullet (`- `). grep verificationPlan command 1 returns matches at lines 1000 and 1004 inside buildProfileCorrectionsMarkdown."
+      },
+      {
+        "ac": "AC3 — Ask block appended with exact sentence 'Remove the ## Tools, systems, and domains section from context/profile.md entirely.'",
+        "evidence": "onboarding.tsx line 1008-1009: `const removalAskSentence = \"Remove the ## Tools, systems, and domains section from context/profile.md entirely.\"`. Line 1053: body construction appends `removalAskSentence` after `askText`. File-contracts §4.3 pinned sentence matches verbatim (casing, punctuation, `##` prefix). grep verificationPlan command 2 returns line 1009. Harness A3/B5/C2 confirm sentence is present and appears after the **Ask** block."
+      },
+      {
+        "ac": "AC4 — Suppression driven by heading string alone via HEADING_OVERRIDE_MAP; not by body content",
+        "evidence": "onboarding.tsx lines 1726-1728: `selectRenderer` checks HEADING_OVERRIDE_MAP first; if the heading has an override it returns immediately without inspecting body. HEADING_OVERRIDE_MAP line 1710-1714 shows the key `\"Tools, systems, and domains\": \"suppressed\"` in the map declaration — not in any body-parsing conditional. Harness D1: selectRenderer('Tools, systems, and domains', '') === 'suppressed' PASS. D2: selectRenderer('Tools, systems, and domains', '- some bullet') === 'suppressed' PASS. D3: both return identical result."
+      },
+      {
+        "ac": "AC5 — SKILL.md Signal C block gains section-level removal note distinguishing directive from fact-level bullet; under 8 lines; version bumped; grep returns match",
+        "evidence": "skills/os-helper/SKILL.md line 68 (diff +1 line in Signal C step 1): 'Section-level removal directive (file-contracts.md §4.3). A block-level line `**Removed section:** <heading>` (not a bullet) instructs you to delete the **entire** named `## <heading>` section — heading line and all body content — from context/profile.md. Do not edit or replace it; delete it.' Note is 1 line (under 8). Version 2.2 → 2.3, last-updated → 2026-07-19, header `# OS Helper · Updated: 2026-07-19`. grep verificationPlan command 3 returns line 67 ('entire.*section') and line 68 ('section.*remov'). No contradiction with existing fact-level note at line 67."
+      }
+    ],
+    "commandsRun": [
+      "grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx → PASS — 7 matches; lines 972, 975, 1000, 1004, 1009 inside buildProfileCorrectionsMarkdown and line 1713 in HEADING_OVERRIDE_MAP",
+      "grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx → PASS — line 1009: exact Ask sentence inside buildProfileCorrectionsMarkdown",
+      "grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md → PASS — line 67 ('entire.*section'), line 68 ('section.*remov')",
+      "node harness.mjs → PASS — 18/18 assertions (Scenarios A-D: zero-edits, mixed-edits, directive placement, selectRenderer suppression)",
+      "npx tsc --noEmit → PASS — exit 0, no output",
+      "npm run --prefix work-hq build → PASS — exit 0; client + SSR bundles emitted",
+      "grep -n 'No corrections\\|all sections accepted' work-hq/src/routes/onboarding.tsx → only JSDoc comment at line 977 (not a runtime string literal); not present in tp-review-ux.json",
+      "grep 'No corrections' work-hq/dist/ (bundle check) → only JSDoc comment line in server bundle; no runtime string path",
+      "stories 019-022 status check → all Done"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — diff contains no DATABASE_URL, API_KEY, SECRET, TOKEN, JWT-shaped strings, or private key headers. Migration check: N/A — no schema or database changes; story touches only onboarding.tsx string logic and SKILL.md.",
+    "riskNotes": "impl.commit in story JSON records pre-amend SHA bbf55505 while authoritative commit is 74ddb22 — cosmetic discrepancy only; diff content verified against 74ddb22 directly. The removalAskSentence appears after the main askText separated by a blank line (`\\n\\n`), which places it outside the Ask paragraph in some markdown renderers — this is a presentation note only and does not affect the clipboard payload or its correctness per §4.3.",
+    "recommendedFollowUps": "None. ADR-P6-010 reconciliation drift fields are still placeholder ('filled at phase-end reconciliation') — should be completed as a post-feature housekeeping task, pinned to any f-review-ux follow-up story or as a standalone chore.",
+    "fixRequests": []
+  }
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "bbf55505a3e31b239d752a7a3795f6a290105b25",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx",
+      "skills/os-helper/SKILL.md",
+      "docs/data/stories/023.json"
+    ],
+    "notes": "AC1/AC4 (review-UI suppression) were already satisfied by story 019: HEADING_OVERRIDE_MAP maps 'Tools, systems, and domains' -> 'suppressed' (onboarding.tsx ~1713); suppressed sections are excluded from review/confirmed totals (~3289-3300) and filtered from the render list (~3319), so no card and no visible text render for that heading. AC2/AC3: buildProfileCorrectionsMarkdown now unconditionally emits the block-level directive '**Removed section:** Tools, systems, and domains' as the trailing section block (per file-contracts §4.3, not a bullet) and appends the exact Ask sentence 'Remove the ## Tools, systems, and domains section from context/profile.md entirely.' after the existing Ask text. The dead 'No corrections — all sections accepted as is' branch (story 011) was removed per §4.3's no-empty-handoff clause — the handoff always carries at least the removal directive. AC5: skills/os-helper/SKILL.md Signal C block gains a section-level removal note distinguishing '**Removed section:** <heading>' (delete the entire ## section) from '- **Removed:** <fact>' (delete one bullet); SKILL.md version bumped 2.2 -> 2.3, header date refreshed. No new design tokens or components; this story is handoff-string + docs only.",
+    "verificationRun": [
+      "npx tsc --noEmit -> PASS (no output, exit 0)",
+      "npm run --prefix work-hq build -> PASS (built in ~0.6s, exit 0)",
+      "grep -n '\"Tools, systems\\|Tools, systems' work-hq/src/routes/onboarding.tsx -> PASS (matches in HEADING_OVERRIDE_MAP ~1713 and buildProfileCorrectionsMarkdown ~1004/1009)",
+      "grep -n 'Tools, systems, and domains section' work-hq/src/routes/onboarding.tsx -> PASS (exact Ask sentence at ~1009)",
+      "grep -n 'section.*remov\\|entire.*section\\|heading.*delet' skills/os-helper/SKILL.md -> PASS (Signal C section-level note at line 68)",
+      "harness (replica of buildProfileCorrectionsMarkdown): zero-edits -> directive + Ask sentence present, dead literal absent, header regex intact; with-edits -> directive coexists with '- New scope' and '- **Removed:** Stale duty', unchanged fact omitted -> 10/10 PASS",
+      "bundle grep: emitted 'No corrections' runtime literal absent from client bundle; only remaining server-bundle hit is the JSDoc comment text (not an emitted value)"
+    ]
+  }
+}

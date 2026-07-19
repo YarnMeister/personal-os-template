@@ -1,0 +1,121 @@
+{
+  "id": "021",
+  "featureId": "f-review-ux",
+  "title": "Item-list CRUD renderer for bullet and line-prose sections",
+  "owner": "ui-dev",
+  "status": "Done",
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "8b8b8ca",
+    "filesTouched": ["work-hq/src/routes/onboarding.tsx"],
+    "notes": "Added pure parseLineItems (splits body on \\n, drops blanks + status-label lines via isLabelOnlyLine plus AC4's /^\\*\\*.+\\*\\*$/ bold-only pattern, one pending Fact per remaining line with filtered-index id and section-level status), parseItemFacts (bullet bodies reuse parseFacts unchanged; bullet-less overridden bodies e.g. 'Derived work style' use parseLineItems), and reconcileItemFacts (reconcileFacts + appends persisted facts whose id matches no parsed item, so user-added items survive reload/handoff). New ItemListCard extends the story-013 fact-triage card: wraps FactRow per item (Accept/Edit/Remove + StatusChip, needs-review-first ordering, N-confirmed disclosure), display via InlineMarkdown, edit seeds via humanizeMarkdown, AC7 humanized-baseline edited comparison. Always-visible 'Add item' button (never gated on settled-state) opens an autofocused NewItemRow (textarea, Save/Enter, Cancel/Escape); Save persists a new Fact (id new-<ts>, text '', decision 'edited', editedText=text) so buildProfileCorrectionsMarkdown emits '- <new text>' with no builder change. Per-section 'Edit raw section' escape hatch ported verbatim. PhaseReviewCorrect now routes item-list sections to ItemListCard (parseItemFacts + reconcileItemFacts + persist); prose-card still uses FactSectionCard. item-list sections continue to feed review/confirmed totals via usesFactCard; added items (edited) count as needs-review. Removing a user-added empty-text item drops it entirely (mirrors KvGrid) rather than emitting an empty '- **Removed:** ' bullet. Fixed stale comment at former line ~1797: 'story 020 AC9' -> 'story 020 review totals' (020 QA follow-up; no AC9 exists).",
+    "verificationRun": [
+      "npx tsc --noEmit -> PASS (no output)",
+      "npm run build -> PASS (built in 481ms)",
+      "npx prettier --write src/routes/onboarding.tsx -> formatted; tsc re-check PASS",
+      "grep -n 'ItemListCard|parseLineItems' -> PASS (VP1, multiple matches)",
+      "grep -n 'addItem|Add item|add-item' -> PASS (VP2; Add item button unconditional, not gated on settled-state)",
+      "grep -n 'Edit raw|rawOpen|rawEdit' -> PASS (VP3; escape hatch present in ItemListCard block, rawOpen state line 2444)",
+      "node harness (14 checks) -> PASS: parseLineItems on real 'Derived work style' body yields one item per non-blank line with **Derived** stripped and section status Derived; add-item -> '- <new text>' bullet under heading and survives reconcile; edit -> single replacement bullet; remove -> '- **Removed:** <original>'; removing an added item leaves no bullet; bulleted section still parses via parseFacts; no raw '- '/'* ' marker leaks as item text"
+    ]
+  },
+  "qa": "Approved",
+  "qaNote": "All 6 ACs verified (22/22 harness checks PASS, tsc+build PASS); JSON hygiene: fixed invalid backslash-backtick escape in technicalNotes",
+  "qaReport": {
+    "verdict": "Approved",
+    "confidence": "High",
+    "perAc": [
+      {
+        "ac": "AC1 — ItemListCard renders for item-list sections; no raw markers in DOM",
+        "evidence": "ItemListCard defined at onboarding.tsx:2420, rendered in PhaseReviewCorrect at line 3527 inside `if (d.renderer === 'item-list')` branch. VP1 grep returns 8 matches (definition + comment references + usage). Bullet sections routed through parseFacts (unchanged), prose sections through parseLineItems — neither emits <pre> or raw `- `/`* ` markers as text. tsc PASS, build PASS."
+      },
+      {
+        "ac": "AC2 — FactRow semantics preserved; aria-pressed, StatusChip, FOCUS_RING, InlineMarkdown, humanizeMarkdown",
+        "evidence": "FactRow used at line 2468 inside ItemListCard renderRow closure. aria-pressed={accepted} at line 2093 in FactRow. StatusChip at line 2076. FOCUS_RING constant at line 1965. InlineMarkdown component (story 019, line 1732) used in FactRow display mode (lines 2005, 2073). humanizeMarkdown seeds edit textarea at line 1993. AC2 names `renderInlineMarkdown`; story 019 delivered the component as `InlineMarkdown` — AC2's grep covers `renderInlineMarkdown|InlineMarkdown`; story 019 QA-approved this naming. AC satisfied."
+      },
+      {
+        "ac": "AC3 — Add item button unconditional; autofocus; saves as edited Fact; Cancel discards",
+        "evidence": "Add item button at lines 2591-2601 with comment 'AC3: Add item is unconditional — never gated on item settled-state'. NewItemRow component (line 2338) uses `autoFocus` on textarea. onAddItem handler (lines 3560-3570) creates FactDecision `{id: 'new-${Date.now()}', text: '', decision: 'edited', editedText}`. VP2 grep returns 10 matches. Cancel: `onCancel` calls `dropNewItem` — removes tempId from `newItems` state, never calls `onAddItem`, no persist. Harness test 8 confirms add round trip: added item survives reconcileItemFacts, handoff emits `- <new text>`."
+      },
+      {
+        "ac": "AC4 — parseLineItems pure function; per-line split; status-label skip; section-level status; pending decision",
+        "evidence": "parseLineItems at lines 1586-1602: body.split('\\n').filter(l => l.trim() !== '' && !isLabelOnlyLine(l) && !/^\\*\\*.+\\*\\*$/.test(l.trim())).map((l, i) => ({id: String(i), text: l.trim(), status: sectionStatus, decision: 'pending'})). Harness tests 1-6 on real 'Derived work style' body: section status=Derived (PASS), **Derived** label stripped (PASS), 4 items from 4 prose lines (PASS), no raw markers (PASS), all pending (PASS), ids 0-3 (PASS). VP1 grep returns matches for parseLineItems. Harness test 13 confirms bold-only marker skip."
+      },
+      {
+        "ac": "AC5 — Edits/additions/removals persist to editedSections.facts and round-trip to handoff per §4.3",
+        "evidence": "onAddItem (lines 3560-3570) creates {id:'new-<ts>', text:'', decision:'edited', editedText} and calls persist() -> writeSection() -> set('editedSections', ...) -> debounced saveOnboarding (lines 429-445) to onboarding-state.json. buildProfileCorrectionsMarkdown (line 974) emits `- ${editedText}` for edited, `- **Removed:** ${text}` for removed (lines 1013-1016). Harness test 8 (add -> `- <new text>` PASS), test 9 (edit -> single bullet PASS), test 10 (remove -> `- **Removed:** <original>` PASS). Runtime cat of onboarding-state.json not run (requires live server); compensated by static code path trace + full harness coverage. Confidence High — code path is unambiguous."
+      },
+      {
+        "ac": "AC6 — Edit raw section escape hatch retained inside ItemListCard",
+        "evidence": "rawOpen state at line 2449 (`useState(isRawEdited)`). Raw-edit textarea rendered when rawOpen=true (lines 2509-2541). 'Edit raw section' button at line 2610 (`onClick={() => setRawOpen(true)}`). Discard/reset button (lines 2521-2534) returns to item-list view. VP3 grep returns 10 matches; line 2610 is within the ItemListCard block (lines 2420-2617). Mirrors FactSectionCard/KvGridCard pattern verbatim."
+      }
+    ],
+    "commandsRun": [
+      "grep -n 'ItemListCard|parseLineItems' work-hq/src/routes/onboarding.tsx -> PASS — 8 matches",
+      "grep -n 'addItem|Add item|add-item' work-hq/src/routes/onboarding.tsx -> PASS — 10 matches; line 2591 unconditional",
+      "grep -n 'Edit raw|rawOpen|rawEdit' work-hq/src/routes/onboarding.tsx -> PASS — 10 matches; line 2610 inside ItemListCard block",
+      "grep -n 'FactRow' work-hq/src/routes/onboarding.tsx -> PASS — used at line 2468 inside ItemListCard renderRow",
+      "grep -n 'aria-pressed|StatusChip|FOCUS_RING' work-hq/src/routes/onboarding.tsx -> PASS — all present in FactRow",
+      "grep -n 'InlineMarkdown|humanizeMarkdown' work-hq/src/routes/onboarding.tsx -> PASS — InlineMarkdown:1732, humanizeMarkdown:1715",
+      "node harness.js (22 checks across 14 test groups) -> PASS — 22/22",
+      "npx tsc --noEmit (work-hq) -> PASS — no output",
+      "npm run build (work-hq) -> PASS — client 743ms, server 459ms",
+      "python3 json.load(021.json) -> FAIL before fix (Invalid \\escape line 53 col 771); PASS after fix",
+      "python3 json.load(019.json) -> PASS",
+      "python3 json.load(020.json) -> PASS",
+      "python3 json.load(022.json) -> PASS",
+      "python3 json.load(023.json) -> PASS"
+    ],
+    "securityAndMigrationGates": "Secrets scan: PASS — no DATABASE_URL, API_KEY, SECRET, TOKEN, JWT, or private key headers in diff. No schema/migration files changed. Migration check: N/A.",
+    "riskNotes": "Soft-wrapped prose fragmentation: the 'Derived work style' body is 4 soft-wrapped lines of a single sentence; parseLineItems yields 4 fragment facts (e.g. 'Evidence from meeting transcripts, Confluence docs, and Slack tone suggests' as a standalone bullet). AC4 mandates per-line split, so this is AC-compliant. The UX consequence — fragment bullets in triage — is a product concern logged as a follow-up. Silent drop of a user-added item on Remove is consistent with story 020 approved ruling and AC5 (no original text to mark Removed).",
+    "recommendedFollowUps": "Pin to a post-f-review-ux story (suggest story 024 or similar): (1) Consider pre-joining soft-wrapped continuation lines in 'Derived work style' before parseLineItems splits, so each fact is a complete sentence rather than a line fragment. (2) Consider whether removing a user-added item with typed content should offer an undo rather than a silent drop — currently mirrors KvGrid but may surprise users.",
+    "fixRequests": []
+  },
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want every bullet section and 'Derived work style' rendered as an editable item list — not a markdown text block — so that I can add, edit, and remove individual claims using the same Accept/Edit/Remove triage I trust, with no raw markers visible at any point.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "An `ItemListCard` component (or equivalent inline block) renders for every section where `selectRenderer` (story 019) returns `'item-list'`. The rendered output is a list of item rows — no `<pre>`, no markdown bullet markers (`- `, `* `) visible as text in the DOM. For bullet sections, items are extracted using the existing `parseFacts` bullet-extraction logic (story 013, line ~1163). `grep -n 'ItemListCard\\|itemList\\|item-list' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC2",
+      "text": "The existing `FactRow` (story 013) semantics are preserved inside `ItemListCard`: each item row shows Accept (toggle with `aria-pressed`), Edit (inline textarea with Save/Cancel), and Remove (struck-through with Undo) using the same `StatusChip` and `FOCUS_RING` constants. Display text passes through `renderInlineMarkdown` (story 019) — bold, italic, and code markers render as HTML elements, not raw characters. Edit textarea initial value is pre-populated with `humanizeMarkdown(text)` (story 019) — the user sees clean text without `**`, `*`, or backticks in the edit field. `grep -n 'FactRow' work-hq/src/routes/onboarding.tsx` returns at least one match inside or immediately adjacent to the `ItemListCard` block."
+    },
+    {
+      "id": "AC3",
+      "text": "An 'Add item' button is present below the item list for all `ItemListCard` sections — including sections where every existing item is Confirmed or Accepted (the button is never hidden by a conditional that checks item status). Clicking it appends a new empty row in edit mode with the textarea focused automatically (including when activated by keyboard). Saving (Save button or Enter) adds the item as a new `Fact` with `decision: 'edited'` and a generated id. Cancelling (Cancel button or Escape) discards the new row without persisting. `grep -n 'addItem\\|Add item\\|add-item' work-hq/src/routes/onboarding.tsx` returns at least one match that is not inside a condition gating on item-settled state."
+    },
+    {
+      "id": "AC4",
+      "text": "A pure function `parseLineItems(body: string): Fact[]` handles sections overridden to `'item-list'` via `HEADING_OVERRIDE_MAP` whose bodies contain no bullet lines (currently only 'Derived work style'). It splits the body on `\\n`, skips blank lines and lines matching the status-label pattern `/^\\*\\*.+\\*\\*$/` (e.g. `**Derived**`), and yields one `Fact` per remaining non-blank line with `id` = line index as a string, `text` = trimmed line content, `status` = the section-level status (from `detectStatus` on the body), `decision` = `'pending'`. `grep -n 'parseLineItems\\|lineItems\\|proseToItems' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC5",
+      "text": "Item-list edits, additions, and removals persist to `editedSections.facts` in `onboarding-state.json` and round-trip to the profile-corrections handoff per file-contracts §4.3: a new item emits `- <new text>`; an edited item emits `- <edited text>`; a removed item emits `- **Removed:** <original text>`. The handoff header and Ask block are unchanged. `cat docs/data/local/onboarding-state.json` after adding a new item to a bullet section shows the section under `editedSections` with a `facts` array containing an entry with `decision: 'edited'` and a generated id not present in the original parsed facts."
+    },
+    {
+      "id": "AC6",
+      "text": "The 'Edit raw section' escape hatch (stories 010/013) is retained inside `ItemListCard`. A button ('Edit raw section') reveals the full section body in a full-body textarea for free-form editing, overriding the item-list view. `grep -n 'Edit raw\\|rawOpen\\|rawEdit' work-hq/src/routes/onboarding.tsx` returns at least one match in a position attributable to the `ItemListCard` block (by line proximity to `ItemListCard` or by a comment marker)."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer`, `HEADING_OVERRIDE_MAP`, `humanizeMarkdown`, `renderInlineMarkdown` must exist. `ItemListCard` is essentially a renamed/extended `FactSectionCard` routed from `selectRenderer` returning `'item-list'` — it wraps the existing `FactRow` component per item. For bullet sections, reuse `parseFacts` (story 013, line ~1163) unchanged. For 'Derived work style' (no bullets, overridden via `HEADING_OVERRIDE_MAP`), call `parseLineItems` instead of `parseFacts`. `parseLineItems` pattern: `body.split('\\n').filter(l => l.trim() && !l.match(/^\\*\\*.+\\*\\*$/)).map((l, i) => ({ id: String(i), text: l.trim(), status: sectionStatus, decision: 'pending' as FactDecisionKind }))`. Add-item: append a new `Fact` with `id: `new-${Date.now()}`` , `text: ''`, `decision: 'edited'`, `editedText: ''`; immediately enter edit mode with textarea focused (use `useEffect` + `ref.current?.focus()` after state update). `reconcileFacts` (story 013) already merges persisted decisions by id — it will handle the new item's id on reload. `buildProfileCorrectionsMarkdown` (line ~657) iterates facts by `decision`/`editedText` — no changes needed for item-list facts because they use the same `Fact` type (verify before shipping). Port the 'Edit raw section' escape hatch from `FactSectionCard` to `ItemListCard` verbatim. Files touched: `work-hq/src/routes/onboarding.tsx`.",
+  "dependencies": ["019"],
+  "outOfScope": "KV-grid renderer (story 020). Taxonomy picker (story 022). Section suppression in the handoff (story 023). Any changes to `buildProfileCorrectionsMarkdown` header line or Ask block wording. Any non-onboarding routes. Adding a new external library for list rendering.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'ItemListCard\\|parseLineItems' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each — confirming the item-list renderer component and the line-item parser are both present."
+    },
+    {
+      "command": "grep -n 'addItem\\|Add item\\|add-item' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match. Reading the surrounding lines confirms the Add item trigger is not nested inside a conditional on item settled-state."
+    },
+    {
+      "command": "grep -n 'Edit raw\\|rawOpen\\|rawEdit' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match in a position attributable to ItemListCard — confirming the escape hatch is retained."
+    }
+  ],
+  "revisionLog": []
+}

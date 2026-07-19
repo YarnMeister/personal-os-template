@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-13T06:35:29Z",
+  "generatedAt": "2026-07-19T00:00:00Z",
   "fetchOk": true,
   "localBranches": [
     {
-      "name": "f-onboarding-ux",
+      "name": "f-review-ux",
       "current": true,
-      "ahead": 0,
+      "ahead": 17,
       "behind": 0,
-      "lastCommit": "cb0f60e",
-      "when": "chore(017): QA verdict — Approved; advance f-onboarding-ux phase to Done",
+      "lastCommit": "chore(023): QA verdict — Approved; advance f-review-ux phase to Done",
+      "when": "2 hours ago",
       "merged": false
     },
     {
@@ -16,8 +16,8 @@
       "current": false,
       "ahead": 0,
       "behind": 0,
-      "lastCommit": "77a0b23",
-      "when": "refactor: remove workspace mcp.json — MCP config is personal",
+      "lastCommit": "refactor: remove workspace mcp.json — MCP config is personal",
+      "when": "4 weeks ago",
       "merged": true
     },
     {
@@ -25,8 +25,8 @@
       "current": false,
       "ahead": 0,
       "behind": 0,
-      "lastCommit": "b1433cc",
-      "when": "fix: strengthen skill routing and comms gate in AGENTS.md",
+      "lastCommit": "fix: strengthen skill routing and comms gate in AGENTS.md",
+      "when": "4 weeks ago",
       "merged": true
     },
     {
@@ -34,8 +34,8 @@
       "current": false,
       "ahead": 0,
       "behind": 0,
-      "lastCommit": "a30e67d",
-      "when": "fix: mark Story 012 approved after AC2 re-verification",
+      "lastCommit": "fix: mark Story 012 approved after AC2 re-verification",
+      "when": "4 weeks ago",
       "merged": true
     },
     {
@@ -43,8 +43,8 @@
       "current": false,
       "ahead": 0,
       "behind": 0,
-      "lastCommit": "89a04e1",
-      "when": "fix: make skill file routing explicit in AGENTS.md",
+      "lastCommit": "fix: make skill file routing explicit in AGENTS.md",
+      "when": "4 weeks ago",
       "merged": true
     },
     {
@@ -52,17 +52,17 @@
       "current": false,
       "ahead": 0,
       "behind": 0,
-      "lastCommit": "fe7dac4",
-      "when": "merge: f-onboarding complete — 11 stories, all QA Approved",
-      "merged": true
+      "lastCommit": "merge: f-onboarding-ux complete — 8 stories (012-018), all QA Approved",
+      "when": "6 days ago",
+      "merged": false
     }
   ],
   "remoteBranches": [
     {
       "name": "origin/main",
-      "lastCommit": "fe7dac4",
-      "when": "merge: f-onboarding complete — 11 stories, all QA Approved",
-      "merged": true
+      "lastCommit": "merge: f-onboarding-ux complete — 8 stories (012-018), all QA Approved",
+      "when": "6 days ago",
+      "merged": false
     }
   ],
   "worktreeIssues": []
