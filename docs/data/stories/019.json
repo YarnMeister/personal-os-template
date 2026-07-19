@@ -1,0 +1,56 @@
+{
+  "id": "019",
+  "featureId": "f-review-ux",
+  "title": "Renderer dispatch framework, inline markdown humanization, aria-live fix",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want every section routed through a shape-appropriate renderer and all inline markdown converted to readable text, so that I never see raw `**`, `*`, or backtick characters on the review page in any state — read or edit.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "A pure function `selectRenderer(heading: string, body: string): RendererKind` exists in `work-hq/src/routes/onboarding.tsx`. `RendererKind` is a TypeScript union type: `'kv-grid' | 'item-list' | 'taxonomy-picker' | 'prose-card' | 'suppressed'`. Shape-detection logic (evaluated only after override check): a body containing lines that start with `|` → `'kv-grid'`; a body containing lines that start with `- ` or `* ` → `'item-list'`; otherwise → `'prose-card'`. A `HEADING_OVERRIDE_MAP` const (type `Record<string, RendererKind>`) carries per-heading overrides that take full precedence over shape detection: at minimum it maps `'Business area'` → `'taxonomy-picker'`, `'Derived work style'` → `'item-list'`, and `'Tools, systems, and domains'` → `'suppressed'`. `grep -n 'selectRenderer\\|HEADING_OVERRIDE_MAP\\|RendererKind' work-hq/src/routes/onboarding.tsx` returns at least one match for each name."
+    },
+    {
+      "id": "AC2",
+      "text": "`PhaseReviewCorrect` calls `selectRenderer` for every section returned by `parseProfileSections`. When the result is `'suppressed'`, no section card is rendered for that heading. For the remaining kinds (`'kv-grid'`, `'item-list'`, `'taxonomy-picker'`, `'prose-card'`), the section is rendered via a renderer slot. Renderers for `'kv-grid'`, `'item-list'`, and `'taxonomy-picker'` are implemented in stories 020–022; this story may render a `<div data-renderer={kind} data-section={heading}>` placeholder for those kinds. `'prose-card'` continues to use the existing `FactSectionCard` raw-edit path. `grep -n 'selectRenderer' work-hq/src/routes/onboarding.tsx` returns at least two matches (function definition plus at least one call site inside `PhaseReviewCorrect`)."
+    },
+    {
+      "id": "AC3",
+      "text": "A pure function `humanizeMarkdown(text: string): string` exists in `work-hq/src/routes/onboarding.tsx`. It strips inline markdown markers and returns clean plain text: `**bold**` → `bold`; `*italic*` or `_italic_` → `italic`; `***bold-italic***` → `bold-italic`; `` `code` `` → `code`. The function is used as the source for all edit-field initial values in `PhaseReviewCorrect` — every edit textarea (in `FactRow`, and in future `KvGridCard`/`ItemListCard` components) is pre-populated with `humanizeMarkdown(originalText)` rather than the raw string. `grep -n 'humanizeMarkdown' work-hq/src/routes/onboarding.tsx` returns at least two matches: the function definition plus at least one call site in an edit-state initial value."
+    },
+    {
+      "id": "AC4",
+      "text": "A display renderer — a function `renderInlineMarkdown(text: string): string` returning safe HTML, or a component `<InlineMarkdown text={string} />` — converts `**text**` → `<strong>`, `*text*` → `<em>`, `` `text` `` → `<code>` in the rendered DOM. Wherever a fact's text appears in read (non-edit) state in `PhaseReviewCorrect` — in `FactRow` display mode and in any `'prose-card'` section body — the text passes through this renderer instead of being emitted as a raw string. Status-label lines (matching `**Confirmed**`, `**Derived**`, `**Unknown / needs validation**`) are stripped before display using the existing `isLabelOnlyLine` helper (story 013) or equivalent — they must not appear as visible text in any section card. `grep -n 'renderInlineMarkdown\\|InlineMarkdown' work-hq/src/routes/onboarding.tsx` returns at least two matches (definition plus at least one call site in `FactRow` display mode)."
+    },
+    {
+      "id": "AC5",
+      "text": "The phase-1 mini-chat `aria-live` region is pre-mounted empty rather than conditionally rendered (story 016 QA follow-up, non-blocking). The element carrying `role='status'` and `aria-live='polite'` that wraps the assistant reply in the mini-chat panel exists in the DOM from first render — it is not gated by a ternary or `&&` that removes the node entirely when no reply is present. When no reply has been produced, the element is in the DOM but empty. `grep -n 'aria-live' work-hq/src/routes/onboarding.tsx` returns at least one match. Reading the surrounding lines confirms the element is not inside a conditional expression that unmounts it."
+    }
+  ],
+  "technicalNotes": "All work is in `work-hq/src/routes/onboarding.tsx`. Place `selectRenderer`, `HEADING_OVERRIDE_MAP`, `RendererKind`, `humanizeMarkdown`, and `renderInlineMarkdown`/`InlineMarkdown` as pure helpers near the existing cluster of `parseFacts`, `detectStatus`, `parseProfileSections`, `isLabelOnlyLine` (lines ~908–1163 per story 013 impl notes). For `renderInlineMarkdown`: convert inline patterns to HTML and use `dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(text) }}` on a `<span>` — no user-controlled URL or script vector is possible (input is context/profile.md content). Alternatively, implement as a React component using a regex-split approach returning `<strong>`, `<em>`, `<code>` JSX — no external markdown library is needed or permitted. For `humanizeMarkdown`: simple sequential regex-replace — `/**(.+?)**/` → `$1`, etc. — returning plain text. Apply `renderInlineMarkdown` to `FactRow` display mode (lines ~1302–1461 per story 013 impl notes) and `humanizeMarkdown` to the edit textarea initial value in the same block. For the `'prose-card'` fallback: continue using `FactSectionCard`'s existing raw-edit path; apply `renderInlineMarkdown` to the section body display. For the aria-live fix: find the mini-chat assistant-reply conditional in `PhaseOrientation` (phase 1) and change the container from `{reply && <div …>{reply}</div>}` to `<div role='status' aria-live='polite' aria-atomic='true'>{reply ?? ''}</div>` — always mounted, conditionally populated.",
+  "dependencies": [],
+  "outOfScope": "KV-grid component (story 020). Item-list CRUD component (story 021). Taxonomy picker and taxonomy file (story 022). Section suppression in the handoff (story 023). Any changes to HandoffDock, ActionCard, or non-onboarding routes. Adding any external markdown parsing library.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'selectRenderer\\|HEADING_OVERRIDE_MAP\\|RendererKind' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each name — confirming the dispatch function, override map, and type are all defined."
+    },
+    {
+      "command": "grep -n 'humanizeMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least two matches: function definition and at least one call site setting an edit-field initial value."
+    },
+    {
+      "command": "grep -n 'renderInlineMarkdown\\|InlineMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least two matches: definition and at least one call site in FactRow display mode."
+    },
+    {
+      "command": "grep -n 'aria-live' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match. Reading the surrounding context confirms the element is not gated by a ternary or short-circuit that would remove it from the DOM when no reply is present."
+    }
+  ],
+  "revisionLog": []
+}

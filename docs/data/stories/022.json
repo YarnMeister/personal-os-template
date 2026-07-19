@@ -1,0 +1,56 @@
+{
+  "id": "022",
+  "featureId": "f-review-ux",
+  "title": "Business-area taxonomy file and cascading three-level picker",
+  "owner": "developer",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want to select my Business Area, Portfolio, and Squad from a structured cascading picker seeded with real org taxonomy values — and to add new entries that persist — so that my team context is structured data rather than free text.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "A taxonomy file (format and exact path are the architect's decision; PM requirement: the file lives in the project repository, is readable by the Work HQ server at startup, is not inside `docs/data/local/`, and is not gitignored) is committed with the following seed data: six business areas ('Residential', 'Commercial', 'New Homes and Media', 'Experience and Platforms', 'Financial Services', 'Product Operations'); each business area contains a portfolios list seeded with at least two entries (seed labels: 'Portfolio 1', 'Portfolio 2'); each portfolio contains a squads list seeded with at least three entries (seed labels: 'Squad name 1', 'Squad name 2', 'Squad name 3'). After the story is shipped, `grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' <taxonomy-file-path>` returns at least one match per business area name. (Implementer substitutes the actual path once the architect determines it.)"
+    },
+    {
+      "id": "AC2",
+      "text": "A server function `readTaxonomy` (a `createServerFn` GET, following the pattern of `work-hq/src/server/load-onboarding.ts`) reads and parses the taxonomy file, returning `{ businessAreas: Array<{ name: string; portfolios: Array<{ name: string; squads: string[] }> }> }`. A companion server function `writeTaxonomy` (or `saveTaxonomy`) accepts the same structure and writes it back to the taxonomy file, enabling user additions to persist. Both server files live under `work-hq/src/server/`. `grep -n 'readTaxonomy\\|writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx` returns at least one match per function name at the import or call site, and the corresponding server files exist."
+    },
+    {
+      "id": "AC3",
+      "text": "The 'Business area' section in `PhaseReviewCorrect` renders a three-level cascading picker (routed from `selectRenderer` returning `'taxonomy-picker'` per story 019). Level 1 selects a Business Area from the taxonomy; Level 2 shows Portfolios for the selected Business Area — hidden or disabled when no Business Area is selected; Level 3 shows Squads for the selected Portfolio — hidden or disabled when no Portfolio is selected. Each level resets when its parent changes. The picker uses the `<Select>` or `<Popover>`+`<Command>` pattern already in use for `RoleCombobox` and `KeyToolsCombobox` in `onboarding.tsx`. `grep -n 'businessArea\\|BusinessArea\\|TaxonomyPicker\\|taxonomy' work-hq/src/routes/onboarding.tsx` returns at least three distinct matches."
+    },
+    {
+      "id": "AC4",
+      "text": "The user can add a new entry at any level by typing a name not in the current list and confirming (Enter key or selecting an 'Add \"<typed name>\"…' option in the combobox, consistent with the pattern used for `KeyToolsCombobox`). New entries are written to the taxonomy file via `writeTaxonomy` immediately after confirmation. After a page reload, the new entry appears in its respective picker level. `grep -n 'writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx` returns at least one match at a call site that fires on user confirmation of a new entry."
+    },
+    {
+      "id": "AC5",
+      "text": "The chosen Business-Area → Portfolio → Squad triple is stored in `answers.editedSections` for the 'Business area' section as a single `Fact`: `{ id: 'business-area-selection', decision: 'edited', text: '', editedText: '<BusinessArea> > <Portfolio> > <Squad>' }`. This produces exactly one bullet in the profile-corrections handoff (file-contracts §4.3): `- <BusinessArea> > <Portfolio> > <Squad>` under the `**Business area**` section heading. If only a Business Area and Portfolio are selected (no Squad), `editedText` = `'<BusinessArea> > <Portfolio>'`. If only a Business Area is selected, `editedText` = `'<BusinessArea>'`. `cat docs/data/local/onboarding-state.json` after selecting all three levels shows the 'Business area' key under `editedSections` with a `facts` array containing one entry with `id: 'business-area-selection'` and the correct `editedText` value."
+    },
+    {
+      "id": "AC6",
+      "text": "Each picker level carries an `aria-label` identifying its role: `aria-label='Business area'`, `aria-label='Portfolio'`, `aria-label='Squad'`. Level 2 and Level 3 carry `aria-disabled='true'` (or `disabled` on `<select>`) when their parent level has not been selected. All three levels are reachable by keyboard: Tab reaches each control; Enter or Space opens it; arrow keys navigate options. `grep -n \"aria-label.*Business area\\|aria-label.*Portfolio\\|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx` returns at least one match per level."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer` and `HEADING_OVERRIDE_MAP` must already map 'Business area' → `'taxonomy-picker'`. The taxonomy file format (JSON, YAML, TOML, or structured Markdown) and path are the architect's decision — the server function must parse whatever format the architect specifies, and the PM spec does not constrain it. Model `readTaxonomy` on `work-hq/src/server/load-onboarding.ts` (createServerFn GET, read file, return JSON). Model `writeTaxonomy` on `work-hq/src/server/save-onboarding.ts` (createServerFn mutation, accept JSON, write file). Load taxonomy in `PhaseReviewCorrect` via the route loader (extend the existing loader return object to include `taxonomy`) or via an initial `useEffect` server call — the architect's file-location decision may influence which is cleaner. For the three-level picker, the `Popover` + `Command` pattern (already present for `RoleCombobox`/`KeyToolsCombobox`) handles both selection and free-entry 'Add…' options. Level 2 and 3 state resets in a `useEffect` that watches the parent selection. The business-area `Fact` (AC5) is written to `editedSections` on every selection change via the existing `updateFact` / `set` debounced path. `buildProfileCorrectionsMarkdown` handles the single fact via its standard `decision: 'edited'` / `editedText` path — no special-casing needed. Files likely touched: `work-hq/src/routes/onboarding.tsx`, `work-hq/src/server/read-taxonomy.ts` (new), `work-hq/src/server/write-taxonomy.ts` (new), taxonomy file (new, path per architect).",
+  "dependencies": ["019"],
+  "outOfScope": "KV-grid renderer (story 020). Item-list renderer (story 021). Section suppression in the handoff (story 023). Synchronising taxonomy entries with any external system (Jira, Confluence, etc.). Changing the profile-corrections handoff header line or the §4.3 Ask block. Any non-onboarding routes.",
+  "verificationPlan": [
+    {
+      "command": "grep -rn 'Residential\\|New Homes and Media\\|Experience and Platforms\\|Financial Services' <taxonomy-file-path>",
+      "checks": "Returns at least one match per business area name — confirming the seeded taxonomy file is committed. Implementer substitutes the actual resolved path."
+    },
+    {
+      "command": "grep -n 'readTaxonomy\\|writeTaxonomy\\|saveTaxonomy' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match per function name — confirming both the read and write server functions are imported and called from the route."
+    },
+    {
+      "command": "grep -n \"aria-label.*Business area\\|aria-label.*Portfolio\\|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match per level — confirming all three picker controls carry descriptive aria-labels."
+    }
+  ],
+  "revisionLog": []
+}

@@ -1,0 +1,56 @@
+{
+  "id": "021",
+  "featureId": "f-review-ux",
+  "title": "Item-list CRUD renderer for bullet and line-prose sections",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want every bullet section and 'Derived work style' rendered as an editable item list — not a markdown text block — so that I can add, edit, and remove individual claims using the same Accept/Edit/Remove triage I trust, with no raw markers visible at any point.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "An `ItemListCard` component (or equivalent inline block) renders for every section where `selectRenderer` (story 019) returns `'item-list'`. The rendered output is a list of item rows — no `<pre>`, no markdown bullet markers (`- `, `* `) visible as text in the DOM. For bullet sections, items are extracted using the existing `parseFacts` bullet-extraction logic (story 013, line ~1163). `grep -n 'ItemListCard\\|itemList\\|item-list' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC2",
+      "text": "The existing `FactRow` (story 013) semantics are preserved inside `ItemListCard`: each item row shows Accept (toggle with `aria-pressed`), Edit (inline textarea with Save/Cancel), and Remove (struck-through with Undo) using the same `StatusChip` and `FOCUS_RING` constants. Display text passes through `renderInlineMarkdown` (story 019) — bold, italic, and code markers render as HTML elements, not raw characters. Edit textarea initial value is pre-populated with `humanizeMarkdown(text)` (story 019) — the user sees clean text without `**`, `*`, or backticks in the edit field. `grep -n 'FactRow' work-hq/src/routes/onboarding.tsx` returns at least one match inside or immediately adjacent to the `ItemListCard` block."
+    },
+    {
+      "id": "AC3",
+      "text": "An 'Add item' button is present below the item list for all `ItemListCard` sections — including sections where every existing item is Confirmed or Accepted (the button is never hidden by a conditional that checks item status). Clicking it appends a new empty row in edit mode with the textarea focused automatically (including when activated by keyboard). Saving (Save button or Enter) adds the item as a new `Fact` with `decision: 'edited'` and a generated id. Cancelling (Cancel button or Escape) discards the new row without persisting. `grep -n 'addItem\\|Add item\\|add-item' work-hq/src/routes/onboarding.tsx` returns at least one match that is not inside a condition gating on item-settled state."
+    },
+    {
+      "id": "AC4",
+      "text": "A pure function `parseLineItems(body: string): Fact[]` handles sections overridden to `'item-list'` via `HEADING_OVERRIDE_MAP` whose bodies contain no bullet lines (currently only 'Derived work style'). It splits the body on `\\n`, skips blank lines and lines matching the status-label pattern `/^\\*\\*.+\\*\\*$/` (e.g. `**Derived**`), and yields one `Fact` per remaining non-blank line with `id` = line index as a string, `text` = trimmed line content, `status` = the section-level status (from `detectStatus` on the body), `decision` = `'pending'`. `grep -n 'parseLineItems\\|lineItems\\|proseToItems' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC5",
+      "text": "Item-list edits, additions, and removals persist to `editedSections.facts` in `onboarding-state.json` and round-trip to the profile-corrections handoff per file-contracts §4.3: a new item emits `- <new text>`; an edited item emits `- <edited text>`; a removed item emits `- **Removed:** <original text>`. The handoff header and Ask block are unchanged. `cat docs/data/local/onboarding-state.json` after adding a new item to a bullet section shows the section under `editedSections` with a `facts` array containing an entry with `decision: 'edited'` and a generated id not present in the original parsed facts."
+    },
+    {
+      "id": "AC6",
+      "text": "The 'Edit raw section' escape hatch (stories 010/013) is retained inside `ItemListCard`. A button ('Edit raw section') reveals the full section body in a full-body textarea for free-form editing, overriding the item-list view. `grep -n 'Edit raw\\|rawOpen\\|rawEdit' work-hq/src/routes/onboarding.tsx` returns at least one match in a position attributable to the `ItemListCard` block (by line proximity to `ItemListCard` or by a comment marker)."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer`, `HEADING_OVERRIDE_MAP`, `humanizeMarkdown`, `renderInlineMarkdown` must exist. `ItemListCard` is essentially a renamed/extended `FactSectionCard` routed from `selectRenderer` returning `'item-list'` — it wraps the existing `FactRow` component per item. For bullet sections, reuse `parseFacts` (story 013, line ~1163) unchanged. For 'Derived work style' (no bullets, overridden via `HEADING_OVERRIDE_MAP`), call `parseLineItems` instead of `parseFacts`. `parseLineItems` pattern: `body.split('\\n').filter(l => l.trim() && !l.match(/^\\*\\*.+\\*\\*$/)).map((l, i) => ({ id: String(i), text: l.trim(), status: sectionStatus, decision: 'pending' as FactDecisionKind }))`. Add-item: append a new `Fact` with `id: \`new-${Date.now()}\``, `text: ''`, `decision: 'edited'`, `editedText: ''`; immediately enter edit mode with textarea focused (use `useEffect` + `ref.current?.focus()` after state update). `reconcileFacts` (story 013) already merges persisted decisions by id — it will handle the new item's id on reload. `buildProfileCorrectionsMarkdown` (line ~657) iterates facts by `decision`/`editedText` — no changes needed for item-list facts because they use the same `Fact` type (verify before shipping). Port the 'Edit raw section' escape hatch from `FactSectionCard` to `ItemListCard` verbatim. Files touched: `work-hq/src/routes/onboarding.tsx`.",
+  "dependencies": ["019"],
+  "outOfScope": "KV-grid renderer (story 020). Taxonomy picker (story 022). Section suppression in the handoff (story 023). Any changes to `buildProfileCorrectionsMarkdown` header line or Ask block wording. Any non-onboarding routes. Adding a new external library for list rendering.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'ItemListCard\\|parseLineItems' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each — confirming the item-list renderer component and the line-item parser are both present."
+    },
+    {
+      "command": "grep -n 'addItem\\|Add item\\|add-item' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match. Reading the surrounding lines confirms the Add item trigger is not nested inside a conditional on item settled-state."
+    },
+    {
+      "command": "grep -n 'Edit raw\\|rawOpen\\|rawEdit' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match in a position attributable to ItemListCard — confirming the escape hatch is retained."
+    }
+  ],
+  "revisionLog": []
+}

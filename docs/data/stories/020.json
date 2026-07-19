@@ -1,0 +1,56 @@
+{
+  "id": "020",
+  "featureId": "f-review-ux",
+  "title": "KV-grid CRUD renderer with Identity minimum keys",
+  "owner": "ui-dev",
+  "status": "Approved",
+  "qa": "none",
+  "qaNote": "—",
+  "adrRefs": [],
+  "epicSource": "f-review-ux · Phase 4 review UX improvements approved 2026-07-19",
+  "userStory": "As a user reviewing my bootstrapped profile, I want the 'Identity and current role', 'Key collaborators and stakeholder network', and 'Operating cadence and rituals' sections rendered as editable HTML grids — not markdown tables — so that I can add, edit, and remove rows cleanly without ever seeing raw pipe characters.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "A `KvGridCard` component (or equivalent inline block) renders for every section where `selectRenderer` (story 019) returns `'kv-grid'`. The rendered output is an HTML grid or table element — no `<pre>`, no markdown pipe characters visible in the DOM. The grid shows column headers derived from the parsed table headers. `grep -n 'KvGridCard\\|kvGrid\\|kv-grid' work-hq/src/routes/onboarding.tsx` returns at least one match."
+    },
+    {
+      "id": "AC2",
+      "text": "A pure function `parseMarkdownTable(body: string): { headers: string[]; rows: string[][] }` exists in `work-hq/src/routes/onboarding.tsx`. It splits the body on newlines, identifies lines beginning with `|`, skips separator rows (lines matching `/^[|\\s-]+$/`), and returns headers from the first data line and rows from all subsequent data lines — each row as an array of trimmed cell strings. `grep -n 'parseMarkdownTable\\|parseTable\\|tableToRows' work-hq/src/routes/onboarding.tsx` returns at least one match. Calling `parseMarkdownTable` on the 'Identity and current role' body from `context/profile.md` returns `{ headers: ['Field', 'Value'], rows: [['Name', 'Morgan Reyes'], ['Title', ...], ...] }` with 7 data rows."
+    },
+    {
+      "id": "AC3",
+      "text": "A `IDENTITY_MIN_KEYS` const lists `['Name', 'Title', 'Email', 'Manager', 'Location', 'Department', 'Start date']`. When rendering the 'Identity and current role' section, any key from `IDENTITY_MIN_KEYS` that is absent from the parsed rows is injected as an empty row (key cell pre-filled, value cell empty) so the user always sees all 7 fields. Injected rows are in edit mode by default. `grep -n 'IDENTITY_MIN_KEYS' work-hq/src/routes/onboarding.tsx` returns a match."
+    },
+    {
+      "id": "AC4",
+      "text": "CRUD for each grid row: (a) an Edit button (pencil icon) replaces each cell with an `<input type='text'>` in-place; a Save button commits; Escape or Cancel reverts without persisting. (b) An 'Add row' button below the grid appends a new empty row with all cells editable. (c) A Remove button (trash icon) marks the row for removal, renders it struck-through with an Undo option. Keyboard: Tab navigates between cell inputs within a row; Enter on the last cell saves the row; Escape cancels. Every interactive control in the grid carries an `aria-label` describing its purpose and the row it targets (e.g. `aria-label='Edit Name row'`, `aria-label='Remove Title row'`, `aria-label='Add row'`). `grep -n 'aria-label.*row\\|aria-label.*Add row' work-hq/src/routes/onboarding.tsx` returns at least one match in the KV grid block. Display values pass through `renderInlineMarkdown` (story 019); edit-field initial values are pre-populated with `humanizeMarkdown(cellValue)` (story 019)."
+    },
+    {
+      "id": "AC5",
+      "text": "Each grid row maps to a `Fact` in `editedSections.facts`: `id` = first cell value for 'Identity and current role' (the field name, e.g. `'Name'`), or row index as a string for other table sections; `text` = original row cells joined by ` | `; `decision` = `'pending' | 'edited' | 'removed'`; `editedText` = edited cell values joined by ` | ` when decision is `'edited'`. Grid state persists to `onboarding-state.json` via the existing debounced save. After editing a row and refreshing, the edited value is shown. `cat docs/data/local/onboarding-state.json` after editing a grid row shows the relevant section under `editedSections` with a `facts` entry whose `id` matches the edited row."
+    },
+    {
+      "id": "AC6",
+      "text": "Grid edits, additions, and removals appear in the profile-corrections handoff (file-contracts §4.3) using the standard fact conventions: an edited row emits `- <edited cells joined by ' | '>`; a removed row emits `- **Removed:** <original cells joined by ' | '>`; a newly added row emits `- <new cells>`. The handoff header and Ask block are unchanged. `grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx` returns a match — read the surrounding lines to confirm that grid-row facts flow through the same `decision`/`editedText` path as bullet facts (no special-casing needed if the `Fact` shape is reused)."
+    }
+  ],
+  "technicalNotes": "Depends on story 019: `selectRenderer`, `humanizeMarkdown`, and `renderInlineMarkdown` must exist before implementation. `KvGridCard` replaces the renderer slot for sections where `selectRenderer` returns `'kv-grid'` — the existing `FactSectionCard` is not rendered for these sections. `parseMarkdownTable` is a pure function: `body.split('\\n')` → filter lines starting with `|` → separate first non-separator line as headers → remaining non-separator lines as rows → split each on `|`, slice off empty first/last elements from the pipe-delimited format, trim cells. The three table sections in `context/profile.md` have different column counts: 'Identity and current role' is 2-column (Field/Value), 'Key collaborators' is 3-column (Name/Role/Interaction), 'Operating cadence' is 2-column (Cadence/Ritual) — `parseMarkdownTable` must handle all column counts generically. The IDENTITY_MIN_KEYS injection: after parsing, for `heading === 'Identity and current role'`, merge parsed rows with min-key list — existing rows kept as-is (including ordering), missing keys appended in IDENTITY_MIN_KEYS order. `buildProfileCorrectionsMarkdown` (line ~657 per story 013) already iterates `facts` by `decision`/`editedText` — grid-row facts use the same `Fact` type so no changes to `buildProfileCorrectionsMarkdown` are expected (verify before shipping). Retain the 'Edit raw section' escape hatch from `FactSectionCard` inside `KvGridCard`. Files touched: `work-hq/src/routes/onboarding.tsx`.",
+  "dependencies": ["019"],
+  "outOfScope": "Item-list renderer (story 021). Taxonomy picker for 'Business area' (story 022). Section suppression in the handoff (story 023). Changing `buildProfileCorrectionsMarkdown` header line or Ask block wording. Any non-onboarding routes.",
+  "verificationPlan": [
+    {
+      "command": "grep -n 'KvGridCard\\|parseMarkdownTable\\|IDENTITY_MIN_KEYS' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match for each name — confirming the renderer component, table parser, and minimum-key constant are all present."
+    },
+    {
+      "command": "grep -n 'aria-label.*row\\|aria-label.*Add row\\|aria-label.*Edit.*row' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns at least one match in the KV grid block — confirming interactive row controls carry descriptive aria-labels."
+    },
+    {
+      "command": "grep -n 'buildProfileCorrectionsMarkdown' work-hq/src/routes/onboarding.tsx",
+      "checks": "Returns a match. Reading surrounding lines confirms KV-row facts flow through the existing decision/editedText path in the handoff builder."
+    }
+  ],
+  "revisionLog": []
+}
