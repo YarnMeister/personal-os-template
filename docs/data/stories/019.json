@@ -3,7 +3,7 @@
   "featureId": "f-review-ux",
   "title": "Renderer dispatch framework, inline markdown humanization, aria-live fix",
   "owner": "ui-dev",
-  "status": "Approved",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": [],
@@ -52,5 +52,22 @@
       "checks": "Returns at least one match. Reading the surrounding context confirms the element is not gated by a ternary or short-circuit that would remove it from the DOM when no reply is present."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "7cabde3",
+    "filesTouched": [
+      "work-hq/src/routes/onboarding.tsx"
+    ],
+    "notes": "AC1: added RendererKind union, HEADING_OVERRIDE_MAP (keys verified against actual context/profile.md ## headings — 'Business area' -> taxonomy-picker, 'Derived work style' -> item-list, 'Tools, systems, and domains' -> suppressed), and pure selectRenderer(heading, body): override map first, then shape detection (a line starting with '|' -> kv-grid; a bullet line via isBulletLine -> item-list; else prose-card). AC2: PhaseReviewCorrect now routes every parsed section through selectRenderer; 'suppressed' sections are filtered out (no card); 'kv-grid'/'taxonomy-picker' render a <div data-renderer={kind} data-section={heading}> placeholder for stories 020/022; 'item-list'/'prose-card' keep the existing FactSectionCard path. Placeholder + suppressed sections are excluded from the review/confirmed header totals since they are not yet interactively reviewable. AC3: added humanizeMarkdown (triple->double->single asterisk, underscore, backtick strip); it now seeds every edit-field initial value — FactRow draft useState + both setDraft calls, and the raw-section escape-hatch textarea (rawBody seed). Round-trip: both the FactRow onEdit comparison and the raw-section onRawEdit/onResetRaw comparisons were changed to compare against humanizeMarkdown(original), so stripping markers alone never marks a fact/section edited — only a real user change relative to the humanized baseline counts. AC4: added InlineMarkdown component (regex-split, no dangerouslySetInnerHTML, no markdown lib) rendering **bold**->strong, *italic*/_italic_->em, `code`->code; applied in FactRow display mode (both active and removed/struck-through rows). Status-label lines remain stripped by the existing isLabelOnlyLine filter inside parseFacts, so prose-card (via FactSectionCard) benefits with no extra code. AC5: the phase-1 mini-chat live region is now pre-mounted (role=status, aria-live=polite, aria-atomic=true) and populated conditionally — the node is never unmounted by a && guard; card chrome + children apply only when chatHistory has content so an empty region shows nothing. No new design tokens or reusable design-system components introduced; placeholder styling uses only existing Tailwind/theme utilities, so no /style-guide change is in scope. No @theme or /style-guide infra exists in this project.",
+    "verificationRun": [
+      "grep -n 'selectRenderer|HEADING_OVERRIDE_MAP|RendererKind' -> PASS (type, map, function, plus call site in PhaseReviewCorrect)",
+      "grep -n 'humanizeMarkdown' -> PASS (definition + 8 call sites)",
+      "grep -n 'renderInlineMarkdown|InlineMarkdown' -> PASS (definition + 2 call sites in FactRow display)",
+      "grep -n 'aria-live' -> PASS (1 match; region pre-mounted, not conditionally unmounted)",
+      "node census/logic check -> PASS: humanizeMarkdown('**Project Atlas**: migrating…') -> 'Project Atlas: migrating…' plus all 6 marker cases; humanized-only save resolves to 'pending' (not edited); real user change resolves to 'edited'; all 20 profile.md sections route as expected (4 prose-card, 11 item-list, 3 kv-grid, 1 taxonomy-picker, 1 suppressed)",
+      "npx tsc --noEmit -> PASS (exit 0)",
+      "npm run build -> PASS (built in 489ms)"
+    ]
+  }
 }
