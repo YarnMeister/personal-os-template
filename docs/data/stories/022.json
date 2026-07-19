@@ -3,7 +3,7 @@
   "featureId": "f-review-ux",
   "title": "Business-area taxonomy file and cascading three-level picker",
   "owner": "developer",
-  "status": "In Progress",
+  "status": "In Review",
   "qa": "none",
   "qaNote": "—",
   "adrRefs": ["ADR-P6-010"],
@@ -52,5 +52,25 @@
       "checks": "Returns at least one match per level — confirming all three picker controls carry descriptive aria-labels."
     }
   ],
-  "revisionLog": []
+  "revisionLog": [],
+  "impl": {
+    "branch": "f-review-ux",
+    "commit": "bfbfd08",
+    "filesTouched": [
+      "context/org-structure.md (new)",
+      "work-hq/src/server/read-taxonomy.ts (new)",
+      "work-hq/src/server/write-taxonomy.ts (new)",
+      "work-hq/src/routes/onboarding.tsx (modified)",
+      "docs/data/stories/022.json (modified)"
+    ],
+    "notes": "TaxonomyPickerCard uses Popover+Command pattern (KeyToolsCombobox) with three cascading levels. Taxonomy state loaded via useEffect in PhaseReviewCorrect. writeTaxonomy fires on each 'Add…' confirmation — full-file canonical re-serialisation. Selection persists as a single 'business-area-selection' Fact with editedText joined by ' > '. Business area counts in review/settled totals: 1 needing review until all 3 levels selected, 0 once settled. CONTROL_TRIGGER constant is defined after TaxonomyPickerCard in file order but is safe since function bodies execute at render time after all module-level const declarations are initialized.",
+    "verificationRun": [
+      "grep -rn 'Residential|New Homes and Media|Experience and Platforms|Financial Services' context/org-structure.md → 4 matches PASS",
+      "grep -n 'readTaxonomy|writeTaxonomy|saveTaxonomy' work-hq/src/routes/onboarding.tsx → 7 matches (import + call sites) PASS",
+      "grep -n \"aria-label.*Business area|aria-label.*Portfolio|aria-label.*Squad\" work-hq/src/routes/onboarding.tsx → 3 matches (one per level) PASS",
+      "node harness: parse 6×2×3 seeded file → PASS; round-trip identity → PASS; add-entry preserves existing → PASS; selection fact → correct handoff bullet (full/partial/BA-only) → PASS",
+      "npx tsc --noEmit → clean (no output) PASS",
+      "npm run --prefix work-hq build → ✓ built in ~760ms client + ~507ms SSR PASS"
+    ]
+  }
 }
