@@ -51,6 +51,7 @@ Important rules:
 10. Include a strong "AI assistant guidance" section that translates the profile into practical support instructions.
 11. Surface evidence gaps explicitly rather than smoothing over them.
 12. Optimize for usefulness to future AI assistants, not for biography completeness.
+13. Do not produce a tools or systems inventory. A list of tools the person touches is not useful context. Name a specific tool only inside another section, and only when it evidences a concrete pattern (e.g. "plans the quarter in Linear", "escalates via Slack DM rather than tickets").
 
 Required sections:
 
@@ -68,11 +69,10 @@ Required sections:
 12. Derived work style
 13. Derived communication style
 14. Operating cadence / rituals
-15. Tools, systems, and domains they appear closest to
-16. Domain expertise / subject-matter areas
-17. Risks, constraints, or recurring problem themes in their work
-18. Preferences or patterns an AI assistant should know
-19. Open questions / assumptions to validate with the person
+15. Domain expertise / subject-matter areas
+16. Risks, constraints, or recurring problem themes in their work
+17. Preferences or patterns an AI assistant should know
+18. Open questions / assumptions to validate with the person
 
 Add at least 8 additional attributes beyond the required list, chosen based on evidence. Prioritise the richest and most operationally useful dimensions, such as:
 
@@ -130,7 +130,7 @@ Output requirements:
 Response size management:
 
 - Target roughly 1,500–3,000 words.
-- Prefer dense tables over long prose for factual sections such as identity, team, stakeholders, goals, metrics, and systems.
+- Prefer dense tables over long prose for factual sections such as identity, team, stakeholders, goals, and metrics.
 - Keep most sections to 2–5 bullets or a short paragraph unless the section is especially high-signal.
 - Compress weakly evidenced sections instead of expanding them with generic filler.
 - Do not include exhaustive source recaps, long examples, or repeated phrasing.
