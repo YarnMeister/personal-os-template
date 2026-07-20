@@ -130,6 +130,8 @@ Every durable file starts with `# <Title> · Updated: YYYY-MM-DD` (line 1, real 
 
 All AI handoffs are markdown blocks beginning `## Work HQ handoff · <kind> · YYYY-MM-DD`, followed by `**<Section>**` blocks, ending with an `**Ask**` block. Established kinds: `onboarding` (verify scaffolded files + run first standup), `profile-bootstrap` (Glean research prompt with name/email substituted; instructs the assistant to write `context/profile.md`), `profile-corrections` (edited facts as plain bullets, removed facts as `- **Removed:** <original text>`, removed sections as `**Removed section:** <heading>`; asks the assistant to apply corrections then distil me/org/active). The copied bytes are a contract — the UI may preview them behind a disclosure but must copy them verbatim.
 
+The `profile-bootstrap` payload is special-cased: it is the full content of `templates/glean-bootstrap-prompt.md` with `[FULL_NAME]` and `[WORK_EMAIL]` substituted — nothing prepended, nothing appended. That file is payload-only by design (v1's template mixed the prompt with internal documentation and the whole file got copied to the user's clipboard — don't repeat that): whatever the file contains is exactly what the Copy button emits.
+
 ## Grounding C — Assistant handshake
 
 Onboarding verifies the assistant actually loaded the OS by asking the user to paste a one-line prompt; the assistant replies with the user's #1 priority and writes `docs/data/local/handshake.json` (`{ verifiedAt, assistant }`). The app polls for that file and locks the verification step to "✓ Assistant verified at HH:MM", with a manual checkbox fallback for assistants that can't write files. Keep this pattern in all three onboarding depths.
