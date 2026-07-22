@@ -1,138 +1,125 @@
-# The Huddle — Work-Mode Interaction Spec · Updated: 2026-07-22
+# The Huddle — Interaction Spec · Updated: 2026-07-22
 
-> Status: Draft for review · Owner: Jan Jr · Companion to `docs/lovable-v2-blueprint.md`
-> Replaces the Today/standup + Wrap-Up model in Work mode. Kills scrum ceremony language and the twice-daily cadence assumption. One adaptive ritual, arrival-time agnostic, forgiving of gaps.
+> Status: v1.1 (presentation model, voice deck, and initiative-awareness folded in) · Owner: Jan Jr
+> Companion to `docs/lovable-v2-blueprint.md`. Replaces standup/wrap-up with one adaptive ritual, presented as an overlay on the Dashboard (the "desk"). Arrival-time agnostic, forgiving of gaps, guilt-free by contract.
 
 ---
 
-## 1. The model shift
+## 1. The model
 
-v1/v2-so-far inherited scrum's shape: a morning ceremony (standup) and an evening ceremony (wrap-up), each guilt-coded to a time of day. Real usage: the user works in focus blocks, arrives at arbitrary times, and sometimes disappears for days. The two ceremonies are actually the *same activity* — synchronising three things that drift apart: **what's in your head, what's in the files, and what the assistant believes.**
-
-So there is one ritual: the **Huddle**. A huddle at 9am naturally leans planning; at 6pm it leans logging; after four days away it leans reconciliation. The surface is identical — only the emphasis adapts. The user brings chaos (disjointed notes, half-remembered meetings, unlogged decisions); the OS untangles, distils, and returns an ordered picture. **Balance restored** is the ritual's terminal state, every time.
-
-Core loop:
+Standup and wrap-up were the same activity wearing two costumes: synchronising **what's in your head, what's in the files, and what the assistant believes**. The Huddle is that one activity, adaptive to when you arrive and how much has piled up. The user brings chaos; the OS untangles, distils, and returns an ordered picture.
 
 ```
-entropy in ──▶ HUDDLE (untangle · replenish · rebalance) ──▶ order out ──▶ NOW (rest state)
+entropy in ──▶ HUDDLE (unload · untangle · replenish · rebalance · brief) ──▶ order settles into the DESK
 ```
 
-## 2. Work-mode nav (new)
+## 2. Presentation: an overlay on the desk
 
-| Item | Role |
-|---|---|
-| **Now** | Landing page. The current brief: ordered priorities, next big thing, blockers. Read-mostly rest state. |
-| **Huddle** | The ritual. Adaptive staged flow (§4). Shows a subtle signal dot when things have piled up. |
-| **Backlog** | Zero-friction capture, unchanged. Feeds the Huddle. |
-| **Decisions / Questions** | Reference views, unchanged. |
+- The **Start a huddle** button on the Dashboard opens the ritual in a large modal (~90% viewport) that scales up from the button; the desk dims and blurs beneath. The huddle is deliberately *on top of* the current snapshot.
+- **Minimise, never destroy.** Escape, click-outside, or the minimise control collapses the modal to a floating pill docked bottom-right showing the current turn ("Huddle · Copilot's turn"). Clicking restores mid-state. Huddle state survives full page reload. When a reply lands while minimised, the pill pulses once and updates ("Reply's in — 5 to review").
+- **The settle (finish animation).** On Finish: the modal contracts toward the priorities zone and fades; the desk visibly absorbs the results — priorities FLIP-reorder to their new ranking, the next-big-thing card pulses softly once, the greeting crossfades to "Balance restored — next up: {x}", the huddle button relaxes. ≤800ms, interruptible by any click. No confetti, no badges, no sound.
+- Keyboard: `h` starts/restores; Escape minimises.
 
-"Today", "standup", and "Wrap-Up" disappear from all nav, headers, eyebrows, and handoff kinds.
+## 3. Presentation: the conveyor
 
-## 3. The Now page (rest state)
+Inside the modal, exactly **one stage is expanded at a time**:
 
-- Greeting is time-of-day + gap aware, one line, never guilt-coded. It reports what the app can *pick up*, not what the user missed:
-  - Same day: "Back again. Your next big thing: **{bigFrog}**."
-  - Next day: "Morning. 3 priorities standing, 1 blocker. Ready when you are."
-  - After a gap: "It's been 3 days — 7 new backlog items and 2 priorities past due. **~10 min huddle** should restore order."
-- Body: the ordered priority list (from `active.md`), next big thing, blockers, open-question count.
-- Primary CTA: **Start a huddle** — sized by need (see catch-up estimate, §5). If everything is fresh and quiet, the CTA is quiet too ("Quick sync").
-- No streaks, no heatmaps, no "overdue" reds. The only pressure mechanism in the entire Work mode is the honest sentence about what's piled up.
+- **Completed stages** collapse to one-line **receipts** above: check icon, stage name, outcome ("Unloaded 3 thoughts" · "5 items routed · 2 follow-ups flagged" · "Skipped"). Receipts are clickable — reopening a past stage collapses the current one; closing resumes.
+- **Upcoming stages** are dimmed one-line stubs below (name + one-line description), not interactive.
+- No breadcrumb bar, no progress bar — the receipt rail and stubs are the orientation. A small "2 / 5" may sit in the active card header.
+- Confirm/skip collapses the active stage to its receipt and expands the next, smooth-scrolling the new card to the top. Skip appears only on the active card.
+- **Waiting never stalls the belt:** a stage waiting on the assistant can be left via "Continue while it works" — it collapses to a pulsing receipt and the belt moves on; the receipt flips to a review badge when the reply lands. Reaching Brief with a review pending shows one line: "1 stage waiting on your review."
 
-## 4. The Huddle flow
+## 4. The five stages
 
-A hybrid conversation/wizard: five stages rendered as a single scrolling thread of cards (chat-like progression, wizard-like structure). Every stage has a **no-assistant fallback** (AD-4: local CRUD always completes) and stages 2–4 each have an optional **ping-pong** with the assistant (§6). Stages can be skipped; skipping is a first-class button, not a buried link.
+Every stage works fully without the assistant (AD-4). Stage-intent lines and all state copy: §7 copy deck.
 
 ### Stage 1 — Unload
-*"What's happened since we last spoke? Messy is fine."*
-
-- One large free-text dump box + quick-capture chips (meeting · decision · new task · blocker · idea) that prefix entries for cheaper triage later.
-- Everything appends to `BACKLOG.md` — the existing inbox is the buffer; no new storage concept.
-- Beneath it, an auto-collected **Since last huddle** panel (computed, read-only): backlog items added, files changed (mtime via OsFileStore), priorities past due, glean-profile/foundation edits detected. The app demonstrates it was paying attention even while the user was gone.
+Dump textarea + type chips (meeting · decision · task · blocker · idea) appending to `BACKLOG.md`. Beneath: the computed **Since last huddle** panel — backlog items added, files changed (mtime via OsFileStore), priorities past due.
 
 ### Stage 2 — Untangle *(ping-pong: `huddle-untangle`)*
-*The chaos gets sorted.*
+Handoff carries the dump + open backlog items; the assistant triages each → **priority / decision / question / initiative (Now list or tagged priority) / drop**, flags external follow-ups, and writes a reply file (§6). Proposals render as **TriageCards** (accept / edit / remove — the claim-review component). Items triaged **Drop** never carry a follow-up (selector cleared and disabled). On confirm the **app** writes the routed items via canonical contract writes and clears them from `BACKLOG.md`. Manual fallback: same cards, destination picker.
 
-- With assistant: handoff block carries the dump + open backlog items; asks the assistant to triage each item — route to **priority / decision / question / project note / drop**, flag anything needing an external follow-up (ticket, page, doc) — and write a structured reply file (§6). UI detects the reply and renders the proposed routing as **triage cards** (the same accept / edit / remove component as profile claim review).
-- Without assistant: the same triage cards, but the user picks each destination manually from a compact picker.
-- On confirm, **the app writes the files** (canonical contract writes to `active.md`, `memory/decisions.md`, questions, project notes) and clears routed items from `BACKLOG.md`. The assistant proposes; the app commits after human confirmation — never the reverse.
-
-### Stage 3 — Replenish *(ping-pong: `huddle-refresh`, optional stage)*
-*Pull the outside world in.*
-
-- Handoff asks the assistant to sweep external sources per `memory/tools.md` routing (calendar, Jira, Confluence, Glean — whatever MCP it has) and reply with candidate signals: upcoming meetings needing prep, tickets assigned, mentions, doc updates.
-- Candidates render as the same triage cards → accepted ones become priorities/questions/prep notes.
-- No MCP or no time → stage collapses to a single skipped line. Never blocks, never errors loudly.
+### Stage 3 — Replenish *(ping-pong: `huddle-refresh`, optional)*
+The sweep handoff asks the assistant to check external sources per `memory/tools.md` **and whether the resource maps still match reality**: upcoming meetings, assigned tickets, mentions, doc updates, changed resources, and anything new it can see (a fresh Miro board, a new Slack channel). Reply candidates render as TriageCards; accepting a map suggestion adds the row to that initiative's Resource map. No MCP / skipped → collapses to one line.
 
 ### Stage 4 — Rebalance
-*Old plan meets new reality.*
+Every standing priority gets one-tap verdicts **keep · bump · done · drop**; accepted new items slot in; drag to reorder; the top item becomes the suggested next big thing. Confirm rewrites `context/active.md` canonically with today's date (button label: **"Update priorities"** — never a filename). Staleness is cured as a side effect of the ritual, never by nagging.
 
-- Every existing priority gets a one-tap verdict: **keep · bump · done · drop**. New items from stages 2–3 slot into the list. Drag to reorder; the top item is offered as the next big thing.
-- On confirm: `active.md` rewritten canonically with today's date. Staleness cured as a side effect of the ritual — never by nagging.
+### Stage 5 — Brief
+The payoff: refreshed ordered priorities, next big thing, one suggested first action, outcome line ("4 items routed, 2 priorities retired."), and the **Follow-ups queue** — resource-aware: a follow-up tied to an initiative offers that initiative's resources as targets; a `COPILOT` resource produces a handoff, a `MANUAL` one a checklist row with the deep link, its Reviewed date, and "mark reviewed" on completion. Finishing records `lastHuddle` + a `memory/usage-log.md` row (`kind: huddle`, gap, items routed) and triggers the settle (§2).
 
-### Stage 5 — Brief *(the payoff)*
-*Balance restored.*
+## 5. The forgiveness engine
 
-- The regenerated brief: ordered priorities, next big thing, blockers, open questions — plus the **Follow-ups queue** (§7) if stage 2/3 flagged external work.
-- One suggested first action.
-- Closing line varies by gap ("That's the mess sorted — 4 items routed, 2 priorities retired.").
-- This page *is* the new Now page — the huddle ends where the app rests. Log a row to `memory/usage-log.md`; record `lastHuddle` in local state.
-
-## 5. The forgiveness engine (gap-adaptive behaviour)
-
-`gap = now − lastHuddle` (from `docs/data/local/huddle-state.json`). It tunes emphasis, never gates:
+`gap = now − lastHuddle` (from `docs/data/local/huddle-state.json`) tunes emphasis, never gates:
 
 | Gap | Mode | Behaviour |
 |---|---|---|
-| < 4 h | Quick sync | Stage 1 collapses to one line; stages 3 skipped by default; ~1 min. |
+| < 4 h | Quick sync | Stage 1 collapses to one line; stage 3 defaults skipped; ~1 min. |
 | Same/next day | Standard | All stages, light recap. |
-| 2–5 days | Catch-up | "Since last huddle" panel expands and leads; catch-up estimate shown ("~10 min"); staleness amnesty — everything refreshes as part of the flow, zero shame copy. |
-| > 5 days | Recovery | Assistant-led: the untangle handoff includes "active.md is likely stale — reconstruct candidate priorities from the backlog, signals, and recent file changes." The app assumes the files are wrong, not the user. |
+| 2–5 days | Catch-up | Since-last-huddle panel expands and leads; catch-up estimate on the CTA ("~10 min"); staleness amnesty. |
+| > 5 days | Recovery | The untangle Ask adds: "active.md is likely stale — reconstruct candidate priorities from the backlog, signals, and recent file changes." Rebalance expects a rebuild. |
 
-**Catch-up estimate:** computed from signal volume (backlog count, overdue priorities, external candidates). Small honest number on the CTA. This converts dread ("I haven't opened it in a week") into a priced, doable task ("10 minutes to restore order").
+**Catch-up estimate:** computed from signal volume; shown as a small honest number on the Dashboard CTA. It converts dread into a priced task.
 
-**Tone contract (binding for all copy):** the app never says *you missed / you forgot / overdue*. It says what *it* can pick up: "since we last spoke…", "here's what piled up", "let's get back up to speed." One sentence per stage, per Fix 5.
+**Tone contract (binding):** never *missed / forgot / overdue*. The app reports what it can pick up: "since we last spoke…", "here's what piled up." One sentence per stage.
 
-## 6. The ping-pong protocol (UI ⇄ assistant, files as the bus)
+## 6. The ping-pong protocol (files as the bus)
 
-The app and Copilot never talk directly — the filesystem is the transport, which we already have both directions of: handoff blocks (UI → assistant via clipboard) and file-watch/SSE (assistant → UI via file writes). The huddle formalises it into a request/reply contract:
-
-**Request** — a versioned handoff block (existing format): `## Work HQ handoff · huddle-untangle · YYYY-MM-DD`, carrying the items and ending with an Ask that includes, verbatim, the reply-file instruction:
+UI → assistant: versioned handoff blocks via **Copy for Copilot** (`## Work HQ handoff · huddle-untangle · YYYY-MM-DD`). Assistant → UI: reply files at pinned paths, detected by file-watch. The Ask includes verbatim:
 
 > Write your reply to `docs/data/local/huddle/reply-untangle.md` using the reply format below, then tell me it's ready. Do not apply any changes to context files yourself — the app will apply what I confirm.
 
-**Reply** — assistant-written markdown at a pinned path, with a contract shape the parser validates:
+**Reply contract:**
 
 ```markdown
 ## Huddle reply · untangle · 2026-07-22
 
 **Routed**
-- <item text> → priority | Owner: Me | Due: 2026-07-25
+- <item text> → priority | Owner: Me | Due: 2026-07-25 | Initiative: <slug|ad-hoc>
 - <item text> → decision
 - <item text> → question
+- <item text> → initiative:<slug>
 - <item text> → drop
 
 **Follow-ups**
-- <item text> → jira-ticket: <suggested title>
-- <item text> → confluence-page: <suggested title>
+- <item text> → <resource name or type>: <suggested title>
+
+**Map suggestions**            (refresh replies only)
+- <initiative slug> → | <Name> | <type> | <url> | manual | <today> |
 
 **Notes**
 - <anything the assistant wants the user to see>
 ```
 
-**Rules:**
-- Reply paths are pinned per kind (`reply-untangle.md`, `reply-refresh.md`); the UI file-watches the directory; a detected reply populates the stage live — the "it just noticed" beat again.
-- Replies are proposals. The app applies them only after the user confirms the triage cards, via canonical contract writes. The Ask explicitly forbids the assistant writing context files directly in this flow.
-- Malformed reply → soft error card ("couldn't read the reply — view raw / retry / do it manually"), never a dead end.
-- No reply → the waiting state carries both a "copy again" and a "do it manually" exit at all times. Waiting is never modal.
-- Reply files are ephemeral: cleared when the huddle completes; the directory is gitignored (`docs/data/local/`).
+**Rules:** pinned paths per kind (`reply-untangle.md`, `reply-refresh.md`), directory gitignored, files cleared on huddle completion · replies are proposals — the app applies only after triage confirmation · malformed reply → soft error card (view raw / retry / manual), never a dead end · no reply → waiting state always offers copy-again and do-it-manually; waiting is never modal.
 
-## 7. Follow-ups queue (outbound codification)
+## 7. Copy deck (verbatim strings — implementers add nothing)
 
-Stage-2/3 items flagged for external systems accumulate in a visible queue on the Brief/Now page: *"2 tickets to create, 1 page to update."* Each entry has its own small handoff ("Create a Jira ticket: <title, context>…") that the user fires when ready — the assistant does the external write via its MCP; the app never integrates with Jira/Confluence/GitHub directly. Completed follow-ups are checked off manually (or detected in a later huddle's refresh sweep). This is deliberately incremental: over time this queue becomes the codification pipeline — reusable skills to GitHub pages, shared context to Confluence, tickets to Jira — without the app growing a single integration.
+**Intent lines** (under each active stage header):
+- Unload: "Empty your head — I'll keep track from here."
+- Untangle: "Now I'll sort what you dumped. This one's a relay: I write the prompt, you run it."
+- Replenish: "Want me to check what's headed your way — and whether our map still matches reality?"
+- Rebalance: "Old plan, meet new reality — rule on each one."
+- Brief: "Balance restored. Here's where you stand."
 
-## 8. What this deletes/changes elsewhere
+**Turn chip** (Untangle/Replenish header): `YOUR MOVE` → `COPILOT'S TURN` → `YOUR REVIEW` → (chip gone, receipt takes over).
 
-- Work nav: `Today`→`Now`, `Wrap-Up` deleted (absorbed), `Huddle` added.
-- Handoff kinds `standup-verify` and any wrap-up kind retire; new kinds `huddle-untangle` v1, `huddle-refresh` v1.
-- The blueprint's Work-mode screens list and Fix-4 nav sketch need updating; HandoffDock gains a "waiting for reply" state; the component library gains **TriageCard** (generalised from Fact List) and **SinceLastPanel**.
-- `memory/usage-log.md` row format gains `kind: huddle` with gap + items-routed counts — the observability that replaces streaks.
+**Untangle states** (Replenish mirrors):
+- Ready: "Your dump plus {n} backlog items, instructions included. Take it to Copilot." · button **"Copy for Copilot"** · after copy: "On your clipboard — paste it into your assistant, then come back."
+- Waiting: "Watching for the reply. Keep moving if you like — I'll flag it here the moment it lands." · buttons "Copy again" · "Route it myself" · "Continue while it works".
+- Reply arrived: "Copilot suggests homes for {n} items. Accept, tweak, or toss." · confirm **"Make it so"** · minimised badge: "Reply's in — {n} items to review".
+- Manual: "No assistant handy — point each item where it belongs."
+- Unreadable reply: "I couldn't read that reply. Try again, or route it yourself." · "View raw" · "Copy again" · "Route it myself".
+- Replenish ready: "I've written a sweep request for whatever your assistant can reach." · reply arrived: "{n} signals worth a look." · empty: "Nothing new out there — moving on."
+
+**One-time explainer** (first-ever Untangle, dismissible, never again): "How we talk: I write the prompt → you ferry it to Copilot → it writes a file back → I pick it up. You never wait on either of us."
+
+**Receipts:** "Unloaded {n} thoughts." · "{n} items routed · {m} follow-ups flagged." · "Swept — {n} signals added." · "Skipped." Counts always real.
+
+## 8. Cross-references
+
+- Dashboard zones, drawer, keyboard map, voice rules: blueprint (`docs/lovable-v2-blueprint.md`).
+- Reply/handoff byte contracts and file paths: §6 here, mirrored in blueprint Grounding B.
+- Retired by this spec: Today/standup, Wrap-Up, streaks, `standup-verify` and wrap-up handoff kinds, the Work-mode multi-page nav.
+- Components introduced: TriageCard, SinceLastPanel, TurnChip, HandoffDock waiting state (library table in the blueprint).
